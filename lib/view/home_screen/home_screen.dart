@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:developer';
-// import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -38,24 +37,25 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      getInspectionListByUserId();
-      getJobCardListByUserId();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.wait([
+        getInspectionListByUserId(),
+        getJobCardListByUserId(),
+      ]);
     });
   }
 
-  Future<void> getInspectionListByUserId() async {
-    final url = Uri.parse(ApiServices.allInspectionList);
+  Future<List<dynamic>> _fetchInspectionData() async {
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? userToken = prefs.getString('userToken');
-      String? userId = prefs.getString('userId');
-      if (userId == null) {
-        print("❗ userId not found in prefs");
-        return;
+      final prefs = await SharedPreferences.getInstance();
+      final userToken = prefs.getString('userToken');
+      final userId = prefs.getString('userId');
+      if (userId == null || userToken == null) {
+        debugPrint("❗ userId or token missing");
+        return [];
       }
       final response = await http.post(
-        url,
+        Uri.parse(ApiServices.allInspectionList),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $userToken",
@@ -64,163 +64,83 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
-        final List rawList = res["data"] ?? [];
-        setState(() {
-          inspectionList = rawList
-              .where((item) {
-                final int status =
-                    int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
-                return status == 1 || status == 2;
-              })
-              .map((item) {
-                final vehicle = item["vehicle"] ?? {};
-                return {
-                  "jobId": item["jobId"]?.toString() ?? "",
-                  "jobNo": item["jobNo"]?.toString() ?? "",
-                  "make": vehicle["vMake"] ?? "",
-                  "model": vehicle["vModel"] ?? "",
-                  "year": vehicle["vModelYear"]?.toString() ?? "",
-                  "odometer": vehicle["vOdometer"]?.toString() ?? "",
-                  "plateNo": vehicle["vRegNo"]?.toString() ?? "",
-                  "jobStatus": item["jobStatus"]?.toString() ?? "",
-                  "vehicleTypeId": vehicle["vTypeId"] ?? -1,
-                  "jobCreatedOn": item["jobCreatedOn"] ?? "",
-                };
-              })
-              .toList();
-        });
+        return res["data"] ?? [];
       }
+      return [];
     } catch (e) {
-      print("❗ Error in getInspectionListByUserId: $e");
+      debugPrint("❗ API Exception: $e");
+      return [];
     }
+  }
+
+  Map<String, dynamic> _mapVehicleData(
+    Map<String, dynamic> item, {
+    bool includeInspections = false,
+  }) {
+    final vehicle = item["vehicle"] ?? {};
+    return {
+      "jobId": item["jobId"]?.toString() ?? "",
+      "jobNo": item["jobNo"]?.toString() ?? "",
+      "make": vehicle["vMake"] ?? "",
+      "model": vehicle["vModel"] ?? "",
+      "year": vehicle["vModelYear"]?.toString() ?? "",
+      "odometer": vehicle["vOdometer"]?.toString() ?? "",
+      "plateNo": vehicle["vRegNo"]?.toString() ?? "",
+      "vinNo": vehicle["vVinNo"]?.toString() ?? "",
+      "jobStatus": item["jobStatus"]?.toString() ?? "",
+      "vehicleTypeId": vehicle["vTypeId"] ?? -1,
+      "jobCreatedOn": item["jobCreatedOn"] ?? "",
+      if (includeInspections) "inspections": item["inspections"] ?? [],
+    };
+  }
+
+  Future<void> getInspectionListByUserId() async {
+    final rawList = await _fetchInspectionData();
+    final filteredList = rawList
+        .where((item) {
+          final status =
+              int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
+          return status == 1 || status == 2;
+        })
+        .map((item) {
+          return _mapVehicleData(item);
+        })
+        .toList();
+    if (!mounted) return;
+    setState(() {
+      inspectionList = filteredList;
+    });
   }
 
   Future<void> getJobCardListByUserId() async {
-    final url = Uri.parse(ApiServices.allInspectionList);
+    if (!mounted) return;
+    setState(() {
+      isJobcardLoading = true;
+    });
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? userToken = prefs.getString('userToken');
-      String? userId = prefs.getString('userId');
-      if (userId == null) {
-        return;
-      }
+      final rawList = await _fetchInspectionData();
+      final filteredList = rawList
+          .where((item) {
+            final status =
+                int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
+            return ![0, 1, 2, -1].contains(status);
+          })
+          .map((item) {
+            return _mapVehicleData(item, includeInspections: true);
+          })
+          .toList();
+      if (!mounted) return;
       setState(() {
-        isJobcardLoading = true;
+        jobcardList = filteredList;
       });
-      final response = await http.post(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $userToken",
-        },
-        body: jsonEncode({"userId": int.parse(userId)}),
-      );
-      if (response.statusCode == 200) {
-        final res = json.decode(response.body);
-        final List rawList = res["data"] ?? [];
-        setState(() {
-          jobcardList = rawList
-              .where((item) {
-                final int status =
-                    int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
-                return ![0, 1, 2, -1].contains(status);
-              })
-              .map((item) {
-                final vehicle = item["vehicle"] ?? {};
-                return {
-                  "jobId": item["jobId"]?.toString() ?? "",
-                  "jobNo": item["jobNo"]?.toString() ?? "",
-                  "make": vehicle["vMake"] ?? "",
-                  "model": vehicle["vModel"] ?? "",
-                  "year": vehicle["vModelYear"]?.toString() ?? "",
-                  "odometer": vehicle["vOdometer"]?.toString() ?? "",
-                  "plateNo": vehicle["vRegNo"]?.toString() ?? "",
-                  "vinNo": vehicle["vVinNo"]?.toString() ?? "",
-                  "jobStatus": item["jobStatus"]?.toString() ?? "",
-                  "vehicleTypeId": vehicle["vTypeId"] ?? -1,
-                  "jobCreatedOn": item["jobCreatedOn"] ?? "",
-                  "inspections": item["inspections"] ?? [],
-                };
-              })
-              .toList();
-          isJobcardLoading = false;
-        });
-      } else {
+    } finally {
+      if (mounted) {
         setState(() {
           isJobcardLoading = false;
         });
       }
-    } catch (e) {
-      print("❗ EXCEPTION: $e");
-      setState(() {
-        isJobcardLoading = false;
-      });
     }
   }
-
-  // String formatDateTime(String? dateStr) {
-  //   if (dateStr == null || dateStr.isEmpty) return "";
-  //   try {
-  //     DateTime dt = DateTime.parse(dateStr).toLocal();
-  //     return DateFormat('dd MMM yyyy • hh:mm a').format(dt);
-  //   } catch (e) {
-  //     return dateStr;
-  //   }
-  // }
-
-  // String getJobStatusText(String? status) {
-  //   switch (status) {
-  //     case "0":
-  //       return "Bookingsheet Initialized";
-  //     case "1":
-  //       return "Bookingsheet Created";
-  //     case "2":
-  //       return "Basic Inspection In Progress";
-  //     case "3":
-  //       return "Jobcard Open";
-  //     case "4":
-  //       return "Inspection Started";
-  //     case "5":
-  //       return "Inspection In Progress";
-  //     case "6":
-  //       return "Inspection Completed";
-  //     case "7":
-  //       return "Technician Report In Progress";
-  //     case "8":
-  //       return "Technician Report Waiting For Approval";
-  //     case "9":
-  //       return "Quotation Requested";
-  //     default:
-  //       return "Unknown Status";
-  //   }
-  // }
-
-  // Color getJobStatusColor(String? status) {
-  //   switch (status) {
-  //     case "0":
-  //       return ColorConstants.blackColor;
-  //     case "1":
-  //       return ColorConstants.blackColor;
-  //     case "2":
-  //       return ColorConstants.textBlueColor;
-  //     case "3":
-  //       return ColorConstants.textBlueColor;
-  //     case "4":
-  //       return Colors.purple;
-  //     case "5":
-  //       return Colors.purple;
-  //     case "6":
-  //       return Colors.indigo;
-  //     case "7":
-  //       return Colors.indigo;
-  //     case "8":
-  //       return ColorConstants.greenColor;
-  //     case "9":
-  //       return ColorConstants.greenColor;
-  //     default:
-  //       return ColorConstants.holdorangeColor;
-  //   }
-  // }
 
   @override
   void dispose() {
@@ -746,6 +666,15 @@ class _HomeScreenState extends State<HomeScreen> {
           //   context.go("/inspectiondetails", extra: jobId);
           // }
         } else if (jobStatus == 6) {
+          context.go("/jobcarddetails", extra: jobId);
+        }
+        else if (jobStatus == 7) {
+          context.go("/jobcarddetails", extra: jobId);
+        }
+        else if (jobStatus == 8) {
+          context.go("/jobcarddetails", extra: jobId);
+        }
+        else if (jobStatus == 9) {
           context.go("/jobcarddetails", extra: jobId);
         }
       },
