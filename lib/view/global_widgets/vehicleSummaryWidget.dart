@@ -1,0 +1,183 @@
+import 'package:flutter/material.dart';
+import 'package:inspection/controller/jobCardDetails_controller.dart';
+import 'package:inspection/utils/constant/appTextStyle_constants.dart';
+import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+class VehicleSummaryWidget extends StatefulWidget {
+  final int? jobId;
+
+  const VehicleSummaryWidget({super.key, this.jobId});
+
+  @override
+  State<VehicleSummaryWidget> createState() => _vehicleSummaryWidgetState();
+}
+
+class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      if (widget.jobId != null) {
+        Provider.of<JobcarddetailsController>(
+          context,
+          listen: false,
+        ).postJobCardDetails(widget.jobId!);
+      }
+    });
+  }
+
+  String formatDateTime(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return "";
+    try {
+      DateTime dt = DateTime.parse(dateStr).toLocal();
+      return DateFormat('dd MMM yyyy • hh:mm a').format(dt);
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<JobcarddetailsController>(
+      builder: (context, controller, child) {
+        final root = controller.jobCardData;
+        final jobcard = root?['jobcard'] ?? {};
+        final vehicle = jobcard['vehicle'] ?? {};
+        return Container(
+          decoration: BoxDecoration(
+            color: ColorConstants.whiteColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: ColorConstants.dashboardboxShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: ColorConstants.containergreycolor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Image.asset(
+                    "assets/image/benz.png",
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RichText(
+                        text: TextSpan(
+                          text: "Job Card No: ",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.blackColor,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text: jobcard['jobNo']?.toString() ?? '',
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.textBlueColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          RichText(
+                            text: TextSpan(
+                              text: "Date: ",
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.blackColor,
+                              ).copyWith(fontWeight: FontWeight.bold),
+                              children: [
+                                TextSpan(
+                                  text: formatDateTime(
+                                    jobcard?['jobCreatedOn'],
+                                  ),
+                                  style: ApptextstyleConstants.thinText(
+                                    fontSize: 10,
+                                    color: ColorConstants.textBlueColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      RichText(
+                        text: TextSpan(
+                          text: "Model: ",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.blackColor,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text:
+                                  "${vehicle['vMake'] ?? ''} ${vehicle['vModel'] ?? ''}",
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.blackColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      RichText(
+                        text: TextSpan(
+                          text: "Odometer: ",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.blackColor,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text: vehicle['vOdometer']?.toString() ?? '',
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.blackColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      RichText(
+                        text: TextSpan(
+                          text: "Plate No: ",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.blackColor,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text: vehicle['vRegNo']?.toString() ?? '',
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.blackColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

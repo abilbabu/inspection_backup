@@ -1,0 +1,189 @@
+import 'package:flutter/material.dart';
+
+class DummyDB {
+  final List<Map<String, String>> countryMobileNumberCodeList = const [
+    {'code': '+971', 'flag': '🇦🇪'},
+    {'code': '+91', 'flag': '🇮🇳'},
+  ];
+
+  final List<String> languageList = const ['EN', 'Arabic', 'Hindi'];
+
+  final List<String> modelYear = const [
+    '2026',
+    '2025',
+    '2024',
+    '2023',
+    '2022',
+    '2021',
+    '2020',
+    '2019',
+    '2018',
+    '2017',
+    '2016',
+    '2015',
+    '2014',
+    '2013',
+    '2012',
+    '2011',
+    '2010',
+    '2009',
+    '2008',
+    '2007',
+    '2006',
+    '2005',
+    '2004',
+    '2003',
+    '2002',
+    '2001',
+    '2000',
+    '1999',
+    '1998',
+    '1997',
+    '1996',
+    '1995',
+    '1994',
+    '1993',
+    '1992',
+    '1991',
+    '1990',
+  ];
+  static List<Map<String, dynamic>> damageList = [
+    {"emoji": "🔴", "label": "Crack", "color": Color(0xFFF0291A)},
+    {"emoji": "🟡", "label": "Scratch", "color": const Color(0xFFFBE62A)},
+    {"emoji": "🔵", "label": "Chip", "color": Colors.blue},
+    {"emoji": "🟠", "label": "Dent", "color": Colors.orange},
+    {"emoji": "🟣", "label": "Repainted", "color": Colors.purple},
+    {"emoji": "🟤", "label": "Faded", "color": Color(0xFF5C2D1C)},
+  ];
+}
+
+class PlateDummyDB {
+  static const List<String> emirates = [
+    "AUH",
+    "DXB",
+    "SHJ",
+    "AJM",
+    "FUJ",
+    "UAQ",
+    "RAK",
+  ];
+
+  static const List<String> numericCodes = [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "50",
+  ];
+
+  static const List<String> alphabeticCodes = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+  ];
+
+  static const List<String> alphabeticCodesDXB = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "AA",
+    "BB",
+    "CC",
+    "DD",
+    "EE",
+    "FF",
+    "GG",
+    "HH",
+    "II",
+    "JJ",
+    "KK",
+    "LL",
+    "MM",
+    "NN",
+    "OO",
+    "PP",
+    "QQ",
+    "RR",
+    "SS",
+    "TT",
+    "UU",
+    "VV",
+    "WW",
+    "XX",
+    "YY",
+    "ZZ",
+  ];
+
+  static List<String> getCodesByEmirate(String emirate) {
+    if (emirate == "DXB") {
+      return alphabeticCodesDXB;
+    }
+    if (emirate == "AUH" || emirate == "SHJ") {
+      return numericCodes;
+    }
+    return alphabeticCodes;
+  }
+}
