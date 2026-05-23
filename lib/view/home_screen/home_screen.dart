@@ -28,15 +28,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool isJobcardLoading = true;
   int _currentPage = 0;
+  int userDepartment = 0;
 
   Future<Map<String, dynamic>> getSavedUser() async {
     final prefs = await SharedPreferences.getInstance();
     return {"name": prefs.getString("userName") ?? ""};
   }
 
+  Future<void> loadUserDepartment() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      userDepartment =
+          int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
+    });
+
+    // log("userDepartment => $userDepartment");
+  }
+
   @override
   void initState() {
     super.initState();
+    loadUserDepartment();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.wait([
         getInspectionListByUserId(),
@@ -47,28 +60,52 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<List<dynamic>> _fetchInspectionData() async {
     try {
+      // log("========== FETCH INSPECTION START ==========");
+
       final prefs = await SharedPreferences.getInstance();
       final userToken = prefs.getString('userToken');
       final userId = prefs.getString('userId');
-      if (userId == null || userToken == null) {
+      final userDepartment = prefs.getString('userDepartment');
+
+      // log("userToken : $userToken");
+      // log("userId : $userId");
+      // log("userDepartment : $userDepartment");
+
+      if (userId == null || userToken == null || userDepartment == null) {
         debugPrint("❗ userId or token missing");
         return [];
       }
+
+      // final requestBody = {
+      //   "userId": int.parse(userId),
+      //   "userDepartment": int.parse(userDepartment.toString()),
+      // };
+
+      // log("Request URL : ${ApiServices.allInspectionList}");
+      // log("Request Body : ${jsonEncode(requestBody)}");
+      // log("🔍Request Body ");
       final response = await http.post(
         Uri.parse(ApiServices.allInspectionList),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $userToken",
         },
-        body: jsonEncode({"userId": int.parse(userId)}),
+        body: jsonEncode({
+          "userId": int.parse(userId),
+          "userDepartment": int.parse(userDepartment.toString()),
+        }),
       );
+      // log("✅✅✅✅✅✅✅✅");
+      // log("Response Status Code : ${response.statusCode}");
+      // log("Response Body : ${response.body}");
+      // log("😀 Success");
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
         return res["data"] ?? [];
       }
       return [];
     } catch (e) {
-      debugPrint("❗ API Exception: $e");
+      log("❗ API Exception: $e");
       return [];
     }
   }
@@ -152,6 +189,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final bool hasInspection = inspectionList.isNotEmpty;
     final bool hasJobCard = jobcardList.isNotEmpty;
+    final bool isOnlyJobCardDepartment =
+        userDepartment == 2 || userDepartment == 4;
     return Scaffold(
       body: AppTheme(
         child: SingleChildScrollView(
@@ -162,12 +201,20 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const SizedBox(height: 60),
               _headerSection(),
-              if (hasInspection) const SizedBox(height: 12),
-              if (hasInspection) appointmentSection(),
-              const SizedBox(height: 12),
-              inspectionModeSection(context),
-              if (hasJobCard) const SizedBox(height: 12),
-              if (hasJobCard) jobCardSection(),
+              // ✅ Hide Inspection Sections for department 2 & 4
+              if (!isOnlyJobCardDepartment && hasInspection) ...[
+                const SizedBox(height: 12),
+                appointmentSection(),
+              ],
+
+              // ✅ Hide Inspection Mode for department 2 & 4
+              if (!isOnlyJobCardDepartment) ...[
+                const SizedBox(height: 12),
+                inspectionModeSection(context),
+              ],
+
+              // ✅ Show Job Card section for ALL departments
+              if (hasJobCard) ...[const SizedBox(height: 12), jobCardSection()],
               const SizedBox(height: 16),
             ],
           ),
@@ -339,25 +386,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget appointmentSection() {
     final reversedList = inspectionList.reversed.toList();
+    final latestFiveList = reversedList.take(5).toList();
 
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "My Pending Inspections",
-            style: ApptextstyleConstants.mediumText(
-              fontSize: 18,
-              color: ColorConstants.whiteColor,
-            ),
+          Row(
+            children: [
+              Text(
+                "My Pending Inspections",
+                style: ApptextstyleConstants.mediumText(
+                  fontSize: 18,
+                  color: ColorConstants.whiteColor,
+                ),
+              ),
+              Spacer(),
+              InkWell(
+                onTap: () {
+                  context.go("/allpendinginspection", extra: inspectionList);
+                },
+                child: Text(
+                  "View All",
+                  style: ApptextstyleConstants.mediumText(
+                    fontSize: 16,
+                    color: ColorConstants.whiteColor,
+                  ),
+                ),
+              ),
+              SizedBox(width: 10),
+            ],
           ),
           const SizedBox(height: 12),
           SizedBox(
             height: 110,
             child: PageView.builder(
               controller: _pageController,
-              itemCount: inspectionList.length,
+              itemCount: latestFiveList.length,
               onPageChanged: (index) {
                 setState(() {
                   _currentPage = index;
@@ -367,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
               itemBuilder: (context, index) {
                 // final reverseIndex = inspectionList.length - 1 - index;
                 // final item = inspectionList[reverseIndex];
-                final item = reversedList[index];
+                final item = latestFiveList[index];
 
                 // final item = inspectionList[index];
                 return Padding(
@@ -398,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          _buildDotsIndicator(reversedList.length),
+          _buildDotsIndicator(latestFiveList.length),
         ],
       ),
     );
@@ -406,29 +472,49 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget jobCardSection() {
     if (jobcardList.isEmpty) return const SizedBox();
+    final reversedList = jobcardList.reversed.toList();
+    final latestFiveList = reversedList.take(5).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Job Cards",
-            style: ApptextstyleConstants.regularText(
-              fontSize: 18,
-              color: ColorConstants.blackColor,
-            ),
+          Row(
+            children: [
+              Text(
+                "Job Cards",
+                style: ApptextstyleConstants.regularText(
+                  fontSize: 18,
+                  color: ColorConstants.blackColor,
+                ),
+              ),
+              Spacer(),
+              InkWell(
+                onTap: () {
+                  context.go("/alljobcardview", extra: jobcardList);
+                },
+                child: Text(
+                  "View All",
+                  style: ApptextstyleConstants.mediumText(
+                    fontSize: 16,
+                    color: ColorConstants.blackColor,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           SizedBox(
             height: 240,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: jobcardList.length,
+              itemCount: latestFiveList.length,
+
               separatorBuilder: (_, __) => const SizedBox(width: 1),
               itemBuilder: (context, index) {
                 // return jobCardItem(context, jobcardList[index]);
-                final reverseIndex = jobcardList.length - 1 - index;
-                return jobCardItem(context, jobcardList[reverseIndex]);
+                final item = latestFiveList[index];
+                return jobCardItem(context, item);
               },
             ),
           ),
@@ -667,14 +753,11 @@ class _HomeScreenState extends State<HomeScreen> {
           // }
         } else if (jobStatus == 6) {
           context.go("/jobcarddetails", extra: jobId);
-        }
-        else if (jobStatus == 7) {
+        } else if (jobStatus == 7) {
           context.go("/jobcarddetails", extra: jobId);
-        }
-        else if (jobStatus == 8) {
+        } else if (jobStatus == 8) {
           context.go("/jobcarddetails", extra: jobId);
-        }
-        else if (jobStatus == 9) {
+        } else if (jobStatus == 9) {
           context.go("/jobcarddetails", extra: jobId);
         }
       },

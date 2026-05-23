@@ -32,10 +32,25 @@ class JobCardDetails extends StatefulWidget {
 }
 
 class _JobCardDetailsState extends State<JobCardDetails> {
+  String? userDepartment;
+
+  Future<void> getUserDepartment() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      userDepartment = prefs.getString('userDepartment');
+    });
+
+    debugPrint("userDepartment : $userDepartment");
+  }
+
   @override
   void initState() {
     super.initState();
+    getUserDepartment();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      context.read<JobcarddetailsController>().getTechnicianList();
       context.read<InspectionsummarypageController>().getInspectionSummary(
         widget.jobId,
       );
@@ -130,7 +145,132 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           SizedBox(height: 20),
                           VehicleSummaryWidget(jobId: widget.jobId),
                           SizedBox(height: 15),
-                          if (jobStatus != 5)
+
+                          if (userDepartment == "2") ...[
+                            Consumer<JobcarddetailsController>(
+                              builder: (context, jobController, child) {
+                                if (jobController.isTechnicianAssigned) {
+                                  return Container(
+                                    width: double.infinity,
+                                    padding: EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.green),
+                                    ),
+
+                                    child: Text(
+                                      "Assigned Technician : ${jobController.assignedTechnicianName}",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<int>(
+                                        value: jobController.selectedAssigneeId,
+
+                                        decoration: InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          hintText: "Select Technician",
+                                        ),
+
+                                        items: jobController.technicianList.map(
+                                          (item) {
+                                            return DropdownMenuItem<int>(
+                                              value: item['userId'],
+                                              child: Text(item['userName']),
+                                            );
+                                          },
+                                        ).toList(),
+
+                                        onChanged: (value) {
+                                          jobController.setSelectedAssignee(
+                                            value,
+                                          );
+                                        },
+                                      ),
+                                    ),
+
+                                    SizedBox(width: 5),
+
+                                    InkWell(
+                                      onTap: () async {
+                                        final value =
+                                            jobController.selectedAssigneeId;
+
+                                        if (value == null) return;
+
+                                        final selectedTechnician = jobController
+                                            .technicianList
+                                            .firstWhere(
+                                              (e) => e['userId'] == value,
+                                              orElse: () => {},
+                                            );
+
+                                        final success = await jobController
+                                            .assignTechnician(
+                                              jobId: widget.jobId,
+                                              assigneeId: value,
+                                              technicianName:
+                                                  selectedTechnician['userName'],
+                                            );
+
+                                        if (!context.mounted) return;
+
+                                        if (success) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                "${selectedTechnician['userName']} Assigned Successfully",
+                                              ),
+                                              backgroundColor: Colors.green,
+                                            ),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                "Failed to Assign Technician",
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      },
+
+                                      child: Container(
+                                        padding: EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+
+                                        child: Text(
+                                          "✔️",
+                                          style: TextStyle(fontSize: 18),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+
+                          SizedBox(height: 10),
+                          if (jobStatus < 5 && userDepartment != "2")
                             Align(
                               alignment: Alignment.centerRight,
                               child: CustomButtonWidget(
@@ -140,17 +280,22 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                   try {
                                     SharedPreferences prefs =
                                         await SharedPreferences.getInstance();
+
                                     String? userToken = prefs.getString(
                                       'userToken',
                                     );
+
                                     final url = Uri.parse(
                                       ApiServices.statusChange,
                                     );
+
                                     final output = {
                                       "jobId": widget.jobId,
                                       "status": 4,
                                       "vimIfMasterId": "",
+                                      "assigneeId": "",
                                     };
+
                                     final response = await http.post(
                                       url,
                                       headers: {
@@ -159,18 +304,20 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       },
                                       body: jsonEncode(output),
                                     );
+
                                     Map<String, dynamic> decoded = jsonDecode(
                                       response.body,
                                     );
+
                                     decoded.forEach((key, value) {
-                                      print("   $key : $value");
+                                      print("$key : $value");
                                     });
+
                                     if (response.statusCode == 200) {
                                       context.push(
                                         "/inspectiondetails",
                                         extra: widget.jobId,
                                       );
-                                      return;
                                     }
                                   } catch (e) {
                                     print(e);

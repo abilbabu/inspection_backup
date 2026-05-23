@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 // import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -22,10 +23,20 @@ class JobcarddetailsController extends ChangeNotifier {
   String customerTypeName = "";
   String serviceTypeName = "";
 
+  List<Map<String, dynamic>> technicianList = [];
+  int? selectedAssigneeId;
+  bool isTechnicianAssigned = false;
+  String assignedTechnicianName = "";
+
   List fuelList = [];
   List transmissionList = [];
   List customerTypeList = [];
   List serviceTypeList = [];
+
+  void setSelectedAssignee(int? value) {
+    selectedAssigneeId = value;
+    notifyListeners();
+  }
 
   Future<ApiResponse> postJobCardDetails(int jobId) async {
     if (hasLoaded && jobCardData != null) {
@@ -225,6 +236,7 @@ class JobcarddetailsController extends ChangeNotifier {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
       String? userId = prefs.getString('userId');
+      String? userDepartment = prefs.getString('userDepartment');
 
       if (userId == null) {
         isLoading = false;
@@ -239,7 +251,10 @@ class JobcarddetailsController extends ChangeNotifier {
           "Content-Type": "application/json",
           "Authorization": "Bearer $userToken",
         },
-        body: jsonEncode({"userId": int.parse(userId)}),
+        body: jsonEncode({
+          "userId": int.parse(userId),
+          "userDepartment": int.parse(userDepartment.toString()),
+        }),
       );
 
       if (response.statusCode == 200) {
@@ -278,5 +293,68 @@ class JobcarddetailsController extends ChangeNotifier {
     isLoading = false;
     isJobcardLoading = false;
     notifyListeners();
+  }
+
+  Future<void> getTechnicianList() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      log("Hello This Is Before ");
+      final response = await http.post(
+        Uri.parse(ApiServices.allTechnicianList),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+      );
+      log(response.body);
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        technicianList = List<Map<String, dynamic>>.from(decoded['data']);
+        notifyListeners();
+        debugPrint("Technician List : $technicianList");
+      }
+    } catch (e) {
+      debugPrint("Error : $e");
+    }
+  }
+
+  Future<bool> assignTechnician({
+    required int jobId,
+    required int assigneeId,
+      required String technicianName,
+
+  }) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      String? userToken = prefs.getString('userToken');
+
+      final response = await http.post(
+        Uri.parse(ApiServices.assignTechnician),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+        body: jsonEncode({"jobId": jobId, "assigneeId": assigneeId}),
+      );
+      log(
+        "Payload : ${jsonEncode({"jobId": jobId, "assigneeId": assigneeId})}",
+      );
+      log("Assign Response : ${response.body}");
+
+      if (response.statusCode == 200) {
+          isTechnicianAssigned = true;
+
+      assignedTechnicianName = technicianName;
+
+        return true;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      debugPrint("Assign Error : $e");
+      return false;
+    }
   }
 }
