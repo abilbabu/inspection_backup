@@ -51,9 +51,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<JobcarddetailsController>().getTechnicianList();
-      context.read<InspectionsummarypageController>().getInspectionSummary(
-        widget.jobId,
-      );
+
       Future.microtask(() {
         context.read<JobcarddetailsController>().getInspectionListByUserId();
       });
@@ -67,6 +65,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
       await vehicleCtrl.getCustomerTypeList();
       await custCtrl.getServiceTypeList();
       jobCtrl.mapFuelAndTransmissionNames(custCtrl);
+            context.read<InspectionsummarypageController>().getInspectionSummary(
+        widget.jobId,
+      );
     });
   }
 
@@ -149,25 +150,25 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           if (userDepartment == "2") ...[
                             Consumer<JobcarddetailsController>(
                               builder: (context, jobController, child) {
-                                if (jobController.isTechnicianAssigned) {
-                                  return Container(
-                                    width: double.infinity,
-                                    padding: EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: Colors.green),
-                                    ),
+                                // if (jobController.isTechnicianAssigned) {
+                                //   return Container(
+                                //     width: double.infinity,
+                                //     padding: EdgeInsets.all(12),
+                                //     decoration: BoxDecoration(
+                                //       color: Colors.green.shade50,
+                                //       borderRadius: BorderRadius.circular(10),
+                                //       border: Border.all(color: Colors.green),
+                                //     ),
 
-                                    child: Text(
-                                      "Assigned Technician : ${jobController.assignedTechnicianName}",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
-                                      ),
-                                    ),
-                                  );
-                                }
+                                //     child: Text(
+                                //       "Assigned Technician : ${jobController.assignedTechnicianName}",
+                                //       style: TextStyle(
+                                //         fontWeight: FontWeight.bold,
+                                //         color: Colors.green,
+                                //       ),
+                                //     ),
+                                //   );
+                                // }
 
                                 return Row(
                                   children: [

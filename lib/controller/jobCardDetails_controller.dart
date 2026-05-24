@@ -322,13 +322,24 @@ class JobcarddetailsController extends ChangeNotifier {
   Future<bool> assignTechnician({
     required int jobId,
     required int assigneeId,
-      required String technicianName,
-
+    required String technicianName,
   }) async {
     try {
+      debugPrint("========== ASSIGN TECHNICIAN START ==========");
+
       SharedPreferences prefs = await SharedPreferences.getInstance();
 
       String? userToken = prefs.getString('userToken');
+
+      debugPrint("Job ID : $jobId");
+      debugPrint("Assignee ID : $assigneeId");
+      debugPrint("Technician Name : $technicianName");
+      debugPrint("User Token Available : ${userToken != null}");
+
+      final payload = {"jobId": jobId, "assigneeId": assigneeId};
+
+      debugPrint("API URL : ${ApiServices.assignTechnician}");
+      debugPrint("Request Payload : ${jsonEncode(payload)}");
 
       final response = await http.post(
         Uri.parse(ApiServices.assignTechnician),
@@ -336,24 +347,37 @@ class JobcarddetailsController extends ChangeNotifier {
           "Content-Type": "application/json",
           "Authorization": "Bearer $userToken",
         },
-        body: jsonEncode({"jobId": jobId, "assigneeId": assigneeId}),
+        body: jsonEncode(payload),
       );
-      log(
-        "Payload : ${jsonEncode({"jobId": jobId, "assigneeId": assigneeId})}",
-      );
-      log("Assign Response : ${response.body}");
+
+      debugPrint("Response Status Code : ${response.statusCode}");
+      debugPrint("Response Body : ${response.body}");
 
       if (response.statusCode == 200) {
-          isTechnicianAssigned = true;
+        debugPrint("Technician Assigned Successfully");
 
-      assignedTechnicianName = technicianName;
+        isTechnicianAssigned = true;
+        assignedTechnicianName = technicianName;
+
+        debugPrint("isTechnicianAssigned : $isTechnicianAssigned");
+        debugPrint("assignedTechnicianName : $assignedTechnicianName");
+
+        debugPrint("========== ASSIGN TECHNICIAN SUCCESS ==========");
 
         return true;
       } else {
+        debugPrint("Assignment Failed");
+        debugPrint("Failed Status Code : ${response.statusCode}");
+
+        debugPrint("========== ASSIGN TECHNICIAN FAILED ==========");
+
         return false;
       }
-    } catch (e) {
-      debugPrint("Assign Error : $e");
+    } catch (e, stackTrace) {
+      debugPrint("========== ASSIGN TECHNICIAN ERROR ==========");
+      debugPrint("Exception : $e");
+      debugPrint("StackTrace : $stackTrace");
+
       return false;
     }
   }
