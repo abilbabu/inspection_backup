@@ -27,7 +27,8 @@ class JobcarddetailsController extends ChangeNotifier {
   int? selectedAssigneeId;
   bool isTechnicianAssigned = false;
   String assignedTechnicianName = "";
-
+  int? jobTechnicianId;
+  int? jobSuperVisorId;
   List fuelList = [];
   List transmissionList = [];
   List customerTypeList = [];
@@ -63,9 +64,30 @@ class JobcarddetailsController extends ChangeNotifier {
         },
         body: jsonEncode(body),
       );
+      log("***************************************");
+      log(response.body);
+      log("***************************************");
       final decoded = jsonDecode(response.body);
       if (response.statusCode == 200) {
         jobCardData = decoded['data'];
+        final jobcard = jobCardData?['jobcard'];
+
+        final technicianData = jobcard?['jobTechnicianId'];
+        final supervisorData = jobcard?['jobSuperVisorId'];
+
+        jobTechnicianId = technicianData?['userId'];
+        jobSuperVisorId = supervisorData?['userId'];
+
+        if (jobTechnicianId != null) {
+          isTechnicianAssigned = true;
+
+          assignedTechnicianName =
+              technicianData?['userName']?.toString() ?? "Assigned";
+        } else {
+          isTechnicianAssigned = false;
+          assignedTechnicianName = "";
+        }
+
         isLoading = false;
         notifyListeners();
         return ApiResponse(
@@ -128,15 +150,37 @@ class JobcarddetailsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // void reset() {
+  //   jobCardData = null;
+  //   fuelTypeName = "";
+  //   transmissionTypeName = "";
+  //   customerTypeName = "";
+  //   serviceTypeName = "";
+  //   notifyListeners();
+  //   hasLoaded = false;
+  //   isLoading = false;
+  // }
+
   void reset() {
+    isLoading = false;
+    hasLoaded = false;
+
     jobCardData = null;
+
     fuelTypeName = "";
     transmissionTypeName = "";
     customerTypeName = "";
     serviceTypeName = "";
+
+    selectedAssigneeId = null;
+
+    // DON'T RESET THESE
+    // isTechnicianAssigned = false;
+    // assignedTechnicianName = "";
+    // jobTechnicianId = null;
+    // jobSuperVisorId = null;
+
     notifyListeners();
-    hasLoaded = false;
-    isLoading = false;
   }
 
   Future<String?> downloadInspectionPdf(int jobId, String phone) async {
@@ -299,7 +343,7 @@ class JobcarddetailsController extends ChangeNotifier {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
-      log("Hello This Is Before ");
+      // log("Hello This Is Before ");
       final response = await http.post(
         Uri.parse(ApiServices.allTechnicianList),
         headers: {
@@ -322,24 +366,29 @@ class JobcarddetailsController extends ChangeNotifier {
   Future<bool> assignTechnician({
     required int jobId,
     required int assigneeId,
+    required int supervisorId,
     required String technicianName,
   }) async {
     try {
-      debugPrint("========== ASSIGN TECHNICIAN START ==========");
+      log("========== ASSIGN TECHNICIAN START ==========");
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
 
       String? userToken = prefs.getString('userToken');
 
-      debugPrint("Job ID : $jobId");
-      debugPrint("Assignee ID : $assigneeId");
-      debugPrint("Technician Name : $technicianName");
-      debugPrint("User Token Available : ${userToken != null}");
+      log("Job ID : $jobId");
+      log("Assignee ID : $assigneeId");
+      log("Technician Name : $technicianName");
+      log("User Token Available : ${userToken != null}");
 
-      final payload = {"jobId": jobId, "assigneeId": assigneeId};
+      final payload = {
+        "jobId": jobId,
+        "assigneeId": assigneeId,
+        "supervisorId": supervisorId,
+      };
 
-      debugPrint("API URL : ${ApiServices.assignTechnician}");
-      debugPrint("Request Payload : ${jsonEncode(payload)}");
+      log("API URL : ${ApiServices.assignTechnician}");
+      log("Request Payload : ${jsonEncode(payload)}");
 
       final response = await http.post(
         Uri.parse(ApiServices.assignTechnician),
@@ -350,33 +399,37 @@ class JobcarddetailsController extends ChangeNotifier {
         body: jsonEncode(payload),
       );
 
-      debugPrint("Response Status Code : ${response.statusCode}");
-      debugPrint("Response Body : ${response.body}");
+      log("Response Status Code : ${response.statusCode}");
+      log("Response Body : ${response.body}");
 
       if (response.statusCode == 200) {
-        debugPrint("Technician Assigned Successfully");
+        log("Technician Assigned Successfully");
 
         isTechnicianAssigned = true;
         assignedTechnicianName = technicianName;
+        jobTechnicianId = assigneeId;
+        jobSuperVisorId = supervisorId;
+        selectedAssigneeId = null;
+        notifyListeners();
 
-        debugPrint("isTechnicianAssigned : $isTechnicianAssigned");
-        debugPrint("assignedTechnicianName : $assignedTechnicianName");
+        log("isTechnicianAssigned : $isTechnicianAssigned");
+        log("assignedTechnicianName : $assignedTechnicianName");
 
-        debugPrint("========== ASSIGN TECHNICIAN SUCCESS ==========");
+        log("========== ASSIGN TECHNICIAN SUCCESS ==========");
 
         return true;
       } else {
-        debugPrint("Assignment Failed");
-        debugPrint("Failed Status Code : ${response.statusCode}");
+        log("Assignment Failed");
+        log("Failed Status Code : ${response.statusCode}");
 
-        debugPrint("========== ASSIGN TECHNICIAN FAILED ==========");
+        log("========== ASSIGN TECHNICIAN FAILED ==========");
 
         return false;
       }
     } catch (e, stackTrace) {
-      debugPrint("========== ASSIGN TECHNICIAN ERROR ==========");
-      debugPrint("Exception : $e");
-      debugPrint("StackTrace : $stackTrace");
+      log("========== ASSIGN TECHNICIAN ERROR ==========");
+      log("Exception : $e");
+      log("StackTrace : $stackTrace");
 
       return false;
     }

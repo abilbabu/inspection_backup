@@ -95,12 +95,13 @@ class _HomeScreenState extends State<HomeScreen> {
           "userDepartment": int.parse(userDepartment.toString()),
         }),
       );
-      // log("✅✅✅✅✅✅✅✅");
+      log("✅✅✅✅✅✅✅✅");
       // log("Response Status Code : ${response.statusCode}");
-      // log("Response Body : ${response.body}");
+      log("Response Body : ${response.body}");
       // log("😀 Success");
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
+        log("😀 Success");
         return res["data"] ?? [];
       }
       return [];
@@ -127,6 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
       "jobStatus": item["jobStatus"]?.toString() ?? "",
       "vehicleTypeId": vehicle["vTypeId"] ?? -1,
       "jobCreatedOn": item["jobCreatedOn"] ?? "",
+      "jobTechnicianId": item["jobTechnicianId"],
+      "userDepartment": item["userDepartment"],
       if (includeInspections) "inspections": item["inspections"] ?? [],
     };
   }
@@ -156,6 +159,11 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       final rawList = await _fetchInspectionData();
+      log("📦 RAW JOB LIST : ${rawList.length}");
+
+      for (var item in rawList) {
+        log("👉 STATUS : ${item["jobStatus"]}");
+      }
       final filteredList = rawList
           .where((item) {
             final status =
@@ -166,6 +174,8 @@ class _HomeScreenState extends State<HomeScreen> {
             return _mapVehicleData(item, includeInspections: true);
           })
           .toList();
+
+      log("✅ FILTERED JOB LIST : ${filteredList.length}");
       if (!mounted) return;
       setState(() {
         jobcardList = filteredList;
@@ -194,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: AppTheme(
         child: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
+          // physics: const ClampingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -504,20 +514,223 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 240,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: latestFiveList.length,
+          // SizedBox(
+          //   height: 240,
+          //   child: ListView.separated(
+          //     scrollDirection: Axis.horizontal,
+          //     itemCount: latestFiveList.length,
 
-              separatorBuilder: (_, __) => const SizedBox(width: 1),
-              itemBuilder: (context, index) {
-                // return jobCardItem(context, jobcardList[index]);
-                final item = latestFiveList[index];
-                return jobCardItem(context, item);
+          //     separatorBuilder: (_, __) => const SizedBox(width: 1),
+          //     itemBuilder: (context, index) {
+          //       // return jobCardItem(context, jobcardList[index]);
+          //       final item = latestFiveList[index];
+          //       return jobCardItem(context, item);
+          //     },
+          //   ),
+          // ),
+          if (userDepartment == 2) ...[
+            Builder(
+              builder: (context) {
+                final pendingList = latestFiveList
+                    .where((item) => item["jobTechnicianId"] == null)
+                    .toList();
+
+                final assignedList = latestFiveList
+                    .where((item) => item["jobTechnicianId"] != null)
+                    .toList();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    /// ================= Pending Assign =================
+                    if (pendingList.isNotEmpty) ...[
+                      Text(
+                        "Pending Assign",
+                        style: ApptextstyleConstants.regularText(
+                          fontSize: 16,
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      SizedBox(
+                        height: 240,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: pendingList.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 1),
+                          itemBuilder: (context, index) {
+                            return jobCardItem(context, pendingList[index]);
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
+
+                    /// ================= Assigned =================
+                    if (assignedList.isNotEmpty) ...[
+                      Text(
+                        "Assigned",
+                        style: ApptextstyleConstants.regularText(
+                          fontSize: 16,
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      SizedBox(
+                        height: 240,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: assignedList.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 1),
+                          itemBuilder: (context, index) {
+                            return jobCardItem(context, assignedList[index]);
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                );
               },
             ),
-          ),
+          ],
+          if (userDepartment == 4) ...[
+            Builder(
+              builder: (context) {
+                /// ================= Pending =================
+                final pendingList = latestFiveList.where((item) {
+                  final status =
+                      int.tryParse(item["jobStatus"].toString()) ?? 0;
+
+                  return item["jobTechnicianId"] != null && status == 3;
+                }).toList();
+
+                /// ================= On Going =================
+                final ongoingList = latestFiveList.where((item) {
+                  final status =
+                      int.tryParse(item["jobStatus"].toString()) ?? 0;
+
+                  return status == 4 || status == 5;
+                }).toList();
+
+                /// ================= Complete =================
+                final completedList = latestFiveList.where((item) {
+                  final status =
+                      int.tryParse(item["jobStatus"].toString()) ?? 0;
+
+                  return status == 6 ||
+                      status == 7 ||
+                      status == 8 ||
+                      status == 9;
+                }).toList();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    /// ================= Pending =================
+                    if (pendingList.isNotEmpty) ...[
+                      Text(
+                        "Pending",
+                        style: ApptextstyleConstants.regularText(
+                          fontSize: 16,
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      SizedBox(
+                        height: 240,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: pendingList.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 1),
+                          itemBuilder: (context, index) {
+                            return jobCardItem(context, pendingList[index]);
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
+
+                    /// ================= On Going =================
+                    if (ongoingList.isNotEmpty) ...[
+                      Text(
+                        "On Going",
+                        style: ApptextstyleConstants.regularText(
+                          fontSize: 16,
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      SizedBox(
+                        height: 240,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: ongoingList.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 1),
+                          itemBuilder: (context, index) {
+                            return jobCardItem(context, ongoingList[index]);
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
+
+                    /// ================= Complete =================
+                    if (completedList.isNotEmpty) ...[
+                      Text(
+                        "Complete",
+                        style: ApptextstyleConstants.regularText(
+                          fontSize: 16,
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      SizedBox(
+                        height: 240,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: completedList.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 1),
+                          itemBuilder: (context, index) {
+                            return jobCardItem(context, completedList[index]);
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ],
+          if (userDepartment != 2 && userDepartment != 4) ...[
+            if (latestFiveList.isNotEmpty) ...[
+              SizedBox(
+                height: 240,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: latestFiveList.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 1),
+                  itemBuilder: (context, index) {
+                    final item = latestFiveList[index];
+
+                    return jobCardItem(context, item);
+                  },
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );
@@ -708,6 +921,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
     final String vehicleName = "${item['make'] ?? ''} ${item['model'] ?? ''}";
     final String statusText = controller.getJobStatusText(jobStatusStr);
+    final technicianId = item['jobTechnicianId'];
     return GestureDetector(
       onTap: () {
         // log("👉 CLICKED INDEX:");
@@ -817,14 +1031,55 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const Spacer(),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: Image.asset(
-                    "assets/image/benz_logo.png",
-                    width: 60,
-                    fit: BoxFit.contain,
+                if (technicianId != null)
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ColorConstants.greenColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: ColorConstants.greenColor),
+                        ),
+                        child: Text(
+                          "Assign",
+                          style: ApptextstyleConstants.lightText(
+                            color: ColorConstants.greenColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Image.asset(
+                          "assets/image/benz_logo.png",
+                          width: 60,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Image.asset(
+                      "assets/image/benz_logo.png",
+                      width: 60,
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                ),
+                // Align(
+                //   alignment: Alignment.bottomRight,
+                //   child: Image.asset(
+                //     "assets/image/benz_logo.png",
+                //     width: 60,
+                //     fit: BoxFit.contain,
+                //   ),
+                // ),
               ],
             ),
           ),
