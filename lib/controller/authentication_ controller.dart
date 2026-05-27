@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -11,6 +12,26 @@ class AuthenticationController with ChangeNotifier {
 
   bool isLoading = false;
   bool isSuccess = false;
+  bool _passwordVisible = false;
+  bool get passwordVisible => _passwordVisible;
+  bool isDepartmentLoaded = false;
+  int currentIndex = 0;
+  int userDepartment = 0;
+
+  /// LOAD SAVED DEPARTMENT
+  Future<void> loadUserDepartment() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    userDepartment =
+        int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
+    isDepartmentLoaded = true;
+    // log("Loaded Department : $userDepartment");
+    notifyListeners();
+  }
+
+  void setIndex(int index) {
+    currentIndex = index;
+    notifyListeners();
+  }
 
   Future<bool> postAuthUser() async {
     isSuccess = false;
@@ -26,7 +47,9 @@ class AuthenticationController with ChangeNotifier {
           "userPassword": passwordController.text.trim(),
         }),
       );
-      log(response.body);
+
+      // log(response.body);
+
       final body = jsonDecode(response.body);
       if (response.statusCode == 200 && body["statusCode"] == 200) {
         String userId = body["data"]["userId"].toString();
@@ -37,9 +60,13 @@ class AuthenticationController with ChangeNotifier {
         String userToken = body["data"]["userToken"] ?? "";
         String userRole = body["data"]["userRole"]["roleName"] ?? "";
         String userPassword = passwordController.text.trim();
-        String userDepartment = body["data"]["userDepartment"].toString();
+        String department = body["data"]["userDepartment"].toString();
+
+        userDepartment = int.tryParse(department) ?? 0;
+        // log("Controller Department : $userDepartment");
 
         SharedPreferences prefs = await SharedPreferences.getInstance();
+
         await prefs.setBool("isLoggedIn", true);
         await prefs.setString("userId", userId);
         await prefs.setString("userName", userName);
@@ -49,12 +76,8 @@ class AuthenticationController with ChangeNotifier {
         await prefs.setString("userRole", userRole);
         await prefs.setString("userPhone", userPhone);
         await prefs.setString("userPhoneCode", userPhoneCode);
-        await prefs.setString("userDepartment", userDepartment);
-
-        log("isLoggedIn : ${prefs.getBool("isLoggedIn")}");
-        log("userId : ${prefs.getString("userId")}");
-        log("userDepartment : ${prefs.getString("userDepartment")}");
-
+        await prefs.setString("userDepartment", department);
+        // log("Saved Department : ${prefs.getString("userDepartment")}");
         isSuccess = true;
         isLoading = false;
         notifyListeners();
@@ -65,6 +88,7 @@ class AuthenticationController with ChangeNotifier {
         return false;
       }
     } catch (e) {
+      log("Login Error : $e");
       isLoading = false;
       notifyListeners();
       return false;
@@ -76,21 +100,15 @@ class AuthenticationController with ChangeNotifier {
     await prefs.clear();
     emailController.clear();
     passwordController.clear();
+    currentIndex = 0;
+    userDepartment = 0;
     isLoading = false;
     isSuccess = false;
     notifyListeners();
   }
 
-  bool _passwordVisible = false;
-  bool get passwordVisible => _passwordVisible;
   void getPasswordVisibility() {
     _passwordVisible = !_passwordVisible;
-    notifyListeners();
-  }
-
-  int currentIndex = 0;
-  void setIndex(int index) {
-    currentIndex = index;
     notifyListeners();
   }
 }

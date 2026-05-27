@@ -10,65 +10,131 @@ import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class InspectionDetails extends StatefulWidget {
   final int? jobId;
+
   const InspectionDetails({super.key, this.jobId});
 
   @override
-  State<InspectionDetails> createState() => _InspectionDetailsState();
+  State<InspectionDetails> createState() =>
+      _InspectionDetailsState();
 }
 
-class _InspectionDetailsState extends State<InspectionDetails> {
-  final TextEditingController searchController = TextEditingController();
+class _InspectionDetailsState
+    extends State<InspectionDetails> {
+
+  final TextEditingController searchController =
+      TextEditingController();
+
   Timer? _debounce;
+
+  int? userDepartment;
 
   @override
   void initState() {
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      context.read<InspectionDetailsController>().getInspectionTypes();
-    });
     super.initState();
+
+    WidgetsBinding.instance
+        .addPostFrameCallback((timeStamp) {
+
+      context
+          .read<InspectionDetailsController>()
+          .getInspectionTypes();
+    });
+
+    loadUserDepartment();
+  }
+
+  Future<void> loadUserDepartment() async {
+
+    SharedPreferences prefs =
+        await SharedPreferences.getInstance();
+
+    final value = prefs.get("userDepartment");
+
+    setState(() {
+      userDepartment =
+          int.tryParse(value.toString());
+    });
+
+    debugPrint(
+      "Department : $userDepartment",
+    );
   }
 
   void _onSearchChanged(String value) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 150), () {
+
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+    }
+
+    _debounce =
+        Timer(const Duration(milliseconds: 150), () {
+
       _triggerSearch(value);
     });
   }
 
   void _triggerSearch(String value) {
+
     final name = value.trim();
+
     if (name.isEmpty) {
-      context.read<InspectionDetailsController>().getInspectionTypes();
+
+      context
+          .read<InspectionDetailsController>()
+          .getInspectionTypes();
+
     } else {
-      context.read<InspectionDetailsController>().searchInspectionForms(name);
+
+      context
+          .read<InspectionDetailsController>()
+          .searchInspectionForms(name);
     }
   }
 
   @override
   void dispose() {
+
     searchController.dispose();
     _debounce?.cancel();
+
     super.dispose();
   }
 
   Future<bool> _showExitConfirmation() async {
+
     return await showDialog<bool>(
           context: context,
           barrierDismissible: false,
+
           builder: (context) {
+
             return AlertDialog(
-              title: const Text("Discard changes?"),
-              content: const Text("Are you sure you want to go back?"),
+
+              title: const Text(
+                "Discard changes?",
+              ),
+
+              content: const Text(
+                "Are you sure you want to go back?",
+              ),
+
               actions: [
+
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
+                  onPressed: () =>
+                      Navigator.of(context).pop(false),
+
                   child: const Text("NO"),
                 ),
+
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
+                  onPressed: () =>
+                      Navigator.of(context).pop(true),
+
                   child: const Text("YES"),
                 ),
               ],
@@ -80,113 +146,253 @@ class _InspectionDetailsState extends State<InspectionDetails> {
 
   @override
   Widget build(BuildContext context) {
+
     return PopScope(
+
       canPop: false,
+
       onPopInvoked: (didPop) async {
-        final shouldExit = await _showExitConfirmation();
+
+        final shouldExit =
+            await _showExitConfirmation();
+
         if (shouldExit) {
+
           if (context.canPop()) {
+
             context.pop();
+
           } else {
+
             context.go("/jobcarddetails");
           }
         }
       },
+
       child: Scaffold(
+
         appBar: CustomAppBar(
+
           title: 'Inspection Types',
+
           onBackPress: () async {
-            final shouldExit = await _showExitConfirmation();
+
+            final shouldExit =
+                await _showExitConfirmation();
+
             if (shouldExit) {
+
               if (context.canPop()) {
+
                 context.pop();
+
               } else {
+
                 context.go("/jobcarddetails");
               }
             }
           },
         ),
+
         body: SingleChildScrollView(
+
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+            ),
+
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+
               children: [
+
                 const SizedBox(height: 20),
-                VehicleSummaryWidget(jobId: widget.jobId),
+
+                VehicleSummaryWidget(
+                  jobId: widget.jobId,
+                ),
+
                 const SizedBox(height: 20),
+
                 Container(
+
                   width: double.infinity,
+
                   decoration: BoxDecoration(
-                    boxShadow: ColorConstants.dashboardboxShadow,
-                    color: ColorConstants.whiteColor,
-                    borderRadius: BorderRadius.circular(10),
+
+                    boxShadow:
+                        ColorConstants
+                            .dashboardboxShadow,
+
+                    color:
+                        ColorConstants.whiteColor,
+
+                    borderRadius:
+                        BorderRadius.circular(10),
                   ),
+
                   child: Column(
+
                     children: [
+
                       const SizedBox(height: 10),
+
+                      CustomButtonTwo(
+
+                        text: "General Inspection",
+
+                        onPressed: () async {
+
+                          // USER DEPARTMENT 2 & 5
+                          if (userDepartment == 2 ||
+                              userDepartment == 5) {
+
+                            await showTechnicianBottomSheet();
+
+                          } else {
+
+                            // OLD FLOW
+                            context.push(
+                              "/inspectiontypedetailspage",
+                              extra: {
+                                "jobId": widget.jobId,
+                              },
+                            );
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
                       Padding(
+
                         padding: const EdgeInsets.all(20),
+
                         child: Text(
-                          "Select Inspection Type.",
-                          style: ApptextstyleConstants.semiBoldText(
+
+                          "Predefined Inspection List",
+
+                          style:
+                              ApptextstyleConstants
+                                  .semiBoldText(
+
                             fontSize: 16,
-                            color: ColorConstants.blackColor,
+
+                            color:
+                                ColorConstants.blackColor,
                           ),
                         ),
                       ),
+
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
+
+                        padding:
+                            const EdgeInsets.symmetric(
+                          horizontal: 10,
+                        ),
+
                         child: Row(
+
                           children: [
+
                             Expanded(
+
                               child: TextField(
-                                controller: searchController,
+
+                                controller:
+                                    searchController,
+
                                 onChanged: (value) {
+
                                   setState(() {});
+
                                   _onSearchChanged(value);
                                 },
-                                onSubmitted: _triggerSearch,
+
+                                onSubmitted:
+                                    _triggerSearch,
+
                                 decoration: InputDecoration(
-                                  hintText: "Search Inspection Type",
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
+
+                                  hintText:
+                                      "Search Inspection Type",
+
+                                  border:
+                                      OutlineInputBorder(
+
+                                    borderRadius:
+                                        BorderRadius.circular(8),
                                   ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
+
+                                  enabledBorder:
+                                      OutlineInputBorder(
+
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+
                                     borderSide: BorderSide(
-                                      color: ColorConstants.activecolor,
+                                      color:
+                                          ColorConstants.activecolor,
                                     ),
                                   ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
+
+                                  focusedBorder:
+                                      OutlineInputBorder(
+
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+
                                     borderSide: BorderSide(
-                                      color: ColorConstants.activecolor,
+                                      color:
+                                          ColorConstants.activecolor,
                                     ),
                                   ),
-                                  contentPadding: const EdgeInsets.symmetric(
+
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 10,
                                   ),
+
                                   suffixIcon: Row(
-                                    mainAxisSize: MainAxisSize.min,
+
+                                    mainAxisSize:
+                                        MainAxisSize.min,
+
                                     children: [
-                                      if (searchController.text.isNotEmpty)
+
+                                      if (searchController
+                                          .text
+                                          .isNotEmpty)
+
                                         IconButton(
-                                          icon: const Icon(Icons.close),
+
+                                          icon:
+                                              const Icon(Icons.close),
+
                                           onPressed: () {
+
                                             searchController.clear();
+
                                             setState(() {});
+
                                             context
                                                 .read<
-                                                  InspectionDetailsController
-                                                >()
+                                                    InspectionDetailsController>()
                                                 .getInspectionTypes();
                                           },
                                         ),
+
                                       IconButton(
-                                        icon: const Icon(Icons.search),
-                                        onPressed: () => _triggerSearch(
+
+                                        icon:
+                                            const Icon(Icons.search),
+
+                                        onPressed: () =>
+                                            _triggerSearch(
                                           searchController.text,
                                         ),
                                       ),
@@ -195,29 +401,50 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                 ),
                               ),
                             ),
+
                             const SizedBox(width: 10),
+
                             InkWell(
+
                               onTap: () {
+
                                 searchController.clear();
+
                                 setState(() {});
+
                                 context
-                                    .read<InspectionDetailsController>()
+                                    .read<
+                                        InspectionDetailsController>()
                                     .getInspectionTypes();
                               },
+
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
+
+                                padding:
+                                    const EdgeInsets.symmetric(
                                   horizontal: 12,
                                   vertical: 10,
                                 ),
+
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(8),
+
+                                  color:
+                                      Colors.grey.shade300,
+
+                                  borderRadius:
+                                      BorderRadius.circular(8),
                                 ),
+
                                 child: SvgPicture.asset(
+
                                   'assets/svg/repeat.svg',
+
                                   width: 20,
                                   height: 20,
-                                  colorFilter: ColorFilter.mode(
+
+                                  colorFilter:
+                                      ColorFilter.mode(
+
                                     ColorConstants.blackColor,
                                     BlendMode.srcIn,
                                   ),
@@ -227,43 +454,84 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                           ],
                         ),
                       ),
+
                       Consumer<InspectionDetailsController>(
-                        builder: (context, inspectionController, child) {
+
+                        builder: (
+                          context,
+                          inspectionController,
+                          child,
+                        ) {
+
                           if (inspectionController.isLoading) {
+
                             return const Padding(
+
                               padding: EdgeInsets.all(20),
-                              child: Center(child: CircularProgressIndicator()),
+
+                              child: Center(
+                                child:
+                                    CircularProgressIndicator(),
+                              ),
                             );
                           }
+
                           if (inspectionController
                               .inspectiontypesList
                               .isEmpty) {
+
                             return const Padding(
+
                               padding: EdgeInsets.all(20),
+
                               child: Center(
+
                                 child: Text(
+
                                   "No Inspection Type Found",
-                                  style: TextStyle(color: Colors.grey),
+
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
                             );
                           }
+
                           return ListView.builder(
+
                             shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
+
+                            physics:
+                                const NeverScrollableScrollPhysics(),
+
                             itemCount:
-                                inspectionController.inspectiontypesList.length,
+                                inspectionController
+                                    .inspectiontypesList
+                                    .length,
+
                             itemBuilder: (context, index) {
-                              final item = inspectionController
-                                  .inspectiontypesList[index];
+
+                              final item =
+                                  inspectionController
+                                      .inspectiontypesList[index];
+
                               return Padding(
-                                padding: const EdgeInsets.all(8.0),
+
+                                padding:
+                                    const EdgeInsets.all(8.0),
+
                                 child: CustomButtonWidget(
+
                                   text:
-                                      (item["inspectionFormName"] ?? "No Name")
+                                      (item["inspectionFormName"] ??
+                                              "No Name")
                                           .toUpperCase(),
+
                                   textSize: 16,
+
                                   onPressed: () {
+
                                     context.push(
                                       "/inspectiontypedetailspage",
                                       extra: {
@@ -279,6 +547,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                           );
                         },
                       ),
+
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -288,6 +557,207 @@ class _InspectionDetailsState extends State<InspectionDetails> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> showTechnicianBottomSheet() async {
+
+    final controller =
+        context.read<InspectionDetailsController>();
+
+    await controller.getTechnicianList();
+
+    TextEditingController searchController =
+        TextEditingController();
+
+    List<Map<String, dynamic>> filteredList =
+        List.from(controller.technicianList);
+
+    showModalBottomSheet(
+
+      context: context,
+
+      isScrollControlled: true,
+
+      backgroundColor: Colors.white,
+
+      shape: const RoundedRectangleBorder(
+
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+
+      builder: (context) {
+
+        return StatefulBuilder(
+
+          builder: (context, setModalState) {
+
+            return Padding(
+
+              padding: EdgeInsets.only(
+
+                left: 16,
+                right: 16,
+                top: 20,
+
+                bottom:
+                    MediaQuery.of(context)
+                            .viewInsets
+                            .bottom +
+                        20,
+              ),
+
+              child: Column(
+
+                mainAxisSize: MainAxisSize.min,
+
+                children: [
+
+                  Container(
+
+                    width: 50,
+                    height: 5,
+
+                    decoration: BoxDecoration(
+
+                      color: Colors.grey.shade400,
+
+                      borderRadius:
+                          BorderRadius.circular(10),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  const Text(
+
+                    "Technician List",
+
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  TextField(
+
+                    controller: searchController,
+
+                    decoration: InputDecoration(
+
+                      hintText: "Search Technician",
+
+                      prefixIcon:
+                          const Icon(Icons.search),
+
+                      border: OutlineInputBorder(
+
+                        borderRadius:
+                            BorderRadius.circular(10),
+                      ),
+                    ),
+
+                    onChanged: (value) {
+
+                      setModalState(() {
+
+                        filteredList = controller
+                            .technicianList
+                            .where(
+                              (e) => e["userName"]
+                                  .toString()
+                                  .toLowerCase()
+                                  .contains(
+                                    value.toLowerCase(),
+                                  ),
+                            )
+                            .toList();
+                      });
+                    },
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  SizedBox(
+
+                    height: 400,
+
+                    child: ListView.builder(
+
+                      itemCount: filteredList.length,
+
+                      itemBuilder: (context, index) {
+
+                        final technician =
+                            filteredList[index];
+
+                        return Card(
+
+                          elevation: 2,
+
+                          margin:
+                              const EdgeInsets.only(
+                            bottom: 10,
+                          ),
+
+                          shape:
+                              RoundedRectangleBorder(
+
+                            borderRadius:
+                                BorderRadius.circular(12),
+                          ),
+
+                          child: ListTile(
+
+                            leading: CircleAvatar(
+
+                              backgroundColor:
+                                  Colors.green.shade100,
+
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.green,
+                              ),
+                            ),
+
+                            title: Text(
+                              technician["userName"]
+                                  .toString(),
+                            ),
+
+                            subtitle: const Text(
+                              "Technician",
+                            ),
+
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                            ),
+
+                            onTap: () {
+
+                              debugPrint(
+                                technician["userName"]
+                                    .toString(),
+                              );
+
+                              Navigator.pop(context);
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

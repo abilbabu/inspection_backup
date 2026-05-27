@@ -9,7 +9,6 @@ import 'package:inspection/view/basicInspection_screen/vehicleEssential_screen.d
 import 'package:inspection/view/bottomnavbar_screen/bottomnavbar_screen.dart';
 import 'package:inspection/view/global_widgets/fullScreenImage.dart';
 import 'package:inspection/view/global_widgets/gallery_view.dart';
-import 'package:inspection/view/history_screen/history_details.dart';
 import 'package:inspection/view/history_screen/history_screen.dart';
 import 'package:inspection/view/home_screen/home_screen.dart';
 import 'package:inspection/view/home_screen/widget/JobCardDetails.dart';
@@ -173,13 +172,13 @@ final GoRouter router = GoRouter(
       },
     ),
 
-    GoRoute(
-      path: '/historydetailspage',
-      name: ' History Details',
-      builder: (BuildContext context, GoRouterState state) {
-        return HistoryDetailsPage();
-      },
-    ),
+    // GoRoute(
+    //   path: '/historydetailspage',
+    //   name: ' History Details',
+    //   builder: (BuildContext context, GoRouterState state) {
+    //     return HistoryDetailsPage();
+    //   },
+    // ),
 
     GoRoute(
       path: '/profile',
