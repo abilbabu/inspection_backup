@@ -130,6 +130,9 @@ final GoRouter router = GoRouter(
         final data = state.extra as Map<String, dynamic>;
         final inspectionFormId = data["inspectionFormId"];
         final jobId = data["jobId"];
+        final inspectionTypeId = data["inspectionTypeId"];
+
+        print("inspectionTypeId from route = $inspectionTypeId");
         return MultiProvider(
           providers: [
             ChangeNotifierProvider(create: (_) => InspectionFormController()),
@@ -140,6 +143,7 @@ final GoRouter router = GoRouter(
           child: InspectionTypeDetailspage(
             inspectionFormId: inspectionFormId,
             jobId: jobId,
+            inspectionTypeId:inspectionTypeId
           ),
         );
       },

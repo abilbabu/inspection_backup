@@ -62,7 +62,7 @@ class _BottomnavbarScreenState extends State<BottomnavbarScreen> {
           bottomNavigationBar: Container(
             decoration: const BoxDecoration(color: Colors.transparent),
             child: BottomNavigationBar(
-              backgroundColor: Colors.transparent,
+              backgroundColor: ColorConstants.whiteColor.withOpacity(0.9),
               elevation: 0,
               type: BottomNavigationBarType.fixed,
               currentIndex: controller.currentIndex,

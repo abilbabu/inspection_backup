@@ -617,8 +617,11 @@ class InspectioncardController extends ChangeNotifier {
     required int jobId,
     required int taskId,
     required int formId,
+    int? inspectionTypeId,
   }) async {
     try {
+      // print("Form ID Inside Save Single Inspection");
+      // print("Form ID Inside Save Single Inspection");
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString('userToken');
       if (token == null || token.isEmpty) {
@@ -658,7 +661,9 @@ class InspectioncardController extends ChangeNotifier {
       }
       Map<String, dynamic> payload = {
         "vimJobId": jobId,
-        "vimIfMasterId": formId,
+        "vimIfMasterId": (inspectionTypeId == 2 || inspectionTypeId == 0)
+            ? null
+            : formId,
         "viTaskId": taskId,
         "viGood": isGood,
         "viRepair": isRepair,
@@ -719,5 +724,71 @@ class InspectioncardController extends ChangeNotifier {
     final decoded = await decodeImageFromList(bytes);
 
     return Size(decoded.width.toDouble(), decoded.height.toDouble());
+  }
+
+  Future<bool> onCustomSavePressed({
+    required BuildContext context,
+    required InspectionFormController formController,
+    required bool inspectionPhotoMandatory,
+    required bool inspectionAudioMandatory,
+    required int jobId,
+    required int taskId,
+    required int formId,
+    int? inspectionTypeId,
+  }) async {
+    // same validation logic
+
+    updateCustomTask(
+      formController: formController,
+      jobId: jobId,
+      taskId: taskId,
+      formId: formId,
+    );
+
+    final ApiResponse response = await saveSingleInspectionTask(
+      status: 5,
+      jobId: jobId,
+      taskId: taskId,
+      formId: formId,
+      inspectionTypeId: inspectionTypeId,
+    );
+    if (response.success != true) {
+      isLoading = false;
+      markSaved();
+      notifyListeners();
+      return false;
+    }
+    isLoading = false;
+    isSuccess = true;
+    showSaveButton = false;
+    markSaved();
+    formController.markTaskSaved(taskId);
+    notifyListeners();
+    //
+    return false;
+  }
+
+  void updateCustomTask({
+    required InspectionFormController formController,
+    required int jobId,
+    required int taskId,
+    required int formId,
+  }) {
+    formController.updateTask(
+      InspectionTaskData(
+        jobId: jobId,
+        taskId: taskId,
+        formId: formId,
+
+        condition: selectedOption,
+        note: noteController.text,
+        description: descriptionController.text,
+        imageFiles: _capturedImages.whereType<File>().toList(),
+        videoFile: _capturedVideo,
+        audioFilePath: _recordedFilePath,
+
+        inserted: false,
+      ),
+    );
   }
 }

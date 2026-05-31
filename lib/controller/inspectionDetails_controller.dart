@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -12,13 +13,19 @@ class InspectionDetailsController extends ChangeNotifier {
   int? assignedTechnicianId;
   bool isTechnicianLoading = false;
   bool technicianAssigned = false;
+  int? assignedInspectionType;
+  String selectedInspectionName = "";
+  int? jobTechnicianId;
+  int? jobSuperVisorId;
+  int? loginTechnicianId;
 
-  void assignTechnician(Map<String, dynamic> technician) {
-    assignedTechnicianName = technician["userName"]?.toString() ?? "";
 
-    assignedTechnicianId = int.tryParse(technician["userId"].toString());
+  Future<void> loadLoginTechnicianId() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    technicianAssigned = true;
+    final value = prefs.get("userId");
+
+    loginTechnicianId = int.tryParse(value.toString());
 
     notifyListeners();
   }
@@ -108,5 +115,62 @@ class InspectionDetailsController extends ChangeNotifier {
     }
     isLoading = false;
     notifyListeners();
+  }
+
+  Future<bool> assignTechnician({
+    required int jobId,
+    required int assigneeId,
+    required int supervisorId,
+    required String technicianName,
+    int? formMasterId,
+  }) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      String? userToken = prefs.getString('userToken');
+
+      Map<String, dynamic> payload = {
+        "jobId": jobId,
+        "status": 5,
+        "assignedBy": assigneeId,
+        "vimIfMasterId": formMasterId ?? "",
+        "vimInspectionType": formMasterId != null ? 1 : 2,
+      };
+
+      // log("Payload : ${jsonEncode(payload)}");
+
+      final response = await http.post(
+        Uri.parse(ApiServices.assignTechnician),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+        body: jsonEncode(payload),
+      );
+
+      // log("Status Code : ${response.statusCode}");
+      // log("Response : ${response.body}");
+
+      if (response.statusCode == 200) {
+        technicianAssigned = true;
+
+        assignedTechnicianName = technicianName;
+
+        assignedTechnicianId = assigneeId;
+
+        jobTechnicianId = assigneeId;
+
+        jobSuperVisorId = supervisorId;
+
+        notifyListeners();
+
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      log("Assign Error : $e");
+      return false;
+    }
   }
 }

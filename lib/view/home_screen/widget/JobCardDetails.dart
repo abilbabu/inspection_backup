@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:convert';
-import 'dart:developer';
+// import 'dart:developer';
 // import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -117,12 +117,23 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                     );
                   }
                   final data = jobController.jobCardData!;
+                  // final technicianData = jobController.technicianData!;
+                  // final supervisorData = jobController.supervisorData!;
+                  final userDepartment = jobController.userDepartment!;
                   final jobcard = data["jobcard"];
                   final customer = jobcard?["customer"];
                   final vehicle = jobcard?["vehicle"];
                   final int jobStatus =
                       int.tryParse(jobcard?["jobStatus"]?.toString() ?? "") ??
                       -1;
+
+                  // final  technicianDepartment =  technicianData?["userDepartment"];
+                  // final  supervisorDepartment =  supervisorData?["userDepartment"];
+
+                  //     print("technician Department id=====>>>>");
+                  //      print(technicianDepartment);
+                  //      print("supervisor Department id=====>>>>");
+                  //      print(supervisorDepartment);
                   return Stack(
                     children: [
                       Column(
@@ -131,7 +142,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           SizedBox(height: 20),
                           VehicleSummaryWidget(jobId: widget.jobId),
                           SizedBox(height: 15),
-                          if (jobStatus != 5)
+                          if (jobStatus != 5 &&
+                              userDepartment != 3 &&
+                              jobStatus != 6)
                             Align(
                               alignment: Alignment.centerRight,
                               child: CustomButtonWidget(
@@ -146,7 +159,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                     );
                                     String? userId = prefs.getString('userId');
 
-                                    log("USER ID === $userId");
+                                    // log("USER ID === $userId");
 
                                     int assignedBy =
                                         int.tryParse(userId ?? "0") ?? 0;
@@ -160,7 +173,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       "vimIfMasterId": "",
                                       "assignedBy": assignedBy,
                                     };
-                                    
+
                                     final response = await http.post(
                                       url,
                                       headers: {
@@ -170,7 +183,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       body: jsonEncode(output),
                                     );
 
-                                    log("");
+                                    // log("");
                                     Map<String, dynamic> decoded = jsonDecode(
                                       response.body,
                                     );
@@ -190,18 +203,79 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 },
                               ),
                             ),
+                          if (jobController.isTechnicianAssigned &&
+                              userDepartment != 3) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: ColorConstants.greenColor.withOpacity(
+                                  0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: ColorConstants.greenColor,
+                                ),
+                              ),
+
+                              child: Center(
+                                child: Text(
+                                  "Assigned Technician : ${jobController.assignedTechnicianName?.split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ')}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstants.greenColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          if (userDepartment == 3) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: ColorConstants.orangecolor.withOpacity(
+                                  0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: ColorConstants.orangecolor,
+                                ),
+                              ),
+
+                              child: Center(
+                                child: const Text(
+                                  "Job Controller Already Revert",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstants.orangecolor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+
                           SizedBox(height: 12),
-                          _shareOptions(context),
-                          _customerDetilas(
-                            customer,
-                            jobController,
-                            vehicle,
-                            jobcard,
-                          ),
+                          if (userDepartment != 2 &&
+                              userDepartment != 4 &&
+                              userDepartment != 5) ...[
+                            _shareOptions(context),
+                            _customerDetilas(
+                              customer,
+                              jobController,
+                              vehicle,
+                              jobcard,
+                            ),
+                            SizedBox(height: 5),
+                            _basicInspectionReport(context),
+                          ],
                           SizedBox(height: 5),
-                          _basicInspectionReport(context),
-                          SizedBox(height: 5),
-                          if (jobStatus == 5)
+                          if (jobStatus == 5 &&
+                              !((userDepartment == 2 ||
+                                      userDepartment == 5 ||
+                                      userDepartment == 3) &&
+                                  jobController.isTechnicianAssigned))
                             Builder(
                               builder: (context) {
                                 final item = jobController.jobcardList
@@ -266,6 +340,8 @@ class _JobCardDetailsState extends State<JobCardDetails> {
 
         final rawJobId = item['jobId'];
         final rawInspections = item['inspections'];
+        final inspectionTypeid = controller.vimInspectionTypeId;
+        // final vimMasterId = controller.vimIfMasterId;
 
         // log("✅✅rawJobId ===: $rawJobId");
         // log("✅✅✅rawInspections =: $rawInspections");
@@ -288,17 +364,26 @@ class _JobCardDetailsState extends State<JobCardDetails> {
             break;
           }
         }
+        // log("======================================><");
+        // log("InspectionTypeId");
+        // log(inspectionTypeid.toString());
+        // log("vimMasterId");
+        // log(vimMasterId.toString());
 
-        if (inspectionMasterId > 0) {
-          context.push(
-            "/inspectiontypedetailspage",
-            extra: {"inspectionFormId": inspectionMasterId, "jobId": jobId},
-          );
-        } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text("Inspection not available")));
-        }
+        // if (inspectionMasterId > 0) {
+        context.go(
+          "/inspectiontypedetailspage",
+          extra: {
+            "inspectionFormId": inspectionMasterId,
+            "jobId": jobId,
+            "inspectionTypeId": inspectionTypeid,
+          },
+        );
+        // } else {
+        //   ScaffoldMessenger.of(
+        //     context,
+        //   ).showSnackBar(SnackBar(content: Text("Inspection not available")));
+        // }
       },
       child: Container(
         width: double.infinity,
@@ -325,7 +410,8 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                 Expanded(
                   child: Center(
                     child: Text(
-                      "${controller.inspectionFormName} - In Progress",
+                      "${controller.vimInspectionTypeId == 2 ? 'Custom Inspection' : controller.inspectionFormName} - In Progress",
+
                       textAlign: TextAlign.center,
                       style: ApptextstyleConstants.thinText(
                         fontSize: 16,
@@ -385,7 +471,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          controller.inspectionFormName,
+                          controller.vimInspectionTypeId == 2
+                              ? "Custom Inspection"
+                              : controller.inspectionFormName,
                           textAlign: TextAlign.center,
                           style: ApptextstyleConstants.thinText(
                             fontSize: 16,

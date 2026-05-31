@@ -1,7 +1,5 @@
 import 'dart:convert';
-import 'dart:developer';
 // import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -30,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isJobcardLoading = true;
   int _currentPage = 0;
   int userDepartment = 0;
-
+  int? inspectionTypeId;
   Future<Map<String, dynamic>> getSavedUser() async {
     final prefs = await SharedPreferences.getInstance();
     return {"name": prefs.getString("userName") ?? ""};
@@ -53,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
     loadUserDepartment();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.wait([
-        getInspectionListByUserId(),
+        // getInspectionListByUserId(),
         getJobCardListByUserId(),
       ]);
     });
@@ -103,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       // log("✅✅✅✅✅✅✅✅");
       // log("Response Status Code : ${response.statusCode}");
-      log("Response Body : ${response.body}");
+      // log("Response Body : ${response.body}");
       // log("😀 Success");
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
@@ -122,6 +120,15 @@ class _HomeScreenState extends State<HomeScreen> {
     bool includeInspections = false,
   }) {
     final vehicle = item["vehicle"] ?? {};
+    final inspections = item["inspections"];
+
+    if (inspections is List && inspections.isNotEmpty) {
+      final firstInspection = inspections.first;
+
+      if (firstInspection is Map && firstInspection["master"] != null) {
+        inspectionTypeId = firstInspection["master"]["vimInspectionType"];
+      }
+    }
     return {
       "jobId": item["jobId"]?.toString() ?? "",
       "jobNo": item["jobNo"]?.toString() ?? "",
@@ -184,8 +191,6 @@ class _HomeScreenState extends State<HomeScreen> {
             return _mapVehicleData(item, includeInspections: true);
           })
           .toList();
-
-      // log("✅ FILTERED JOB LIST : ${filteredList.length}");
       if (!mounted) return;
       setState(() {
         jobcardList = filteredList;
@@ -551,7 +556,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // ),
 
           //  userDepartment == 2 use
-          if (userDepartment == 2) ...[
+          if (userDepartment == 2 || userDepartment == 5) ...[
             DefaultTabController(
               length: 2,
               child: Column(
@@ -641,13 +646,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
 
                   SizedBox(
-                    height: 500,
+                    height: MediaQuery.sizeOf(context).height * 0.75,
                     child: TabBarView(
                       children: [
                         /// ================= Pending =================
                         Builder(
                           builder: (context) {
-                            final pendingList = latestFiveList.where((item) {
+                            final pendingList = reversedList.where((item) {
                               final status =
                                   int.tryParse(item["jobStatus"].toString()) ??
                                   0;
@@ -678,15 +683,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             }
 
-                            return ListView.separated(
-                              itemCount: pendingList.length,
-                              separatorBuilder: (_, __) => SizedBox(height: 0),
-                              itemBuilder: (context, index) {
-                                return jobCardItemlist(
-                                  context,
-                                  pendingList[index],
-                                );
-                              },
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: pendingList.length,
+                                separatorBuilder: (_, __) =>
+                                    SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    pendingList[index],
+                                  );
+                                },
+                              ),
                             );
                           },
                         ),
@@ -694,7 +703,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         /// ================= Assigned =================
                         Builder(
                           builder: (context) {
-                            final assignedList = latestFiveList.where((item) {
+                            final assignedList = reversedList.where((item) {
                               final status =
                                   int.tryParse(item["jobStatus"].toString()) ??
                                   0;
@@ -716,7 +725,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .contains(searchText) ==
                                       true;
 
-                              return status == 4 && searchMatch;
+                              return (status == 5 || status == 4) &&
+                                  searchMatch;
                             }).toList();
 
                             if (assignedList.isEmpty) {
@@ -725,16 +735,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             }
 
-                            return ListView.separated(
-                              itemCount: assignedList.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 8),
-                              itemBuilder: (context, index) {
-                                return jobCardItemlist(
-                                  context,
-                                  assignedList[index],
-                                );
-                              },
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: assignedList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    assignedList[index],
+                                  );
+                                },
+                              ),
                             );
                           },
                         ),
@@ -840,12 +853,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   /// ================= TAB VIEW =================
                   SizedBox(
-                    height: 550,
+                    height: MediaQuery.sizeOf(context).height * 0.75,
+
                     child: TabBarView(
                       children: [
                         Builder(
                           builder: (context) {
-                            final pendingList = latestFiveList.where((item) {
+                            final pendingList = reversedList.where((item) {
                               final status =
                                   int.tryParse(item["jobStatus"].toString()) ??
                                   0;
@@ -867,9 +881,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .contains(searchText) ==
                                       true;
 
-                              return item["jobTechnicianId"] != null &&
-                                  status == 4 &&
-                                  searchMatch;
+                              return (status == 5) && searchMatch;
                             }).toList();
 
                             if (pendingList.isEmpty) {
@@ -877,25 +889,28 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Text("No Pending Jobs"),
                               );
                             }
-
-                            return ListView.separated(
-                              itemCount: pendingList.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 8),
-                              itemBuilder: (context, index) {
-                                return jobCardItemlist(
-                                  context,
-                                  pendingList[index],
-                                );
-                              },
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: pendingList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemTechinician(
+                                    context,
+                                    pendingList[index],
+                                  );
+                                },
+                              ),
                             );
                           },
                         ),
 
-                        /// ================= On Process =================
+                        /// ================= On Going =================
                         Builder(
                           builder: (context) {
-                            final ongoingList = latestFiveList.where((item) {
+                            final ongoingList = reversedList.where((item) {
                               final status =
                                   int.tryParse(item["jobStatus"].toString()) ??
                                   0;
@@ -917,7 +932,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .contains(searchText) ==
                                       true;
 
-                              return (status == 4) && searchMatch;
+                              return (status == 5) && searchMatch;
                             }).toList();
 
                             if (ongoingList.isEmpty) {
@@ -926,16 +941,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             }
 
-                            return ListView.separated(
-                              itemCount: ongoingList.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 8),
-                              itemBuilder: (context, index) {
-                                return jobCardItemlist(
-                                  context,
-                                  ongoingList[index],
-                                );
-                              },
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: ongoingList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    ongoingList[index],
+                                  );
+                                },
+                              ),
                             );
                           },
                         ),
@@ -948,7 +966,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
 
           // normal cases
-          if (userDepartment != 2 && userDepartment != 4) ...[
+          if (userDepartment != 2 &&
+              userDepartment != 4 &&
+              userDepartment != 5) ...[
             if (latestFiveList.isNotEmpty) ...[
               SizedBox(
                 height: 240,
@@ -1419,6 +1439,151 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: ApptextstyleConstants.lightText(
                           fontSize: 12,
 
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // techincian assign screen on pending
+
+  Widget jobCardItemTechinician(
+    BuildContext context,
+    Map<String, dynamic> item,
+  ) {
+    final controller = Provider.of<HomescreenController>(
+      context,
+      listen: false,
+    );
+
+    final String jobStatusStr = item['jobStatus']?.toString().trim() ?? "";
+
+    final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
+
+    final technicianId = item["jobTechnicianId"];
+
+    final String statusText = controller.getJobStatusText(jobStatusStr);
+
+    return GestureDetector(
+      onTap: () {
+        final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
+        final List inspections = item["inspections"] ?? [];
+        int inspectionTypeId = 2;
+        int inspectionMasterId = 0;
+        if (inspections.isNotEmpty) {
+          final master = inspections.first["master"];
+          inspectionTypeId =
+              int.tryParse(master?["vimInspectionType"]?.toString() ?? "2") ??
+              2;
+          inspectionMasterId =
+              int.tryParse(master?["vimIfMasterId"]?.toString() ?? "0") ?? 0;
+        }
+        context.go(
+          "/inspectiontypedetailspage",
+          extra: {
+            "inspectionFormId": inspectionMasterId,
+            "jobId": jobId,
+            "inspectionTypeId": inspectionTypeId,
+          },
+        );
+      },
+
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: ColorConstants.whiteColor,
+            boxShadow: ColorConstants.dashboardboxShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                /// IMAGE
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: ColorConstants.containergreycolor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Image.asset(
+                    "assets/image/benz.png",
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                /// DETAILS
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      /// TOP ROW
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item['jobNo'] ?? "",
+                              style: ApptextstyleConstants.regularText(
+                                fontSize: 16,
+                                color: ColorConstants.blackColor,
+                              ),
+                            ),
+                          ),
+
+                          /// STATUS
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: controller.getJobStatusColor(
+                                jobStatus.toString(),
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              statusText,
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (technicianId != null) const SizedBox(height: 8),
+
+                      /// PLATE
+                      Text(
+                        "Plate No : ${item['plateNo'] ?? ''}",
+                        style: ApptextstyleConstants.lightText(
+                          fontSize: 13,
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+
+                      /// VIN
+                      Text(
+                        "Vin No: ${item['vinNo'] ?? ''}",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ApptextstyleConstants.lightText(
+                          fontSize: 12,
                           color: ColorConstants.blackColor,
                         ),
                       ),

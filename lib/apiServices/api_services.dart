@@ -19,7 +19,6 @@ class ApiServices {
   static String inspectionSingleSave =
       "${baseUrl}vehicleinspection/saveSingleTask";
   static String inspectionSave = "${baseUrl}vehicleinspection/save";
-  // static String statusChange = "${baseUrl}jobcard/updateJobCardStatus";
   static String basicInspection =
       "${baseUrl}vehicleinspection/uploadInspectionMedia";
   static String submitVehicleEssential =
@@ -38,8 +37,9 @@ class ApiServices {
   static String generateInspectionPdf =
       "${baseUrl}print/generate-inspectionreport-pdf";
   static String allTechnicianList = "${baseUrl}user/technicianList";
-  static String assignTechnician = "${baseUrl}jobcard/assignTechnician";
+  static String assignTechnician = "${baseUrl}jobcard/assignTechnicianAndUpdateStatus";
   static String startInspection = "${baseUrl}jobcard/startInspection";
+  static String statusChange = "${baseUrl}jobcard/updateJobCardStatus";
 
 
   // <-----"GET Method"------>
@@ -54,4 +54,6 @@ class ApiServices {
       "${baseUrl}settings/vehicleEssentialList";
   static String taskCategoryList = "${baseUrl}settings/taskCategoryList";
   static String basicimageSettingList = "${baseUrl}settings/imageSettingsList";
+
+  static String componentList = "${baseUrl}settings/componentList";
 }

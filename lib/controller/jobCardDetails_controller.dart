@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 // import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
@@ -16,6 +17,9 @@ class JobcarddetailsController extends ChangeNotifier {
   bool hasLoaded = false;
 
   Map<String, dynamic>? jobCardData;
+  Map<String, dynamic>? technicianData;
+  Map<String, dynamic>? supervisorData;
+  int? userDepartment;
 
   String fuelTypeName = "";
   String transmissionTypeName = "";
@@ -26,6 +30,10 @@ class JobcarddetailsController extends ChangeNotifier {
   List transmissionList = [];
   List customerTypeList = [];
   List serviceTypeList = [];
+  bool isTechnicianAssigned = false;
+  int? assignedTechnicianId;
+  int? jobSuperVisorId;
+  String? assignedTechnicianName;
 
   Future<ApiResponse> postJobCardDetails(int jobId) async {
     if (hasLoaded && jobCardData != null) {
@@ -52,10 +60,44 @@ class JobcarddetailsController extends ChangeNotifier {
         },
         body: jsonEncode(body),
       );
+
+      log("Status Code : ${response.statusCode}");
+      log("Response ===================================> : ${response.body}");
+
       final decoded = jsonDecode(response.body);
       if (response.statusCode == 200) {
         jobCardData = decoded['data'];
         isLoading = false;
+        final jobcard = jobCardData!["jobcard"];
+        technicianData = jobcard["jobTechnicianId"];
+        supervisorData = jobcard["jobSuperVisorId"];
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        userDepartment =
+            int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
+        // print("User Department");
+        // print(userDepartment);
+        // print(supervisorData);
+        if (technicianData != null) {
+          isTechnicianAssigned = true;
+        } else {
+          isTechnicianAssigned = false;
+        }
+        // TECHNICIAN ASSIGNED CHECK
+        // print("******************90000000000");
+        // log(isTechnicianAssigned.toString());
+        // print("********************************90000000000");
+
+        // TECHNICIAN DETAILS
+        if (technicianData != null) {
+          assignedTechnicianId = technicianData!["userId"];
+
+          assignedTechnicianName = technicianData!["userName"] ?? "";
+        }
+
+        // SUPERVISOR DETAILS
+        if (supervisorData != null) {
+          jobSuperVisorId = supervisorData!["userId"];
+        }
         notifyListeners();
         return ApiResponse(
           success: true,
@@ -266,6 +308,7 @@ class JobcarddetailsController extends ChangeNotifier {
                 "jobStatus": item["jobStatus"]?.toString() ?? "",
                 "vehicleTypeId": vehicle["vTypeId"] ?? -1,
                 "jobCreatedOn": item["jobCreatedOn"] ?? "",
+                "jobTechnicianId": item["jobTechnicianId"],
                 "inspections": item["inspections"] ?? [],
               };
             })

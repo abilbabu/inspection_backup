@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -8,12 +9,47 @@ import 'package:inspection/model/inspectionTaskModel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class InspectionTypeDetailsController extends ChangeNotifier {
-  
   String inspectionFormName = "";
   List<Map<String, dynamic>> taskMapping = [];
   List<Map<String, dynamic>> taskCategoryList = [];
   Map<int, List<Map<dynamic, dynamic>>> groupedTasks = {};
   bool isLoading = false;
+  List<dynamic> allTaskComponents = [];
+
+  List<dynamic> filteredTaskComponents = [];
+  List<dynamic> suggestionTaskComponents = [];
+
+  // void initializeTaskComponents() {
+  //   filteredTaskComponents = List.from(allTaskComponents);
+  //   notifyListeners();
+  // }
+
+  void searchTaskComponents(String query) {
+    if (query.trim().isEmpty) {
+      filteredTaskComponents = List.from(allTaskComponents);
+      suggestionTaskComponents = [];
+    } else {
+      suggestionTaskComponents = allTaskComponents.where((item) {
+        final name = (item["itcName"] ?? "").toString().toLowerCase();
+        return name.contains(query.toLowerCase());
+      }).toList();
+
+      filteredTaskComponents = List.from(suggestionTaskComponents);
+    }
+
+    notifyListeners();
+  }
+
+  void selectSuggestion(String name) {
+    filteredTaskComponents = allTaskComponents.where((item) {
+      return (item["itcName"] ?? "").toString().toLowerCase().contains(
+        name.toLowerCase(),
+      );
+    }).toList();
+
+    suggestionTaskComponents = [];
+    notifyListeners();
+  }
 
   Future<ApiResponse> getInspectionDetailsById(int jobId) async {
     notifyListeners();
@@ -52,6 +88,127 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       return ApiResponse(success: false, status: "Unexpected Error");
     } finally {
       notifyListeners();
+    }
+  }
+
+  void applySavedCustomInspection(
+    Map<String, dynamic> data,
+    InspectionFormController formController,
+  ) {
+    final inspections = data["inspections"] ?? [];
+
+    for (final inspection in inspections) {
+      final completedTasks = inspection["completedTasks"] ?? [];
+
+      for (final savedTask in completedTasks) {
+        final int taskId = savedTask["viTaskId"];
+
+        final component = allTaskComponents.firstWhere(
+          (e) => e["itcId"] == taskId,
+          orElse: () => null,
+        );
+
+        if (component != null) {
+          formController.updateTask(
+            InspectionTaskData(
+              jobId: data["jobId"],
+              taskId: taskId,
+              formId: inspection["inspectionFormId"],
+              condition: savedTask["viGood"] == true
+                  ? "Good"
+                  : savedTask["viRepair"] == true
+                  ? "Repair"
+                  : savedTask["viReplace"] == true
+                  ? "Replace"
+                  : savedTask["viPoor"] == true
+                  ? "Poor"
+                  : savedTask["viNotApplicable"] == true
+                  ? "N/A"
+                  : null,
+              note: savedTask["viNote"] ?? "",
+              description: savedTask["viDescription"] ?? "",
+              inserted: true,
+              isSaved: true,
+            ),
+          );
+
+          formController.markTaskSaved(taskId);
+        }
+      }
+    }
+
+    notifyListeners();
+  }
+
+  Future<ApiResponse> getComponentList() async {
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userToken = prefs.getString('userToken');
+      if (userToken == null || userToken.isEmpty) {
+        return ApiResponse(success: false, status: "Unauthorized");
+      }
+      final response = await http.get(
+        Uri.parse(ApiServices.componentList),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+      );
+      final result = jsonDecode(response.body);
+      final data = result["data"];
+      allTaskComponents = List.from(data);
+      filteredTaskComponents = List.from(data);
+      print(allTaskComponents);
+      if (data == null) {
+        return ApiResponse(
+          success: false,
+          statusCode: result["statusCode"],
+          status: "No data",
+          timeStamp: result["timeStamp"],
+        );
+      }
+      return ApiResponse(
+        success: result["statusCode"] == 200,
+        statusCode: result["statusCode"],
+        timeStamp: result["timeStamp"],
+        status: result["status"],
+        data: data,
+      );
+    } catch (e) {
+      return ApiResponse(success: false, status: "Unexpected Error");
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<bool> changeStatus({required int jobId}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("userToken");
+
+      final response = await http.post(
+        Uri.parse(ApiServices.statusChange),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          "jobId": jobId,
+          "status": 6,
+          "vimIfMasterId": "",
+          "assigneeId": "",
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      log("Status Change Error: $e");
+      return false;
     }
   }
 
@@ -148,6 +305,12 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       final responseBody = jsonDecode(response.body);
       final data = responseBody["data"];
       inspectionFormName = data?["inspectionFormName"] ?? "";
+      // allTaskComponents = (data['componentMappings'] as List)
+      //     .map((e) => e['taskComponent'])
+      //     .where((e) => e != null)
+      //     .toList();
+
+      // filteredTaskComponents = List.from(allTaskComponents);
       final taskMappings = List<Map<String, dynamic>>.from(
         data?["componentMappings"] ?? [],
       );

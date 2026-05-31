@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
@@ -43,7 +41,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
     setState(() {
       userDepartment = int.tryParse(value.toString());
     });
-    log("Department : $userDepartment");
+    // log("Department : $userDepartment");
   }
 
   void _onSearchChanged(String value) {
@@ -149,14 +147,11 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                       const SizedBox(height: 10),
 
                       CustomButtonTwo(
-                        text: "General Inspection",
-
+                        text: " + CUSTOM INSPECTION",
                         onPressed: () async {
-                          // USER DEPARTMENT 2 & 5
                           if (userDepartment == 2 || userDepartment == 5) {
                             await showTechnicianBottomSheet();
                           } else {
-                            // OLD FLOW
                             context.push(
                               "/inspectiontypedetailspage",
                               extra: {"jobId": widget.jobId},
@@ -343,15 +338,23 @@ class _InspectionDetailsState extends State<InspectionDetails> {
 
                                   textSize: 16,
 
-                                  onPressed: () {
-                                    context.push(
-                                      "/inspectiontypedetailspage",
-                                      extra: {
-                                        "inspectionFormId":
+                                  onPressed: () async {
+                                    if (userDepartment == 2 ||
+                                        userDepartment == 5) {
+                                      await showTechnicianBottomSheet(
+                                        inspectionFormId:
                                             item["inspectionFormId"],
-                                        "jobId": widget.jobId,
-                                      },
-                                    );
+                                      );
+                                    } else {
+                                      context.push(
+                                        "/inspectiontypedetailspage",
+                                        extra: {
+                                          "inspectionFormId":
+                                              item["inspectionFormId"],
+                                          "jobId": widget.jobId,
+                                        },
+                                      );
+                                    }
                                   },
                                 ),
                               );
@@ -372,7 +375,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
     );
   }
 
-  Future<void> showTechnicianBottomSheet() async {
+  Future<void> showTechnicianBottomSheet({int? inspectionFormId}) async {
     final controller = context.read<InspectionDetailsController>();
 
     await controller.getTechnicianList();
@@ -385,15 +388,11 @@ class _InspectionDetailsState extends State<InspectionDetails> {
 
     showModalBottomSheet(
       context: context,
-
       isScrollControlled: true,
-
       backgroundColor: Colors.white,
-
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -402,82 +401,63 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                 left: 16,
                 right: 16,
                 top: 20,
-
                 bottom: MediaQuery.of(context).viewInsets.bottom + 20,
               ),
-
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-
                 children: [
                   Container(
                     width: 50,
                     height: 5,
-
                     decoration: BoxDecoration(
                       color: Colors.grey.shade400,
-
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
                   const Text(
                     "Technician List",
-
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-
                   const SizedBox(height: 15),
-
-                  TextField(
-                    controller: searchController,
-
-                    decoration: InputDecoration(
-                      hintText: "Search Technician",
-
-                      prefixIcon: const Icon(Icons.search),
-
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search Technician",
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          filteredList = controller.technicianList
+                              .where(
+                                (e) => e["userName"]
+                                    .toString()
+                                    .toLowerCase()
+                                    .contains(value.toLowerCase()),
+                              )
+                              .toList();
+                        });
+                      },
                     ),
-
-                    onChanged: (value) {
-                      setModalState(() {
-                        filteredList = controller.technicianList
-                            .where(
-                              (e) => e["userName"]
-                                  .toString()
-                                  .toLowerCase()
-                                  .contains(value.toLowerCase()),
-                            )
-                            .toList();
-                      });
-                    },
                   ),
-
                   const SizedBox(height: 15),
-
                   SizedBox(
                     height: 400,
-
                     child: ListView.builder(
                       itemCount: filteredList.length,
-
                       itemBuilder: (context, index) {
                         final technician = filteredList[index];
-
                         return Card(
                           elevation: 2,
-
                           margin: const EdgeInsets.only(bottom: 10),
-
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundColor: Colors.green.shade100,
@@ -487,20 +467,71 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                 color: Colors.green,
                               ),
                             ),
-
-                            title: Text(technician["userName"].toString()),
-
-                            subtitle: const Text("Technician"),
-
-                            trailing: const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 16,
+                            title: Text(
+                              technician["userName"]
+                                  .toString()
+                                  .split(' ')
+                                  .map(
+                                    (word) => word.isNotEmpty
+                                        ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+                                        : '',
+                                  )
+                                  .join(' '),
                             ),
+                            subtitle: const Text("Technician"),
+                            trailing: const Icon(
+                              Icons.add,
+                              size: 16,
+                              color: Colors.green,
+                            ),
+                            // onTap: () {
+                            //   debugPrint(technician["userName"].toString());
 
-                            onTap: () {
-                              debugPrint(technician["userName"].toString());
-
+                            //   Navigator.pop(context);
+                            // },
+                            onTap: () async {
                               Navigator.pop(context);
+
+                              final controller = context
+                                  .read<InspectionDetailsController>();
+
+                              final success = await controller.assignTechnician(
+                                jobId: widget.jobId ?? 0,
+
+                                assigneeId:
+                                    int.tryParse(
+                                      technician["userId"].toString(),
+                                    ) ??
+                                    0,
+
+                                supervisorId: controller.loginTechnicianId ?? 0,
+
+                                technicianName: technician["userName"]
+                                    .toString(),
+
+                                formMasterId: inspectionFormId,
+                              );
+
+                              if (success) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: ColorConstants.greenColor,
+                                    content: Text(
+                                      "Technician Assigned Successfully",
+                                    ),
+                                  ),
+                                );
+                                context.go("/home");
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    backgroundColor: ColorConstants.errorcolor,
+                                    content: Text(
+                                      "Technician Assignment Failed",
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                           ),
                         );
