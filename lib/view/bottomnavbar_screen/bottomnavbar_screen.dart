@@ -14,43 +14,72 @@ class BottomnavbarScreen extends StatefulWidget {
 }
 
 class _BottomnavbarScreenState extends State<BottomnavbarScreen> {
-  final List<String> routes = ['/home', '/quotation', '/history', '/settings'];
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthenticationController>(
-      builder: (context, controller, _) => Scaffold(
-        extendBody: true,
-        body: widget.child,
-        bottomNavigationBar: Container(
-          decoration: const BoxDecoration(color: Colors.transparent),
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            type: BottomNavigationBarType.fixed,
-            currentIndex: controller.currentIndex,
-            selectedItemColor: null,
-            unselectedItemColor: ColorConstants.greyColor,
-            enableFeedback: false,
-            showSelectedLabels: false,
-            showUnselectedLabels: false,
-            onTap: (index) {
-              controller.setIndex(index);
-              context.go(routes[index]);
-            },
-            items: [
-              _buildNavItem(Icons.home_filled, 0, controller.currentIndex),
-              _buildNavItem(
-                Icons.request_quote_rounded,
-                1,
-                controller.currentIndex,
-              ),
-              _buildNavItem(Icons.history, 2, controller.currentIndex),
-              _buildNavItem(Icons.settings, 3, controller.currentIndex),
-            ],
+      builder: (context, controller, _) {
+        if (!controller.isDepartmentLoaded) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final int userDepartment = controller.userDepartment;
+
+        final bool isJobCardDepartment =
+            userDepartment == 2 || userDepartment == 4;
+
+        final List<String> routes = isJobCardDepartment
+            ? ['/home', '/history', '/settings']
+            : ['/home', '/quotation', '/history', '/settings'];
+
+        /// NAV ITEMS
+        final List<BottomNavigationBarItem> navItems = isJobCardDepartment
+            ? [
+                _buildNavItem(Icons.home_filled, 0, controller.currentIndex),
+
+                _buildNavItem(Icons.history, 1, controller.currentIndex),
+
+                _buildNavItem(Icons.settings, 2, controller.currentIndex),
+              ]
+            : [
+                _buildNavItem(Icons.home_filled, 0, controller.currentIndex),
+
+                _buildNavItem(
+                  Icons.request_quote_rounded,
+                  1,
+                  controller.currentIndex,
+                ),
+
+                _buildNavItem(Icons.history, 2, controller.currentIndex),
+
+                _buildNavItem(Icons.settings, 3, controller.currentIndex),
+              ];
+
+        return Scaffold(
+          extendBody: true,
+          body: widget.child,
+          bottomNavigationBar: Container(
+            decoration: const BoxDecoration(color: Colors.transparent),
+            child: BottomNavigationBar(
+              backgroundColor: ColorConstants.whiteColor.withOpacity(0.9),
+              elevation: 0,
+              type: BottomNavigationBarType.fixed,
+              currentIndex: controller.currentIndex,
+              selectedItemColor: null,
+              unselectedItemColor: ColorConstants.greyColor,
+              enableFeedback: false,
+              showSelectedLabels: false,
+              showUnselectedLabels: false,
+              onTap: (index) {
+                controller.setIndex(index);
+                context.go(routes[index]);
+              },
+              items: navItems,
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

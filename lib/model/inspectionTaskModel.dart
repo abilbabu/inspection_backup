@@ -1,7 +1,7 @@
 import 'dart:io';
 
 class InspectionTaskData {
-  final int categoryId;
+  final int? categoryId;
   final int jobId;
   final int taskId;
   final int formId;
@@ -21,7 +21,7 @@ class InspectionTaskData {
   final List<String>? imageUrls;
 
   InspectionTaskData({
-    required this.categoryId,
+   this.categoryId,
     required this.jobId,
     required this.taskId,
     required this.formId,
@@ -38,3 +38,5 @@ class InspectionTaskData {
      this.videoFile,
   });
 }
+
+

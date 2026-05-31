@@ -300,8 +300,6 @@ class _AlljobcardviewState extends State<Alljobcardview> {
 
     final technicianId = item["jobTechnicianId"];
 
-    final String vehicleName = "${item['make'] ?? ''} ${item['model'] ?? ''}";
-
     final String statusText = controller.getJobStatusText(jobStatusStr);
 
     return GestureDetector(
@@ -399,36 +397,7 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                         ],
                       ),
 
-                      const SizedBox(height: 8),
-
-                      /// ASSIGN BADGE
-                      if (technicianId != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-
-                          decoration: BoxDecoration(
-                            color: ColorConstants.greenColor.withOpacity(0.12),
-
-                            borderRadius: BorderRadius.circular(20),
-
-                            border: Border.all(
-                              color: ColorConstants.greenColor,
-                            ),
-                          ),
-
-                          child: Text(
-                            "Assign",
-
-                            style: ApptextstyleConstants.lightText(
-                              color: ColorConstants.greenColor,
-
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
+                      const SizedBox(height: 8),                     
 
                       if (technicianId != null) const SizedBox(height: 8),
 
@@ -459,19 +428,7 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                           color: ColorConstants.blackColor,
                         ),
                       ),
-
                       const SizedBox(height: 4),
-
-                      /// VEHICLE
-                      Text(
-                        vehicleName,
-
-                        style: ApptextstyleConstants.thinText(
-                          fontSize: 12,
-
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
                     ],
                   ),
                 ),

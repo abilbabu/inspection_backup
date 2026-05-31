@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 // import 'dart:developer';
+// import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
@@ -32,26 +33,13 @@ class JobCardDetails extends StatefulWidget {
 }
 
 class _JobCardDetailsState extends State<JobCardDetails> {
-  String? userDepartment;
-
-  Future<void> getUserDepartment() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    setState(() {
-      userDepartment = prefs.getString('userDepartment');
-    });
-
-    debugPrint("userDepartment : $userDepartment");
-  }
-
   @override
   void initState() {
     super.initState();
-    getUserDepartment();
-
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      context.read<JobcarddetailsController>().getTechnicianList();
-
+      context.read<InspectionsummarypageController>().getInspectionSummary(
+        widget.jobId,
+      );
       Future.microtask(() {
         context.read<JobcarddetailsController>().getInspectionListByUserId();
       });
@@ -59,16 +47,12 @@ class _JobCardDetailsState extends State<JobCardDetails> {
       final custCtrl = context.read<CustomerDetailsController>();
       final vehicleCtrl = context.read<VehicleDetailsController>();
       jobCtrl.reset();
-
       await jobCtrl.postJobCardDetails(widget.jobId);
       await custCtrl.getFuelTypeList();
       await custCtrl.getTransmissionList();
       await vehicleCtrl.getCustomerTypeList();
       await custCtrl.getServiceTypeList();
       jobCtrl.mapFuelAndTransmissionNames(custCtrl);
-      context.read<InspectionsummarypageController>().getInspectionSummary(
-        widget.jobId,
-      );
     });
   }
 
@@ -133,12 +117,23 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                     );
                   }
                   final data = jobController.jobCardData!;
+                  // final technicianData = jobController.technicianData!;
+                  // final supervisorData = jobController.supervisorData!;
+                  final userDepartment = jobController.userDepartment!;
                   final jobcard = data["jobcard"];
                   final customer = jobcard?["customer"];
                   final vehicle = jobcard?["vehicle"];
                   final int jobStatus =
                       int.tryParse(jobcard?["jobStatus"]?.toString() ?? "") ??
                       -1;
+
+                  // final  technicianDepartment =  technicianData?["userDepartment"];
+                  // final  supervisorDepartment =  supervisorData?["userDepartment"];
+
+                  //     print("technician Department id=====>>>>");
+                  //      print(technicianDepartment);
+                  //      print("supervisor Department id=====>>>>");
+                  //      print(supervisorDepartment);
                   return Stack(
                     children: [
                       Column(
@@ -147,172 +142,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           SizedBox(height: 20),
                           VehicleSummaryWidget(jobId: widget.jobId),
                           SizedBox(height: 15),
-
-                          if (userDepartment == "2") ...[
-                            Consumer<JobcarddetailsController>(
-                              builder: (context, jobController, child) {
-                                if (jobController.jobTechnicianId != null) {
-                                  return Container(
-                                    width: double.infinity,
-                                    padding: EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: Colors.green),
-                                    ),
-
-                                    child: Text(
-                                      "Assigned Technician : ${jobController.assignedTechnicianName.isNotEmpty ? jobController.assignedTechnicianName : 'Technician Assigned'}",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
-                                      ),
-                                    ),
-                                  );
-                                }
-
-                                return Container(
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    boxShadow:
-                                        ColorConstants.dashboardboxShadow,
-                                    color: ColorConstants.whiteColor,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: DropdownButtonFormField<int>(
-                                            // value: jobController.selectedAssigneeId,
-                                            value:
-                                                jobController.technicianList.any(
-                                                  (e) =>
-                                                      e['userId'] ==
-                                                      jobController
-                                                          .selectedAssigneeId,
-                                                )
-                                                ? jobController
-                                                      .selectedAssigneeId
-                                                : null,
-                                            decoration: InputDecoration(
-                                              hintText: "Select Technician",
-
-                                              hintStyle: const TextStyle(
-                                                fontSize: 12,
-                                              ),
-
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 8,
-                                                  ),
-
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black,
-                                            ),
-
-                                            items: jobController.technicianList
-                                                .map((item) {
-                                                  return DropdownMenuItem<int>(
-                                                    value: item['userId'],
-                                                    child: Text(
-                                                      item['userName'],
-                                                    ),
-                                                  );
-                                                })
-                                                .toList(),
-
-                                            onChanged: (value) {
-                                              jobController.setSelectedAssignee(
-                                                value,
-                                              );
-                                            },
-                                          ),
-                                        ),
-
-                                        SizedBox(width: 5),
-
-                                        CustomButtonTwo(
-                                          text: "👨‍🔧 Assigned",
-                                          textSize: 10,
-                                          onPressed: () async {
-                                            final value = jobController
-                                                .selectedAssigneeId;
-
-                                            if (value == null) return;
-                                            final prefs =
-                                                await SharedPreferences.getInstance();
-
-                                            final supervisorId =
-                                                int.tryParse(
-                                                  prefs.getString('userId') ??
-                                                      '0',
-                                                ) ??
-                                                0;
-
-                                            final selectedTechnician =
-                                                jobController.technicianList
-                                                    .firstWhere(
-                                                      (e) =>
-                                                          e['userId'] == value,
-                                                      orElse: () => {},
-                                                    );
-
-                                            final success = await jobController
-                                                .assignTechnician(
-                                                  jobId: widget.jobId,
-                                                  assigneeId: value,
-                                                  supervisorId: supervisorId,
-                                                  technicianName:
-                                                      selectedTechnician['userName'],
-                                                );
-
-                                            if (!context.mounted) return;
-
-                                            if (success) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    "${selectedTechnician['userName']} Assigned Successfully",
-                                                  ),
-                                                  backgroundColor: Colors.green,
-                                                ),
-                                              );
-                                            } else {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    "Failed to Assign Technician",
-                                                  ),
-                                                  backgroundColor: Colors.red,
-                                                ),
-                                              );
-                                            }
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-
-                          SizedBox(height: 10),
-                          if (jobStatus < 5 && userDepartment != "2")
+                          if (jobStatus != 5 &&
+                              userDepartment != 3 &&
+                              jobStatus != 6)
                             Align(
                               alignment: Alignment.centerRight,
                               child: CustomButtonWidget(
@@ -322,20 +154,24 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                   try {
                                     SharedPreferences prefs =
                                         await SharedPreferences.getInstance();
-
                                     String? userToken = prefs.getString(
                                       'userToken',
                                     );
+                                    String? userId = prefs.getString('userId');
+
+                                    // log("USER ID === $userId");
+
+                                    int assignedBy =
+                                        int.tryParse(userId ?? "0") ?? 0;
 
                                     final url = Uri.parse(
-                                      ApiServices.statusChange,
+                                      ApiServices.startInspection,
                                     );
-
                                     final output = {
                                       "jobId": widget.jobId,
                                       "status": 4,
                                       "vimIfMasterId": "",
-                                      "assigneeId": "",
+                                      "assignedBy": assignedBy,
                                     };
 
                                     final response = await http.post(
@@ -347,19 +183,19 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       body: jsonEncode(output),
                                     );
 
+                                    // log("");
                                     Map<String, dynamic> decoded = jsonDecode(
                                       response.body,
                                     );
-
                                     decoded.forEach((key, value) {
-                                      print("$key : $value");
+                                      print("   $key : $value");
                                     });
-
                                     if (response.statusCode == 200) {
                                       context.push(
                                         "/inspectiondetails",
                                         extra: widget.jobId,
                                       );
+                                      return;
                                     }
                                   } catch (e) {
                                     print(e);
@@ -367,18 +203,79 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 },
                               ),
                             ),
+                          if (jobController.isTechnicianAssigned &&
+                              userDepartment != 3) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: ColorConstants.greenColor.withOpacity(
+                                  0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: ColorConstants.greenColor,
+                                ),
+                              ),
+
+                              child: Center(
+                                child: Text(
+                                  "Assigned Technician : ${jobController.assignedTechnicianName?.split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ')}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstants.greenColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          if (userDepartment == 3) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: ColorConstants.orangecolor.withOpacity(
+                                  0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: ColorConstants.orangecolor,
+                                ),
+                              ),
+
+                              child: Center(
+                                child: const Text(
+                                  "Job Controller Already Revert",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstants.orangecolor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+
                           SizedBox(height: 12),
-                          _shareOptions(context),
-                          _customerDetilas(
-                            customer,
-                            jobController,
-                            vehicle,
-                            jobcard,
-                          ),
+                          if (userDepartment != 2 &&
+                              userDepartment != 4 &&
+                              userDepartment != 5) ...[
+                            _shareOptions(context),
+                            _customerDetilas(
+                              customer,
+                              jobController,
+                              vehicle,
+                              jobcard,
+                            ),
+                            SizedBox(height: 5),
+                            _basicInspectionReport(context),
+                          ],
                           SizedBox(height: 5),
-                          _basicInspectionReport(context),
-                          SizedBox(height: 5),
-                          if (jobStatus == 5)
+                          if (jobStatus == 5 &&
+                              !((userDepartment == 2 ||
+                                      userDepartment == 5 ||
+                                      userDepartment == 3) &&
+                                  jobController.isTechnicianAssigned))
                             Builder(
                               builder: (context) {
                                 final item = jobController.jobcardList
@@ -443,6 +340,8 @@ class _JobCardDetailsState extends State<JobCardDetails> {
 
         final rawJobId = item['jobId'];
         final rawInspections = item['inspections'];
+        final inspectionTypeid = controller.vimInspectionTypeId;
+        // final vimMasterId = controller.vimIfMasterId;
 
         // log("✅✅rawJobId ===: $rawJobId");
         // log("✅✅✅rawInspections =: $rawInspections");
@@ -465,17 +364,26 @@ class _JobCardDetailsState extends State<JobCardDetails> {
             break;
           }
         }
+        // log("======================================><");
+        // log("InspectionTypeId");
+        // log(inspectionTypeid.toString());
+        // log("vimMasterId");
+        // log(vimMasterId.toString());
 
-        if (inspectionMasterId > 0) {
-          context.push(
-            "/inspectiontypedetailspage",
-            extra: {"inspectionFormId": inspectionMasterId, "jobId": jobId},
-          );
-        } else {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text("Inspection not available")));
-        }
+        // if (inspectionMasterId > 0) {
+        context.go(
+          "/inspectiontypedetailspage",
+          extra: {
+            "inspectionFormId": inspectionMasterId,
+            "jobId": jobId,
+            "inspectionTypeId": inspectionTypeid,
+          },
+        );
+        // } else {
+        //   ScaffoldMessenger.of(
+        //     context,
+        //   ).showSnackBar(SnackBar(content: Text("Inspection not available")));
+        // }
       },
       child: Container(
         width: double.infinity,
@@ -502,7 +410,8 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                 Expanded(
                   child: Center(
                     child: Text(
-                      "${controller.inspectionFormName} - In Progress",
+                      "${controller.vimInspectionTypeId == 2 ? 'Custom Inspection' : controller.inspectionFormName} - In Progress",
+
                       textAlign: TextAlign.center,
                       style: ApptextstyleConstants.thinText(
                         fontSize: 16,
@@ -562,7 +471,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          controller.inspectionFormName,
+                          controller.vimInspectionTypeId == 2
+                              ? "Custom Inspection"
+                              : controller.inspectionFormName,
                           textAlign: TextAlign.center,
                           style: ApptextstyleConstants.thinText(
                             fontSize: 16,

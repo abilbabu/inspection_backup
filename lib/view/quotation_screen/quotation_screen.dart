@@ -26,7 +26,9 @@ class _QuotationListPageState extends State<QuotationListPage> {
       child: WillPopScope(
         onWillPop: () async => false,
         child: Scaffold(
-          appBar: CustomAppBar(title: 'Quotation List', onBackPress: null),
+          appBar: CustomAppBar(title: 'Quotation List', onBackPress: () {
+            context.go('/quotation');
+          },),
           body: Column(
             children: [
               Expanded(

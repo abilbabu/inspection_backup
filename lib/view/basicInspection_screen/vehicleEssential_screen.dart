@@ -97,7 +97,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 20),
-                    VehicleSummaryWidget(jobId: widget.jobId),
+                    VehicleSummaryWidgetTwo(jobId: widget.jobId),
                     SizedBox(height: 15),
                     Card(
                       color: Colors.white,

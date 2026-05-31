@@ -9,8 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class InspectionsummarypageController extends ChangeNotifier {
   bool isLoading = false;
-
   Map<String, List<InspectionItem>> groupedItems = {};
+  int? vimInspectionTypeId;
+  int? vimIfMasterId;
 
   String inspectionFormName = "";
 
@@ -33,6 +34,11 @@ class InspectionsummarypageController extends ChangeNotifier {
 
       final result = jsonDecode(response.body);
       final inspections = result["data"]["inspections"] as List;
+      vimInspectionTypeId = inspections.last["master"]["vimInspectionType"];
+      vimIfMasterId = inspections.last["master"]["vimIfMasterId"];
+      print("**************************************************");
+      print(vimIfMasterId);
+      print("**************************************************");
       final attachments =
           result["data"]["jobCard"]["attachments"] as List? ?? [];
 

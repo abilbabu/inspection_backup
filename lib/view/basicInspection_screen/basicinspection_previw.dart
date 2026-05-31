@@ -56,7 +56,7 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: 20),
-                VehicleSummaryWidget(jobId: widget.jobId),
+                VehicleSummaryWidgetTwo(jobId: widget.jobId),
                 SizedBox(height: 12),
                 _registrationCardSection(controller),
                 SizedBox(height: 15),

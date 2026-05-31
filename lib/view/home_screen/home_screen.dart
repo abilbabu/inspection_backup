@@ -1,6 +1,5 @@
 import 'dart:convert';
-import 'dart:developer';
-
+// import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -22,14 +21,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final PageController _pageController = PageController();
-
+  TextEditingController searchController = TextEditingController();
+  String searchText = "";
   late List inspectionList = [];
   late List jobcardList = [];
-
   bool isJobcardLoading = true;
   int _currentPage = 0;
   int userDepartment = 0;
-
+  int? inspectionTypeId;
   Future<Map<String, dynamic>> getSavedUser() async {
     final prefs = await SharedPreferences.getInstance();
     return {"name": prefs.getString("userName") ?? ""};
@@ -52,9 +51,14 @@ class _HomeScreenState extends State<HomeScreen> {
     loadUserDepartment();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.wait([
-        getInspectionListByUserId(),
+        // getInspectionListByUserId(),
         getJobCardListByUserId(),
       ]);
+    });
+    searchController.addListener(() {
+      setState(() {
+        searchText = searchController.text.toLowerCase();
+      });
     });
   }
 
@@ -95,18 +99,18 @@ class _HomeScreenState extends State<HomeScreen> {
           "userDepartment": int.parse(userDepartment.toString()),
         }),
       );
-      log("✅✅✅✅✅✅✅✅");
+      // log("✅✅✅✅✅✅✅✅");
       // log("Response Status Code : ${response.statusCode}");
-      log("Response Body : ${response.body}");
+      // log("Response Body : ${response.body}");
       // log("😀 Success");
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
-        log("😀 Success");
+        // log("😀 Success");
         return res["data"] ?? [];
       }
       return [];
     } catch (e) {
-      log("❗ API Exception: $e");
+      print("❗ API Exception: $e");
       return [];
     }
   }
@@ -116,6 +120,15 @@ class _HomeScreenState extends State<HomeScreen> {
     bool includeInspections = false,
   }) {
     final vehicle = item["vehicle"] ?? {};
+    final inspections = item["inspections"];
+
+    if (inspections is List && inspections.isNotEmpty) {
+      final firstInspection = inspections.first;
+
+      if (firstInspection is Map && firstInspection["master"] != null) {
+        inspectionTypeId = firstInspection["master"]["vimInspectionType"];
+      }
+    }
     return {
       "jobId": item["jobId"]?.toString() ?? "",
       "jobNo": item["jobNo"]?.toString() ?? "",
@@ -136,13 +149,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> getInspectionListByUserId() async {
     final rawList = await _fetchInspectionData();
+    // log("📌📌📌Raw List: ${jsonEncode(rawList)}");
+
     final filteredList = rawList
         .where((item) {
           final status =
               int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
+          // log("👨‍🔧Job Status: $status");
           return status == 1 || status == 2;
         })
         .map((item) {
+          // log("👨‍🔧👨‍🔧👨‍🔧Filtered Item: ${jsonEncode(item)}");
           return _mapVehicleData(item);
         })
         .toList();
@@ -159,11 +176,11 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       final rawList = await _fetchInspectionData();
-      log("📦 RAW JOB LIST : ${rawList.length}");
+      // log("📦 RAW JOB LIST : ${rawList.length}");
 
-      for (var item in rawList) {
-        log("👉 STATUS : ${item["jobStatus"]}");
-      }
+      // for (var item in rawList) {
+      //   log("👉 STATUS : ${item["jobStatus"]}");
+      // }
       final filteredList = rawList
           .where((item) {
             final status =
@@ -174,8 +191,6 @@ class _HomeScreenState extends State<HomeScreen> {
             return _mapVehicleData(item, includeInspections: true);
           })
           .toList();
-
-      log("✅ FILTERED JOB LIST : ${filteredList.length}");
       if (!mounted) return;
       setState(() {
         jobcardList = filteredList;
@@ -483,37 +498,48 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget jobCardSection() {
     if (jobcardList.isEmpty) return const SizedBox();
     final reversedList = jobcardList.reversed.toList();
-    final latestFiveList = reversedList.take(5).toList();
+    final latestFiveList = reversedList
+        .where((item) {
+          final status =
+              int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
+
+          return status == 3 || status == 4 || status == 5;
+        })
+        .take(5)
+        .toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                "Job Cards",
-                style: ApptextstyleConstants.regularText(
-                  fontSize: 18,
-                  color: ColorConstants.blackColor,
-                ),
-              ),
-              Spacer(),
-              InkWell(
-                onTap: () {
-                  context.go("/alljobcardview", extra: jobcardList);
-                },
-                child: Text(
-                  "View All",
-                  style: ApptextstyleConstants.mediumText(
-                    fontSize: 16,
+          if (userDepartment != 2 && userDepartment != 4)
+            Row(
+              children: [
+                Text(
+                  "Job Cards",
+                  style: ApptextstyleConstants.regularText(
+                    fontSize: 18,
                     color: ColorConstants.blackColor,
                   ),
                 ),
-              ),
-            ],
-          ),
+                Spacer(),
+                InkWell(
+                  onTap: () {
+                    context.go("/alljobcardview", extra: jobcardList);
+                  },
+                  child: Text(
+                    "View All",
+                    style: ApptextstyleConstants.mediumText(
+                      fontSize: 16,
+                      color: ColorConstants.blackColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 8),
+
           // SizedBox(
           //   height: 240,
           //   child: ListView.separated(
@@ -528,193 +554,421 @@ class _HomeScreenState extends State<HomeScreen> {
           //     },
           //   ),
           // ),
-          if (userDepartment == 2) ...[
-            Builder(
-              builder: (context) {
-                final pendingList = latestFiveList
-                    .where((item) => item["jobTechnicianId"] == null)
-                    .toList();
 
-                final assignedList = latestFiveList
-                    .where((item) => item["jobTechnicianId"] != null)
-                    .toList();
+          //  userDepartment == 2 use
+          if (userDepartment == 2 || userDepartment == 5) ...[
+            DefaultTabController(
+              length: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 45,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      gradient: ColorConstants.tabgradientColor,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: TabBar(
+                      indicator: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    /// ================= Pending Assign =================
-                    if (pendingList.isNotEmpty) ...[
-                      Text(
-                        "Pending Assign",
-                        style: ApptextstyleConstants.regularText(
-                          fontSize: 16,
-                          color: ColorConstants.blackColor,
+                        /// NORMAL BORDER COLOR
+                        border: Border.all(
+                          color: const Color(0xFF0066A6),
+                          width: 1.5,
                         ),
                       ),
 
-                      const SizedBox(height: 8),
+                      labelColor: Colors.transparent,
+                      unselectedLabelColor: ColorConstants.activecolor,
 
-                      SizedBox(
-                        height: 240,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: pendingList.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 1),
-                          itemBuilder: (context, index) {
-                            return jobCardItem(context, pendingList[index]);
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerColor: Colors.transparent,
+
+                      tabs: [
+                        Tab(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) {
+                              return const LinearGradient(
+                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                              ).createShader(bounds);
+                            },
+                            child: const Text(
+                              "Pending",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        Tab(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) {
+                              return const LinearGradient(
+                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                              ).createShader(bounds);
+                            },
+                            child: const Text(
+                              "Assigned",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search Job Card No",
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.75,
+                    child: TabBarView(
+                      children: [
+                        /// ================= Pending =================
+                        Builder(
+                          builder: (context) {
+                            final pendingList = reversedList.where((item) {
+                              final status =
+                                  int.tryParse(item["jobStatus"].toString()) ??
+                                  0;
+
+                              final searchMatch =
+                                  item["jobNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["plateNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["vinNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true;
+
+                              return status == 3 && searchMatch;
+                            }).toList();
+
+                            if (pendingList.isEmpty) {
+                              return const Center(
+                                child: Text("No Pending Jobs"),
+                              );
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: pendingList.length,
+                                separatorBuilder: (_, __) =>
+                                    SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    pendingList[index],
+                                  );
+                                },
+                              ),
+                            );
                           },
                         ),
-                      ),
 
-                      const SizedBox(height: 20),
-                    ],
+                        /// ================= Assigned =================
+                        Builder(
+                          builder: (context) {
+                            final assignedList = reversedList.where((item) {
+                              final status =
+                                  int.tryParse(item["jobStatus"].toString()) ??
+                                  0;
 
-                    /// ================= Assigned =================
-                    if (assignedList.isNotEmpty) ...[
-                      Text(
-                        "Assigned",
-                        style: ApptextstyleConstants.regularText(
-                          fontSize: 16,
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
+                              final searchMatch =
+                                  item["jobNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["plateNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["vinNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true;
 
-                      const SizedBox(height: 8),
+                              return (status == 5 || status == 4) &&
+                                  searchMatch;
+                            }).toList();
 
-                      SizedBox(
-                        height: 240,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: assignedList.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 1),
-                          itemBuilder: (context, index) {
-                            return jobCardItem(context, assignedList[index]);
+                            if (assignedList.isEmpty) {
+                              return const Center(
+                                child: Text("No Assigned Jobs"),
+                              );
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: assignedList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    assignedList[index],
+                                  );
+                                },
+                              ),
+                            );
                           },
                         ),
-                      ),
-                    ],
-                  ],
-                );
-              },
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
+
+          //  userDepartment == 4 use
           if (userDepartment == 4) ...[
-            Builder(
-              builder: (context) {
-                /// ================= Pending =================
-                final pendingList = latestFiveList.where((item) {
-                  final status =
-                      int.tryParse(item["jobStatus"].toString()) ?? 0;
-
-                  return item["jobTechnicianId"] != null && status == 3;
-                }).toList();
-
-                /// ================= On Going =================
-                final ongoingList = latestFiveList.where((item) {
-                  final status =
-                      int.tryParse(item["jobStatus"].toString()) ?? 0;
-
-                  return status == 4 || status == 5;
-                }).toList();
-
-                /// ================= Complete =================
-                final completedList = latestFiveList.where((item) {
-                  final status =
-                      int.tryParse(item["jobStatus"].toString()) ?? 0;
-
-                  return status == 6 ||
-                      status == 7 ||
-                      status == 8 ||
-                      status == 9;
-                }).toList();
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    /// ================= Pending =================
-                    if (pendingList.isNotEmpty) ...[
-                      Text(
-                        "Pending",
-                        style: ApptextstyleConstants.regularText(
-                          fontSize: 16,
-                          color: ColorConstants.blackColor,
+            DefaultTabController(
+              length: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  /// ================= TAB =================
+                  Container(
+                    height: 45,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      gradient: ColorConstants.tabgradientColor,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: TabBar(
+                      indicator: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(
+                          color: const Color(0xFF0066A6),
+                          width: 1.5,
                         ),
                       ),
 
-                      const SizedBox(height: 8),
+                      labelColor: Colors.transparent,
+                      unselectedLabelColor: ColorConstants.activecolor,
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerColor: Colors.transparent,
 
-                      SizedBox(
-                        height: 240,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: pendingList.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 1),
-                          itemBuilder: (context, index) {
-                            return jobCardItem(context, pendingList[index]);
+                      tabs: [
+                        Tab(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) {
+                              return const LinearGradient(
+                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                              ).createShader(bounds);
+                            },
+                            child: const Text(
+                              "Pending",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        Tab(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) {
+                              return const LinearGradient(
+                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                              ).createShader(bounds);
+                            },
+                            child: const Text(
+                              "On Going",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  /// ================= SEARCH =================
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search Job No ",
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  /// ================= TAB VIEW =================
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.75,
+
+                    child: TabBarView(
+                      children: [
+                        Builder(
+                          builder: (context) {
+                            final pendingList = reversedList.where((item) {
+                              final status =
+                                  int.tryParse(item["jobStatus"].toString()) ??
+                                  0;
+
+                              final searchMatch =
+                                  item["jobNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["plateNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["vinNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true;
+
+                              return (status == 5) && searchMatch;
+                            }).toList();
+
+                            if (pendingList.isEmpty) {
+                              return const Center(
+                                child: Text("No Pending Jobs"),
+                              );
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: pendingList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemTechinician(
+                                    context,
+                                    pendingList[index],
+                                  );
+                                },
+                              ),
+                            );
                           },
                         ),
-                      ),
 
-                      const SizedBox(height: 20),
-                    ],
+                        /// ================= On Going =================
+                        Builder(
+                          builder: (context) {
+                            final ongoingList = reversedList.where((item) {
+                              final status =
+                                  int.tryParse(item["jobStatus"].toString()) ??
+                                  0;
 
-                    /// ================= On Going =================
-                    if (ongoingList.isNotEmpty) ...[
-                      Text(
-                        "On Going",
-                        style: ApptextstyleConstants.regularText(
-                          fontSize: 16,
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
+                              final searchMatch =
+                                  item["jobNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["plateNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["vinNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true;
 
-                      const SizedBox(height: 8),
+                              return (status == 5) && searchMatch;
+                            }).toList();
 
-                      SizedBox(
-                        height: 240,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: ongoingList.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 1),
-                          itemBuilder: (context, index) {
-                            return jobCardItem(context, ongoingList[index]);
+                            if (ongoingList.isEmpty) {
+                              return const Center(
+                                child: Text("No On Going Jobs"),
+                              );
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: ongoingList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    ongoingList[index],
+                                  );
+                                },
+                              ),
+                            );
                           },
                         ),
-                      ),
-
-                      const SizedBox(height: 20),
-                    ],
-
-                    /// ================= Complete =================
-                    if (completedList.isNotEmpty) ...[
-                      Text(
-                        "Complete",
-                        style: ApptextstyleConstants.regularText(
-                          fontSize: 16,
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      SizedBox(
-                        height: 240,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: completedList.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 1),
-                          itemBuilder: (context, index) {
-                            return jobCardItem(context, completedList[index]);
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
-                );
-              },
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
-          if (userDepartment != 2 && userDepartment != 4) ...[
+
+          // normal cases
+          if (userDepartment != 2 &&
+              userDepartment != 4 &&
+              userDepartment != 5) ...[
             if (latestFiveList.isNotEmpty) ...[
               SizedBox(
                 height: 240,
@@ -921,7 +1175,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
     final String vehicleName = "${item['make'] ?? ''} ${item['model'] ?? ''}";
     final String statusText = controller.getJobStatusText(jobStatusStr);
-    final technicianId = item['jobTechnicianId'];
     return GestureDetector(
       onTap: () {
         // log("👉 CLICKED INDEX:");
@@ -952,7 +1205,7 @@ class _HomeScreenState extends State<HomeScreen> {
         } else if (jobStatus == 4) {
           context.go("/jobcarddetails", extra: jobId);
         } else if (jobStatus == 5) {
-          log("Inside Status 5");
+          // log("Inside Status 5");
           context.go("/jobcarddetails", extra: jobId);
 
           // if (inspectionMasterId > 0) {
@@ -965,15 +1218,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
           //   context.go("/inspectiondetails", extra: jobId);
           // }
-        } else if (jobStatus == 6) {
-          context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 7) {
-          context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 8) {
-          context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 9) {
-          context.go("/jobcarddetails", extra: jobId);
         }
+        // else if (jobStatus == 6) {
+        //   context.go("/jobcarddetails", extra: jobId);
+        // } else if (jobStatus == 7) {
+        //   context.go("/jobcarddetails", extra: jobId);
+        // } else if (jobStatus == 8) {
+        //   context.go("/jobcarddetails", extra: jobId);
+        // } else if (jobStatus == 9) {
+        //   context.go("/jobcarddetails", extra: jobId);
+        // }
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
@@ -1031,55 +1285,312 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const Spacer(),
-                if (technicianId != null)
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: ColorConstants.greenColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: ColorConstants.greenColor),
-                        ),
-                        child: Text(
-                          "Assign",
-                          style: ApptextstyleConstants.lightText(
-                            color: ColorConstants.greenColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Image.asset(
-                          "assets/image/benz_logo.png",
-                          width: 60,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Image.asset(
-                      "assets/image/benz_logo.png",
-                      width: 60,
-                      fit: BoxFit.contain,
-                    ),
+
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Image.asset(
+                    "assets/image/benz_logo.png",
+                    width: 60,
+                    fit: BoxFit.contain,
                   ),
-                // Align(
-                //   alignment: Alignment.bottomRight,
-                //   child: Image.asset(
-                //     "assets/image/benz_logo.png",
-                //     width: 60,
-                //     fit: BoxFit.contain,
-                //   ),
-                // ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget jobCardItemlist(BuildContext context, Map<String, dynamic> item) {
+    final controller = Provider.of<HomescreenController>(
+      context,
+      listen: false,
+    );
+
+    final String jobStatusStr = item['jobStatus']?.toString().trim() ?? "";
+
+    final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
+
+    final technicianId = item["jobTechnicianId"];
+
+    final String statusText = controller.getJobStatusText(jobStatusStr);
+
+    return GestureDetector(
+      onTap: () {
+        final dynamic rawJobId = item['jobId'];
+
+        final int jobId = rawJobId is int
+            ? rawJobId
+            : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
+
+        context.go("/jobcarddetails", extra: jobId);
+      },
+
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+
+            color: ColorConstants.whiteColor,
+
+            boxShadow: ColorConstants.dashboardboxShadow,
+          ),
+
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+
+            child: Row(
+              children: [
+                /// IMAGE
+                Container(
+                  width: 70,
+                  height: 70,
+
+                  decoration: BoxDecoration(
+                    color: ColorConstants.containergreycolor,
+
+                    shape: BoxShape.circle,
+                  ),
+
+                  child: Image.asset(
+                    "assets/image/benz.png",
+                    fit: BoxFit.cover,
+                  ),
+                ),
+
+                const SizedBox(width: 14),
+
+                /// DETAILS
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+
+                    children: [
+                      /// TOP ROW
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item['jobNo'] ?? "",
+
+                              style: ApptextstyleConstants.regularText(
+                                fontSize: 16,
+
+                                color: ColorConstants.blackColor,
+                              ),
+                            ),
+                          ),
+
+                          /// STATUS
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+
+                            decoration: BoxDecoration(
+                              color: controller.getJobStatusColor(
+                                jobStatus.toString(),
+                              ),
+
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+
+                            child: Text(
+                              statusText,
+
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      if (technicianId != null) const SizedBox(height: 8),
+
+                      /// PLATE
+                      Text(
+                        "Plate No : ${item['plateNo'] ?? ''}",
+
+                        style: ApptextstyleConstants.lightText(
+                          fontSize: 13,
+
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      /// VIN
+                      Text(
+                        "Vin No: ${item['vinNo'] ?? ''}",
+
+                        maxLines: 1,
+
+                        overflow: TextOverflow.ellipsis,
+
+                        style: ApptextstyleConstants.lightText(
+                          fontSize: 12,
+
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // techincian assign screen on pending
+
+  Widget jobCardItemTechinician(
+    BuildContext context,
+    Map<String, dynamic> item,
+  ) {
+    final controller = Provider.of<HomescreenController>(
+      context,
+      listen: false,
+    );
+
+    final String jobStatusStr = item['jobStatus']?.toString().trim() ?? "";
+
+    final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
+
+    final technicianId = item["jobTechnicianId"];
+
+    final String statusText = controller.getJobStatusText(jobStatusStr);
+
+    return GestureDetector(
+      onTap: () {
+        final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
+        final List inspections = item["inspections"] ?? [];
+        int inspectionTypeId = 2;
+        int inspectionMasterId = 0;
+        if (inspections.isNotEmpty) {
+          final master = inspections.first["master"];
+          inspectionTypeId =
+              int.tryParse(master?["vimInspectionType"]?.toString() ?? "2") ??
+              2;
+          inspectionMasterId =
+              int.tryParse(master?["vimIfMasterId"]?.toString() ?? "0") ?? 0;
+        }
+        context.go(
+          "/inspectiontypedetailspage",
+          extra: {
+            "inspectionFormId": inspectionMasterId,
+            "jobId": jobId,
+            "inspectionTypeId": inspectionTypeId,
+          },
+        );
+      },
+
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: ColorConstants.whiteColor,
+            boxShadow: ColorConstants.dashboardboxShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                /// IMAGE
+                Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: ColorConstants.containergreycolor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Image.asset(
+                    "assets/image/benz.png",
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                /// DETAILS
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      /// TOP ROW
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item['jobNo'] ?? "",
+                              style: ApptextstyleConstants.regularText(
+                                fontSize: 16,
+                                color: ColorConstants.blackColor,
+                              ),
+                            ),
+                          ),
+
+                          /// STATUS
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: controller.getJobStatusColor(
+                                jobStatus.toString(),
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              statusText,
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (technicianId != null) const SizedBox(height: 8),
+
+                      /// PLATE
+                      Text(
+                        "Plate No : ${item['plateNo'] ?? ''}",
+                        style: ApptextstyleConstants.lightText(
+                          fontSize: 13,
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+
+                      /// VIN
+                      Text(
+                        "Vin No: ${item['vinNo'] ?? ''}",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ApptextstyleConstants.lightText(
+                          fontSize: 12,
+                          color: ColorConstants.blackColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

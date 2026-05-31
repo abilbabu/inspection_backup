@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
@@ -10,9 +9,11 @@ import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class InspectionDetails extends StatefulWidget {
   final int? jobId;
+
   const InspectionDetails({super.key, this.jobId});
 
   @override
@@ -21,18 +22,32 @@ class InspectionDetails extends StatefulWidget {
 
 class _InspectionDetailsState extends State<InspectionDetails> {
   final TextEditingController searchController = TextEditingController();
+
   Timer? _debounce;
+  int? userDepartment;
 
   @override
   void initState() {
+    super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       context.read<InspectionDetailsController>().getInspectionTypes();
     });
-    super.initState();
+    loadUserDepartment();
+  }
+
+  Future<void> loadUserDepartment() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final value = prefs.get("userDepartment");
+    setState(() {
+      userDepartment = int.tryParse(value.toString());
+    });
+    // log("Department : $userDepartment");
   }
 
   void _onSearchChanged(String value) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+    }
     _debounce = Timer(const Duration(milliseconds: 150), () {
       _triggerSearch(value);
     });
@@ -92,6 +107,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
           }
         }
       },
+
       child: Scaffold(
         appBar: CustomAppBar(
           title: 'Inspection Types',
@@ -106,6 +122,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
             }
           },
         ),
+
         body: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -119,64 +136,104 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                   width: double.infinity,
                   decoration: BoxDecoration(
                     boxShadow: ColorConstants.dashboardboxShadow,
+
                     color: ColorConstants.whiteColor,
+
                     borderRadius: BorderRadius.circular(10),
                   ),
+
                   child: Column(
                     children: [
                       const SizedBox(height: 10),
+
+                      CustomButtonTwo(
+                        text: " + CUSTOM INSPECTION",
+                        onPressed: () async {
+                          if (userDepartment == 2 || userDepartment == 5) {
+                            await showTechnicianBottomSheet();
+                          } else {
+                            context.push(
+                              "/inspectiontypedetailspage",
+                              extra: {"jobId": widget.jobId},
+                            );
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 10),
+
                       Padding(
                         padding: const EdgeInsets.all(20),
+
                         child: Text(
-                          "Select Inspection Type.",
+                          "Predefined Inspection List",
+
                           style: ApptextstyleConstants.semiBoldText(
                             fontSize: 16,
+
                             color: ColorConstants.blackColor,
                           ),
                         ),
                       ),
+
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
+
                         child: Row(
                           children: [
                             Expanded(
                               child: TextField(
                                 controller: searchController,
+
                                 onChanged: (value) {
                                   setState(() {});
+
                                   _onSearchChanged(value);
                                 },
+
                                 onSubmitted: _triggerSearch,
+
                                 decoration: InputDecoration(
                                   hintText: "Search Inspection Type",
+
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
+
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
+
                                     borderSide: BorderSide(
                                       color: ColorConstants.activecolor,
                                     ),
                                   ),
+
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
+
                                     borderSide: BorderSide(
                                       color: ColorConstants.activecolor,
                                     ),
                                   ),
+
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 10,
                                   ),
+
                                   suffixIcon: Row(
                                     mainAxisSize: MainAxisSize.min,
+
                                     children: [
                                       if (searchController.text.isNotEmpty)
                                         IconButton(
                                           icon: const Icon(Icons.close),
+
                                           onPressed: () {
                                             searchController.clear();
+
                                             setState(() {});
+
                                             context
                                                 .read<
                                                   InspectionDetailsController
@@ -184,8 +241,10 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                                 .getInspectionTypes();
                                           },
                                         ),
+
                                       IconButton(
                                         icon: const Icon(Icons.search),
+
                                         onPressed: () => _triggerSearch(
                                           searchController.text,
                                         ),
@@ -195,7 +254,9 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                 ),
                               ),
                             ),
+
                             const SizedBox(width: 10),
+
                             InkWell(
                               onTap: () {
                                 searchController.clear();
@@ -217,6 +278,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                   'assets/svg/repeat.svg',
                                   width: 20,
                                   height: 20,
+
                                   colorFilter: ColorFilter.mode(
                                     ColorConstants.blackColor,
                                     BlendMode.srcIn,
@@ -227,51 +289,72 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                           ],
                         ),
                       ),
+
                       Consumer<InspectionDetailsController>(
                         builder: (context, inspectionController, child) {
                           if (inspectionController.isLoading) {
                             return const Padding(
                               padding: EdgeInsets.all(20),
+
                               child: Center(child: CircularProgressIndicator()),
                             );
                           }
+
                           if (inspectionController
                               .inspectiontypesList
                               .isEmpty) {
                             return const Padding(
                               padding: EdgeInsets.all(20),
+
                               child: Center(
                                 child: Text(
                                   "No Inspection Type Found",
+
                                   style: TextStyle(color: Colors.grey),
                                 ),
                               ),
                             );
                           }
+
                           return ListView.builder(
                             shrinkWrap: true,
+
                             physics: const NeverScrollableScrollPhysics(),
+
                             itemCount:
                                 inspectionController.inspectiontypesList.length,
+
                             itemBuilder: (context, index) {
                               final item = inspectionController
                                   .inspectiontypesList[index];
+
                               return Padding(
                                 padding: const EdgeInsets.all(8.0),
+
                                 child: CustomButtonWidget(
                                   text:
                                       (item["inspectionFormName"] ?? "No Name")
                                           .toUpperCase(),
+
                                   textSize: 16,
-                                  onPressed: () {
-                                    context.push(
-                                      "/inspectiontypedetailspage",
-                                      extra: {
-                                        "inspectionFormId":
+
+                                  onPressed: () async {
+                                    if (userDepartment == 2 ||
+                                        userDepartment == 5) {
+                                      await showTechnicianBottomSheet(
+                                        inspectionFormId:
                                             item["inspectionFormId"],
-                                        "jobId": widget.jobId,
-                                      },
-                                    );
+                                      );
+                                    } else {
+                                      context.push(
+                                        "/inspectiontypedetailspage",
+                                        extra: {
+                                          "inspectionFormId":
+                                              item["inspectionFormId"],
+                                          "jobId": widget.jobId,
+                                        },
+                                      );
+                                    }
                                   },
                                 ),
                               );
@@ -279,6 +362,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                           );
                         },
                       ),
+
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -288,6 +372,178 @@ class _InspectionDetailsState extends State<InspectionDetails> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> showTechnicianBottomSheet({int? inspectionFormId}) async {
+    final controller = context.read<InspectionDetailsController>();
+
+    await controller.getTechnicianList();
+
+    TextEditingController searchController = TextEditingController();
+
+    List<Map<String, dynamic>> filteredList = List.from(
+      controller.technicianList,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Technician List",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 15),
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search Technician",
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          filteredList = controller.technicianList
+                              .where(
+                                (e) => e["userName"]
+                                    .toString()
+                                    .toLowerCase()
+                                    .contains(value.toLowerCase()),
+                              )
+                              .toList();
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  SizedBox(
+                    height: 400,
+                    child: ListView.builder(
+                      itemCount: filteredList.length,
+                      itemBuilder: (context, index) {
+                        final technician = filteredList[index];
+                        return Card(
+                          elevation: 2,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.green.shade100,
+
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.green,
+                              ),
+                            ),
+                            title: Text(
+                              technician["userName"]
+                                  .toString()
+                                  .split(' ')
+                                  .map(
+                                    (word) => word.isNotEmpty
+                                        ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+                                        : '',
+                                  )
+                                  .join(' '),
+                            ),
+                            subtitle: const Text("Technician"),
+                            trailing: const Icon(
+                              Icons.add,
+                              size: 16,
+                              color: Colors.green,
+                            ),
+                            // onTap: () {
+                            //   debugPrint(technician["userName"].toString());
+
+                            //   Navigator.pop(context);
+                            // },
+                            onTap: () async {
+                              Navigator.pop(context);
+
+                              final controller = context
+                                  .read<InspectionDetailsController>();
+
+                              final success = await controller.assignTechnician(
+                                jobId: widget.jobId ?? 0,
+
+                                assigneeId:
+                                    int.tryParse(
+                                      technician["userId"].toString(),
+                                    ) ??
+                                    0,
+
+                                supervisorId: controller.loginTechnicianId ?? 0,
+
+                                technicianName: technician["userName"]
+                                    .toString(),
+
+                                formMasterId: inspectionFormId,
+                              );
+
+                              if (success) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: ColorConstants.greenColor,
+                                    content: Text(
+                                      "Technician Assigned Successfully",
+                                    ),
+                                  ),
+                                );
+                                context.go("/home");
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    backgroundColor: ColorConstants.errorcolor,
+                                    content: Text(
+                                      "Technician Assignment Failed",
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

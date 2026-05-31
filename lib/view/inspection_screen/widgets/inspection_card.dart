@@ -1,3 +1,6 @@
+
+import 'dart:developer' show log;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/inspectionCard_controller.dart';
@@ -10,7 +13,7 @@ import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenv
 import 'package:provider/provider.dart';
 
 class InspectionCard extends StatefulWidget {
-  final int categoryId;
+  final int? categoryId;
   final int jobid;
   final int taskid;
   final int formid;
@@ -27,10 +30,12 @@ class InspectionCard extends StatefulWidget {
   final String? inspectionTaskInstruction;
   final bool allowMultipleImage;
   final bool allowVideo;
+  // To Check it Is Custom Or Not
+  final int? inspectionTypeid;
 
   const InspectionCard({
     super.key,
-    required this.categoryId,
+    this.categoryId,
     required this.jobid,
     required this.taskid,
     required this.formid,
@@ -47,6 +52,8 @@ class InspectionCard extends StatefulWidget {
     required this.inspectionTaskNotApplicable,
     required this.allowMultipleImage,
     required this.allowVideo,
+    // To Check it Is Custom Or Not
+    this.inspectionTypeid
   });
 
   @override
@@ -338,7 +345,40 @@ class _InspectionCardState extends State<InspectionCard> {
                                     cardController.isVideoLoading ||
                                     cardController.isAudioDownloading,
                                 onPressed: () async {
-                                  final formController = context
+                                   // For Custom Inspection the Formid is either null or zero
+                                  if(widget.formid==0  )
+                                  {
+                                        final formController = context
+                                          .read<InspectionFormController>();
+                                      final isCompleted = await cardController
+                                          .onCustomSavePressed(
+                                            context: context,
+                                            formController: formController,
+                                            inspectionPhotoMandatory:
+                                                widget.inspectionPhotoMandatory,
+                                            inspectionAudioMandatory:
+                                                widget.inspectionAudioMandatory,
+                                            jobId: widget.jobid,
+                                            taskId: widget.taskid,
+                                            formId: widget.formid,
+                                            inspectionTypeId:widget.inspectionTypeid!
+                                          );
+                                 
+                                        if (isCompleted) {
+                                          context.go(
+                                            "/inspectionsummarypage",
+                                            extra: {
+                                              "jobId": widget.jobid,
+                                              "flag": 0,
+                                            },
+                                          );
+                                        }
+                                      
+                                  }
+                                  
+                                  // For Predefined Inspection Save the Inspection
+                                  else{
+                                      final formController = context
                                       .read<InspectionFormController>();
                                   final isCompleted = await cardController
                                       .onSavePressed(
@@ -351,9 +391,9 @@ class _InspectionCardState extends State<InspectionCard> {
                                         jobId: widget.jobid,
                                         taskId: widget.taskid,
                                         formId: widget.formid,
-                                        categoryId: widget.categoryId,
+                                        categoryId: widget.categoryId!,
                                       );
-                                  if (isCompleted) {
+                                  // if (isCompleted) {
                                     // Navigator.of(context).pushReplacement(
                                     //   MaterialPageRoute(
                                     //     builder: (_) => InspectionSummaryPage(
@@ -370,8 +410,10 @@ class _InspectionCardState extends State<InspectionCard> {
                                           "flag": 0,
                                         },
                                       );
-                                    }
+                                    // }
                                   }
+                                  }
+                                 
                                 },
                               ),
                             ),
