@@ -7,23 +7,15 @@ class InspectionFullscreenVideoController extends ChangeNotifier {
 
   Future<File?> saveVideo(String videoPath) async {
     if (isUploading) return null;
-
     isUploading = true;
     notifyListeners();
-
     try {
       final file = File(videoPath);
-
       if (!await file.exists()) {
         debugPrint("Video file not found");
         return null;
       }
-
-      /// 🔹 Optional: Compress here if needed
-
-      // Simulate upload delay
       await Future.delayed(const Duration(seconds: 2));
-
       isSuccess = true;
       return file;
     } catch (e) {

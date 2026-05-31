@@ -1,4 +1,3 @@
-// import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/inspectionCard_controller.dart';
@@ -49,7 +48,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
         widget.inspectionFormId,
       );
       await detailsController.getComponentList();
-
       if (inspectionResponse.success == true &&
           inspectionResponse.data != null) {
         detailsController.applySavedInspection(
@@ -98,19 +96,13 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
 
   @override
   Widget build(BuildContext context) {
-    // print("Inside the Build -------------");
-    // print(widget.inspectionTypeId);
-    // print("-------------");
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
-
         final shouldExit = await _showExitConfirmation();
         if (!shouldExit) return;
-
         final formController = context.read<InspectionFormController>();
-
         if (formController.savedTasks == 0) {
           if (context.canPop()) {
             context.pop();
@@ -126,18 +118,12 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
           onBackPress: () async {
             final shouldExit = await _showExitConfirmation();
             if (!shouldExit) return;
-
             final formController = context.read<InspectionFormController>();
-
             if (formController.savedTasks == 0) {
-              // 👉 No data saved
               if (context.canPop()) {
                 context.pop();
               } else {
-                context.go(
-                  "/jobcarddetails",
-                  extra: widget.jobId, // ✅ IMPORTANT
-                );
+                context.go("/jobcarddetails", extra: widget.jobId);
               }
             }
           },
@@ -167,7 +153,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                     ),
                   ),
                   SizedBox(height: 10),
-
                   if (widget.inspectionTypeId == 2) ...[
                     Consumer<InspectionFormController>(
                       builder: (context, formController, _) {
@@ -178,7 +163,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                   formController.isTaskSaved(taskId);
                             })
                             .toList();
-
                         return Flexible(
                           child: SingleChildScrollView(
                             child: Column(
@@ -288,7 +272,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                       }).toList(),
                                     ),
                                   ),
-
                                 CustomButtonTwo(
                                   text: "+ CUSTOM INSPECTIONS",
                                   onPressed: () {
@@ -298,15 +281,13 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                     );
                                   },
                                 ),
-
                                 const SizedBox(height: 10),
-
                                 CustomButtonWidget(
                                   text: "SAVE",
                                   onPressed: () async {
                                     final success = await controller
                                         .changeStatus(jobId: widget.jobId);
-
+                                    if (!context.mounted) return;
                                     if (success) {
                                       ScaffoldMessenger.of(
                                         context,
@@ -320,6 +301,13 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                           ),
                                         ),
                                       );
+                                      context.go(
+                                        "/inspectionsummarypage",
+                                        extra: {
+                                          "jobId": widget.jobId,
+                                          "flag": 0,
+                                        },
+                                      );
                                     } else {
                                       ScaffoldMessenger.of(
                                         context,
@@ -328,7 +316,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                           backgroundColor:
                                               ColorConstants.errorcolor,
                                           content: Text(
-                                            "Failed to Custom inspection ",
+                                            "Failed to Custom inspection",
                                             style: TextStyle(
                                               color: ColorConstants.whiteColor,
                                             ),
@@ -347,7 +335,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                       },
                     ),
                   ],
-
                   SizedBox(height: 10),
                   if (widget.inspectionTypeId != 2) ...[
                     Consumer<InspectionFormController>(
@@ -652,9 +639,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
       context,
       listen: false,
     );
-
     final searchController = TextEditingController();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -679,7 +664,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                             formController.isTaskSaved(taskId);
                       })
                       .toList();
-
                   final pendingTasks = controller.filteredTaskComponents.where((
                     task,
                   ) {
@@ -687,7 +671,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                     return taskId != null &&
                         !formController.isTaskSaved(taskId);
                   }).toList();
-
                   return ListView(
                     controller: scrollController,
                     padding: const EdgeInsets.all(12),
@@ -706,16 +689,12 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 12),
-
                       if (controller.filteredTaskComponents.isEmpty)
                         const Padding(
                           padding: EdgeInsets.all(20),
                           child: Center(child: Text("No inspections found")),
                         ),
-
-                      /// COMPLETED CUSTOM INSPECTIONS
                       if (completedTasks.isNotEmpty)
                         Container(
                           margin: const EdgeInsets.only(bottom: 10),
@@ -758,7 +737,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                   taskid: components["itcId"],
                                   formid: widget.inspectionFormId,
                                   title: components["itcName"] ?? "",
-
                                   inspectionTaskGoodFlag:
                                       components["allowGood"] ?? false,
                                   inspectionTaskRepairFlag:
@@ -788,8 +766,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                             }).toList(),
                           ),
                         ),
-
-                      /// PENDING CUSTOM INSPECTIONS
                       if (pendingTasks.isNotEmpty)
                         ...pendingTasks.map((components) {
                           return ChangeNotifierProvider(
@@ -800,7 +776,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                               taskid: components["itcId"],
                               formid: widget.inspectionFormId,
                               title: components["itcName"] ?? "",
-
                               inspectionTaskGoodFlag:
                                   components["allowGood"] ?? false,
                               inspectionTaskRepairFlag:
@@ -828,9 +803,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                             ),
                           );
                         }),
-
                       const SizedBox(height: 20),
-
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(

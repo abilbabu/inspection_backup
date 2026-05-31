@@ -1,8 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:convert';
-// import 'dart:developer';
-// import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
@@ -117,8 +115,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                     );
                   }
                   final data = jobController.jobCardData!;
-                  // final technicianData = jobController.technicianData!;
-                  // final supervisorData = jobController.supervisorData!;
                   final userDepartment = jobController.userDepartment!;
                   final jobcard = data["jobcard"];
                   final customer = jobcard?["customer"];
@@ -126,14 +122,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                   final int jobStatus =
                       int.tryParse(jobcard?["jobStatus"]?.toString() ?? "") ??
                       -1;
-
-                  // final  technicianDepartment =  technicianData?["userDepartment"];
-                  // final  supervisorDepartment =  supervisorData?["userDepartment"];
-
-                  //     print("technician Department id=====>>>>");
-                  //      print(technicianDepartment);
-                  //      print("supervisor Department id=====>>>>");
-                  //      print(supervisorDepartment);
                   return Stack(
                     children: [
                       Column(
@@ -158,12 +146,8 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       'userToken',
                                     );
                                     String? userId = prefs.getString('userId');
-
-                                    // log("USER ID === $userId");
-
                                     int assignedBy =
                                         int.tryParse(userId ?? "0") ?? 0;
-
                                     final url = Uri.parse(
                                       ApiServices.startInspection,
                                     );
@@ -173,7 +157,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       "vimIfMasterId": "",
                                       "assignedBy": assignedBy,
                                     };
-
                                     final response = await http.post(
                                       url,
                                       headers: {
@@ -182,8 +165,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       },
                                       body: jsonEncode(output),
                                     );
-
-                                    // log("");
                                     Map<String, dynamic> decoded = jsonDecode(
                                       response.body,
                                     );
@@ -205,6 +186,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                             ),
                           if (jobController.isTechnicianAssigned &&
                               userDepartment != 3) ...[
+                            SizedBox(height: 16),
                             Container(
                               width: double.infinity,
                               padding: EdgeInsets.all(12),
@@ -217,7 +199,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                   color: ColorConstants.greenColor,
                                 ),
                               ),
-
                               child: Center(
                                 child: Text(
                                   "Assigned Technician : ${jobController.assignedTechnicianName?.split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ')}",
@@ -229,7 +210,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                               ),
                             ),
                           ],
-
                           if (userDepartment == 3) ...[
                             Container(
                               width: double.infinity,
@@ -243,7 +223,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                   color: ColorConstants.orangecolor,
                                 ),
                               ),
-
                               child: Center(
                                 child: const Text(
                                   "Job Controller Already Revert",
@@ -255,7 +234,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                               ),
                             ),
                           ],
-
                           SizedBox(height: 12),
                           if (userDepartment != 2 &&
                               userDepartment != 4 &&
@@ -287,7 +265,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                     );
 
                                 if (item.isEmpty) return SizedBox();
-
                                 return _inspectionFrom(
                                   context,
                                   controller,
@@ -309,7 +286,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
         Consumer<JobcarddetailsController>(
           builder: (context, controller, child) {
             if (!controller.isDownloading) return SizedBox();
-
             return Container(
               width: double.infinity,
               height: double.infinity,
@@ -336,41 +312,21 @@ class _JobCardDetailsState extends State<JobCardDetails> {
   ) {
     return InkWell(
       onTap: () {
-        // log("👉 CLICKED");
-
         final rawJobId = item['jobId'];
         final rawInspections = item['inspections'];
         final inspectionTypeid = controller.vimInspectionTypeId;
-        // final vimMasterId = controller.vimIfMasterId;
-
-        // log("✅✅rawJobId ===: $rawJobId");
-        // log("✅✅✅rawInspections =: $rawInspections");
-
         final int jobId = int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
-
         final List inspections = rawInspections is List ? rawInspections : [];
-
         int inspectionMasterId = 0;
-
         for (final inspection in inspections) {
           if (inspection is! Map) continue;
-
           final rawId = inspection['master']?['vimIfMasterId'];
-
           final int parsedId = int.tryParse(rawId?.toString() ?? '0') ?? 0;
-
           if (parsedId > 0) {
             inspectionMasterId = parsedId;
             break;
           }
         }
-        // log("======================================><");
-        // log("InspectionTypeId");
-        // log(inspectionTypeid.toString());
-        // log("vimMasterId");
-        // log(vimMasterId.toString());
-
-        // if (inspectionMasterId > 0) {
         context.go(
           "/inspectiontypedetailspage",
           extra: {
@@ -379,11 +335,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
             "inspectionTypeId": inspectionTypeid,
           },
         );
-        // } else {
-        //   ScaffoldMessenger.of(
-        //     context,
-        //   ).showSnackBar(SnackBar(content: Text("Inspection not available")));
-        // }
       },
       child: Container(
         width: double.infinity,

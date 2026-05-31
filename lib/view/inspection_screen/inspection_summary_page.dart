@@ -266,7 +266,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     InspectionItem item,
   ) {
     final bool isSelected = item.status == status;
-
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -291,10 +290,8 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
       });
       return;
     }
-
     await _audioPlayer.stop();
     await _audioPlayer.play(UrlSource(url));
-
     setState(() {
       _currentlyPlayingUrl = url;
       _isPlaying = true;
@@ -439,10 +436,8 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     final images = item.imageUrls.take(3).toList();
     final int imageCount = images.length;
     final bool hasVideo = item.videoUrl != null;
-
     Widget noteWidget() {
       if (item.note.trim().isEmpty) return const SizedBox.shrink();
-
       return Container(
         height: 50,
         width: double.infinity,
@@ -460,8 +455,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         ),
       );
     }
-
-    /// CASE 1 → 1 IMAGE + NOTE (ROW)
     if (imageCount == 1 && !hasVideo) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,8 +465,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         ],
       );
     }
-
-    /// CASE 2 → 1 VIDEO + NOTE (ROW)
     if (imageCount == 0 && hasVideo) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,8 +475,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         ],
       );
     }
-
-    /// CASE 3 → 1 IMAGE + 1 VIDEO
     if (imageCount == 1 && hasVideo) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,8 +491,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         ],
       );
     }
-
-    /// CASE 4 & 5 → 2/3 IMAGE + VIDEO
     if (hasVideo && imageCount >= 2) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,8 +512,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         ],
       );
     }
-
-    /// CASE 6 & 7 → IMAGE ONLY
     if (!hasVideo && imageCount >= 2) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,8 +524,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
             children: [
               for (int i = 0; i < imageCount; i++) ...[
                 _mediaImage(images[i], item.title, context),
-
-                /// gap only for 2 images
                 if (imageCount == 2 && i == 0) const SizedBox(width: 10),
               ],
             ],
@@ -550,7 +533,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         ],
       );
     }
-
     return const SizedBox.shrink();
   }
 
@@ -562,7 +544,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
           extra: {'imageUrl': url, 'label': title},
         );
       },
-
       child: Container(
         width: 60,
         height: 60,
@@ -579,50 +560,6 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
           ),
         ),
       ),
-
-      // child: Container(
-      //   width: 60,
-      //   height: 60,
-      //   decoration: BoxDecoration(
-      //     borderRadius: BorderRadius.circular(8),
-      //     border: Border.all(color: ColorConstants.blackColor),
-      //   ),
-      //   child: ClipRRect(
-      //     borderRadius: BorderRadius.circular(8),
-      //     child: FutureBuilder<ImageInfo>(
-      //       future: _getNetworkImageSize(url),
-      //       builder: (context, snapshot) {
-      //         if (!snapshot.hasData) {
-      //           return const Center(
-      //             child: SizedBox(
-      //               width: 18,
-      //               height: 18,
-      //               child: CircularProgressIndicator(strokeWidth: 2),
-      //             ),
-      //           );
-      //         }
-
-      //         final imageInfo = snapshot.data!;
-      //         final isLandscape =
-      //             imageInfo.image.width > imageInfo.image.height;
-
-      //         return ClipRRect(
-      //           child: FittedBox(
-      //             fit: BoxFit.cover,
-      //             child: Transform.rotate(
-      //               angle: isLandscape ? 1.5708 : 0,
-      //               child: Image.network(
-      //                 url,
-      //                 errorBuilder: (_, __, ___) =>
-      //                     const Icon(Icons.broken_image),
-      //               ),
-      //             ),
-      //           ),
-      //         );
-      //       },
-      //     ),
-      //   ),
-      // ),
     );
   }
 
@@ -650,29 +587,3 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     );
   }
 }
-
-// Future<ImageInfo> _getNetworkImageSize(String url) async {
-//   final completer = Completer<ImageInfo>();
-//   final image = NetworkImage(url);
-
-//   final stream = image.resolve(const ImageConfiguration());
-
-//   late ImageStreamListener listener;
-
-//   listener = ImageStreamListener((info, _) {
-//     completer.complete(info);
-//     stream.removeListener(listener); // ✅ prevent leak
-//   });
-
-//   stream.addListener(listener);
-
-//   return completer.future;
-// }
-
-// CASE 1 → row (1 IMAGE + NOTE)
-// CASE 2 → row (1 VIDEO + NOTE)
-// CASE 3 → column(row(1 IMAGE + 1 VIDEO), NOTE)
-// CASE 4 → column(row(2 IMAGE + 1 VIDEO), NOTE)
-// CASE 5 → column(row(3 IMAGE + 1 VIDEO), NOTE)
-// CASE 6 → column(row(3 IMAGE), NOTE)
-// CASE 7 → column(row(2 IMAGE), NOTE)

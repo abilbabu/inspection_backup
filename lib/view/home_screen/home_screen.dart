@@ -1,5 +1,4 @@
 import 'dart:convert';
-// import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -36,13 +35,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> loadUserDepartment() async {
     final prefs = await SharedPreferences.getInstance();
-
     setState(() {
       userDepartment =
           int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
     });
-
-    // log("userDepartment => $userDepartment");
   }
 
   @override
@@ -51,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     loadUserDepartment();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.wait([
-        // getInspectionListByUserId(),
+        getInspectionListByUserId(),
         getJobCardListByUserId(),
       ]);
     });
@@ -64,30 +60,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<List<dynamic>> _fetchInspectionData() async {
     try {
-      // log("========== FETCH INSPECTION START ==========");
-
       final prefs = await SharedPreferences.getInstance();
       final userToken = prefs.getString('userToken');
       final userId = prefs.getString('userId');
       final userDepartment = prefs.getString('userDepartment');
-
-      // log("userToken : $userToken");
-      // log("userId : $userId");
-      // log("userDepartment : $userDepartment");
-
       if (userId == null || userToken == null || userDepartment == null) {
         debugPrint("❗ userId or token missing");
         return [];
       }
-
-      // final requestBody = {
-      //   "userId": int.parse(userId),
-      //   "userDepartment": int.parse(userDepartment.toString()),
-      // };
-
-      // log("Request URL : ${ApiServices.allInspectionList}");
-      // log("Request Body : ${jsonEncode(requestBody)}");
-      // log("🔍Request Body ");
       final response = await http.post(
         Uri.parse(ApiServices.allInspectionList),
         headers: {
@@ -99,13 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
           "userDepartment": int.parse(userDepartment.toString()),
         }),
       );
-      // log("✅✅✅✅✅✅✅✅");
-      // log("Response Status Code : ${response.statusCode}");
-      // log("Response Body : ${response.body}");
-      // log("😀 Success");
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
-        // log("😀 Success");
         return res["data"] ?? [];
       }
       return [];
@@ -121,10 +96,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final vehicle = item["vehicle"] ?? {};
     final inspections = item["inspections"];
-
     if (inspections is List && inspections.isNotEmpty) {
       final firstInspection = inspections.first;
-
       if (firstInspection is Map && firstInspection["master"] != null) {
         inspectionTypeId = firstInspection["master"]["vimInspectionType"];
       }
@@ -149,17 +122,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> getInspectionListByUserId() async {
     final rawList = await _fetchInspectionData();
-    // log("📌📌📌Raw List: ${jsonEncode(rawList)}");
-
     final filteredList = rawList
         .where((item) {
           final status =
               int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
-          // log("👨‍🔧Job Status: $status");
           return status == 1 || status == 2;
         })
         .map((item) {
-          // log("👨‍🔧👨‍🔧👨‍🔧Filtered Item: ${jsonEncode(item)}");
           return _mapVehicleData(item);
         })
         .toList();
@@ -176,11 +145,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       final rawList = await _fetchInspectionData();
-      // log("📦 RAW JOB LIST : ${rawList.length}");
-
-      // for (var item in rawList) {
-      //   log("👉 STATUS : ${item["jobStatus"]}");
-      // }
       final filteredList = rawList
           .where((item) {
             final status =
@@ -219,26 +183,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: AppTheme(
         child: SingleChildScrollView(
-          // physics: const ClampingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 60),
               _headerSection(),
-              // ✅ Hide Inspection Sections for department 2 & 4
               if (!isOnlyJobCardDepartment && hasInspection) ...[
                 const SizedBox(height: 12),
                 appointmentSection(),
               ],
-
-              // ✅ Hide Inspection Mode for department 2 & 4
               if (!isOnlyJobCardDepartment) ...[
                 const SizedBox(height: 12),
                 inspectionModeSection(context),
               ],
-
-              // ✅ Show Job Card section for ALL departments
               if (hasJobCard) ...[const SizedBox(height: 12), jobCardSection()],
               const SizedBox(height: 16),
             ],
@@ -452,15 +410,10 @@ class _HomeScreenState extends State<HomeScreen> {
               onPageChanged: (index) {
                 setState(() {
                   _currentPage = index;
-                  // _currentPage = inspectionList.length - 1 - index;
                 });
               },
               itemBuilder: (context, index) {
-                // final reverseIndex = inspectionList.length - 1 - index;
-                // final item = inspectionList[reverseIndex];
                 final item = latestFiveList[index];
-
-                // final item = inspectionList[index];
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: GestureDetector(
@@ -507,7 +460,6 @@ class _HomeScreenState extends State<HomeScreen> {
         })
         .take(5)
         .toList();
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
@@ -540,21 +492,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           const SizedBox(height: 8),
 
-          // SizedBox(
-          //   height: 240,
-          //   child: ListView.separated(
-          //     scrollDirection: Axis.horizontal,
-          //     itemCount: latestFiveList.length,
-
-          //     separatorBuilder: (_, __) => const SizedBox(width: 1),
-          //     itemBuilder: (context, index) {
-          //       // return jobCardItem(context, jobcardList[index]);
-          //       final item = latestFiveList[index];
-          //       return jobCardItem(context, item);
-          //     },
-          //   ),
-          // ),
-
           //  userDepartment == 2 use
           if (userDepartment == 2 || userDepartment == 5) ...[
             DefaultTabController(
@@ -573,20 +510,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       indicator: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(25),
-
-                        /// NORMAL BORDER COLOR
                         border: Border.all(
                           color: const Color(0xFF0066A6),
                           width: 1.5,
                         ),
                       ),
-
                       labelColor: Colors.transparent,
                       unselectedLabelColor: ColorConstants.activecolor,
-
                       indicatorSize: TabBarIndicatorSize.tab,
                       dividerColor: Colors.transparent,
-
                       tabs: [
                         Tab(
                           child: ShaderMask(
@@ -605,7 +537,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-
                         Tab(
                           child: ShaderMask(
                             shaderCallback: (bounds) {
@@ -644,7 +575,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-
                   SizedBox(
                     height: MediaQuery.sizeOf(context).height * 0.75,
                     child: TabBarView(
@@ -673,16 +603,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .toLowerCase()
                                           .contains(searchText) ==
                                       true;
-
                               return status == 3 && searchMatch;
                             }).toList();
-
                             if (pendingList.isEmpty) {
                               return const Center(
                                 child: Text("No Pending Jobs"),
                               );
                             }
-
                             return Padding(
                               padding: const EdgeInsets.all(5),
                               child: ListView.separated(
@@ -699,7 +626,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                           },
                         ),
-
                         /// ================= Assigned =================
                         Builder(
                           builder: (context) {
@@ -707,7 +633,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               final status =
                                   int.tryParse(item["jobStatus"].toString()) ??
                                   0;
-
                               final searchMatch =
                                   item["jobNo"]
                                           ?.toString()
@@ -724,17 +649,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .toLowerCase()
                                           .contains(searchText) ==
                                       true;
-
                               return (status == 5 || status == 4) &&
                                   searchMatch;
                             }).toList();
-
                             if (assignedList.isEmpty) {
                               return const Center(
                                 child: Text("No Assigned Jobs"),
                               );
                             }
-
                             return Padding(
                               padding: const EdgeInsets.all(5),
                               child: ListView.separated(
@@ -758,7 +680,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-
           //  userDepartment == 4 use
           if (userDepartment == 4) ...[
             DefaultTabController(
@@ -766,7 +687,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  /// ================= TAB =================
                   Container(
                     height: 45,
                     padding: const EdgeInsets.all(4),
@@ -783,12 +703,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 1.5,
                         ),
                       ),
-
                       labelColor: Colors.transparent,
                       unselectedLabelColor: ColorConstants.activecolor,
                       indicatorSize: TabBarIndicatorSize.tab,
                       dividerColor: Colors.transparent,
-
                       tabs: [
                         Tab(
                           child: ShaderMask(
@@ -807,7 +725,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-
                         Tab(
                           child: ShaderMask(
                             shaderCallback: (bounds) {
@@ -828,10 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  /// ================= SEARCH =================
                   SizedBox(
                     height: 40,
                     child: TextField(
@@ -850,11 +764,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-
-                  /// ================= TAB VIEW =================
                   SizedBox(
                     height: MediaQuery.sizeOf(context).height * 0.75,
-
                     child: TabBarView(
                       children: [
                         Builder(
@@ -863,7 +774,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               final status =
                                   int.tryParse(item["jobStatus"].toString()) ??
                                   0;
-
                               final searchMatch =
                                   item["jobNo"]
                                           ?.toString()
@@ -880,10 +790,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .toLowerCase()
                                           .contains(searchText) ==
                                       true;
-
-                              return (status == 5) && searchMatch;
+                              return (status == 4) && searchMatch;
                             }).toList();
-
                             if (pendingList.isEmpty) {
                               return const Center(
                                 child: Text("No Pending Jobs"),
@@ -906,15 +814,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                           },
                         ),
-
-                        /// ================= On Going =================
                         Builder(
                           builder: (context) {
                             final ongoingList = reversedList.where((item) {
                               final status =
                                   int.tryParse(item["jobStatus"].toString()) ??
                                   0;
-
                               final searchMatch =
                                   item["jobNo"]
                                           ?.toString()
@@ -931,16 +836,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .toLowerCase()
                                           .contains(searchText) ==
                                       true;
-
                               return (status == 5) && searchMatch;
                             }).toList();
-
                             if (ongoingList.isEmpty) {
                               return const Center(
                                 child: Text("No On Going Jobs"),
                               );
                             }
-
                             return Padding(
                               padding: const EdgeInsets.all(5),
                               child: ListView.separated(
@@ -964,7 +866,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-
           // normal cases
           if (userDepartment != 2 &&
               userDepartment != 4 &&
@@ -978,7 +879,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   separatorBuilder: (_, __) => const SizedBox(width: 1),
                   itemBuilder: (context, index) {
                     final item = latestFiveList[index];
-
                     return jobCardItem(context, item);
                   },
                 ),
@@ -1134,12 +1034,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildDotsIndicator(int length) {
     if (length <= 1) return const SizedBox();
-
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(length, (index) {
         final bool isActive = _currentPage == index;
-
         return GestureDetector(
           onTap: () {
             _pageController.animateToPage(
@@ -1170,64 +1068,23 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       listen: false,
     );
-
     final String jobStatusStr = item['jobStatus']?.toString().trim() ?? "";
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
     final String vehicleName = "${item['make'] ?? ''} ${item['model'] ?? ''}";
     final String statusText = controller.getJobStatusText(jobStatusStr);
     return GestureDetector(
       onTap: () {
-        // log("👉 CLICKED INDEX:");
-        // log("👉 JOB DATA: $item");
         final dynamic rawJobId = item['jobId'];
-        // final dynamic rawInspections = item['inspections'];
         final int jobId = rawJobId is int
             ? rawJobId
             : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
-        // final List inspections = rawInspections is List ? rawInspections : [];
-        // int inspectionMasterId = 0;
-        // for (final inspection in inspections) {
-        //  final rawId = inspection['master']?['vimIfMasterId'];
-        //   log("✅✅✅Inspection Item: $inspection");
-        //   log("✅✅Type: ${inspection.runtimeType}");
-        //   final int parsedId = rawId is int
-        //       ? rawId
-        //       : int.tryParse(rawId?.toString() ?? '0') ?? 0;
-        //   if (parsedId > 0) {
-        //     inspectionMasterId = parsedId;
-        //      log("✅ FOUND ID: $inspectionMasterId");
-        //     break;
-        //   }
-        // }
-        // log("👉 FINAL inspectionMasterId: $inspectionMasterId");
         if (jobStatus == 3) {
           context.go("/jobcarddetails", extra: jobId);
         } else if (jobStatus == 4) {
           context.go("/jobcarddetails", extra: jobId);
         } else if (jobStatus == 5) {
-          // log("Inside Status 5");
           context.go("/jobcarddetails", extra: jobId);
-
-          // if (inspectionMasterId > 0) {
-          //   context.go(
-          //     "/inspectiontypedetailspage",
-          //     extra: {"inspectionFormId": inspectionMasterId, "jobId": jobId},
-          //   );
-          // } else {
-          //   // log("inspectionMasterId is 0 → Going to inspectiondetails");
-
-          //   context.go("/inspectiondetails", extra: jobId);
-          // }
         }
-        // else if (jobStatus == 6) {
-        //   context.go("/jobcarddetails", extra: jobId);
-        // } else if (jobStatus == 7) {
-        //   context.go("/jobcarddetails", extra: jobId);
-        // } else if (jobStatus == 8) {
-        //   context.go("/jobcarddetails", extra: jobId);
-        // } else if (jobStatus == 9) {
-        //   context.go("/jobcarddetails", extra: jobId);
-        // }
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
@@ -1285,7 +1142,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const Spacer(),
-
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Image.asset(
@@ -1307,101 +1163,71 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       listen: false,
     );
-
     final String jobStatusStr = item['jobStatus']?.toString().trim() ?? "";
-
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
-
     final technicianId = item["jobTechnicianId"];
-
     final String statusText = controller.getJobStatusText(jobStatusStr);
-
     return GestureDetector(
       onTap: () {
         final dynamic rawJobId = item['jobId'];
-
         final int jobId = rawJobId is int
             ? rawJobId
             : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
-
         context.go("/jobcarddetails", extra: jobId);
       },
-
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
-
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-
             color: ColorConstants.whiteColor,
-
             boxShadow: ColorConstants.dashboardboxShadow,
           ),
-
           child: Padding(
             padding: const EdgeInsets.all(14),
-
             child: Row(
               children: [
-                /// IMAGE
                 Container(
                   width: 70,
                   height: 70,
-
                   decoration: BoxDecoration(
                     color: ColorConstants.containergreycolor,
-
                     shape: BoxShape.circle,
                   ),
-
                   child: Image.asset(
                     "assets/image/benz.png",
                     fit: BoxFit.cover,
                   ),
                 ),
-
                 const SizedBox(width: 14),
-
-                /// DETAILS
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-
                     children: [
-                      /// TOP ROW
                       Row(
                         children: [
                           Expanded(
                             child: Text(
                               item['jobNo'] ?? "",
-
                               style: ApptextstyleConstants.regularText(
                                 fontSize: 16,
-
                                 color: ColorConstants.blackColor,
                               ),
                             ),
                           ),
-
-                          /// STATUS
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 4,
                             ),
-
                             decoration: BoxDecoration(
                               color: controller.getJobStatusColor(
                                 jobStatus.toString(),
                               ),
-
                               borderRadius: BorderRadius.circular(20),
                             ),
-
                             child: Text(
                               statusText,
-
                               style: ApptextstyleConstants.thinText(
                                 fontSize: 10,
                                 color: Colors.white,
@@ -1410,35 +1236,22 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 8),
-
                       if (technicianId != null) const SizedBox(height: 8),
-
-                      /// PLATE
                       Text(
                         "Plate No : ${item['plateNo'] ?? ''}",
-
                         style: ApptextstyleConstants.lightText(
                           fontSize: 13,
-
                           color: ColorConstants.blackColor,
                         ),
                       ),
-
                       const SizedBox(height: 4),
-
-                      /// VIN
                       Text(
                         "Vin No: ${item['vinNo'] ?? ''}",
-
                         maxLines: 1,
-
                         overflow: TextOverflow.ellipsis,
-
                         style: ApptextstyleConstants.lightText(
                           fontSize: 12,
-
                           color: ColorConstants.blackColor,
                         ),
                       ),
@@ -1454,8 +1267,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // techincian assign screen on pending
-
   Widget jobCardItemTechinician(
     BuildContext context,
     Map<String, dynamic> item,
@@ -1464,15 +1275,10 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       listen: false,
     );
-
     final String jobStatusStr = item['jobStatus']?.toString().trim() ?? "";
-
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
-
     final technicianId = item["jobTechnicianId"];
-
     final String statusText = controller.getJobStatusText(jobStatusStr);
-
     return GestureDetector(
       onTap: () {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
@@ -1496,7 +1302,6 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         );
       },
-
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Container(
@@ -1523,13 +1328,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 14),
-
-                /// DETAILS
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      /// TOP ROW
                       Row(
                         children: [
                           Expanded(
@@ -1541,8 +1343,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
-
-                          /// STATUS
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
@@ -1576,8 +1376,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-
-                      /// VIN
                       Text(
                         "Vin No: ${item['vinNo'] ?? ''}",
                         maxLines: 1,

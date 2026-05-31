@@ -1,6 +1,3 @@
-
-import 'dart:developer' show log;
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/inspectionCard_controller.dart';
@@ -53,7 +50,7 @@ class InspectionCard extends StatefulWidget {
     required this.allowMultipleImage,
     required this.allowVideo,
     // To Check it Is Custom Or Not
-    this.inspectionTypeid
+    this.inspectionTypeid,
   });
 
   @override
@@ -345,63 +342,23 @@ class _InspectionCardState extends State<InspectionCard> {
                                     cardController.isVideoLoading ||
                                     cardController.isAudioDownloading,
                                 onPressed: () async {
-                                   // For Custom Inspection the Formid is either null or zero
-                                  if(widget.formid==0  )
-                                  {
-                                        final formController = context
-                                          .read<InspectionFormController>();
-                                      final isCompleted = await cardController
-                                          .onCustomSavePressed(
-                                            context: context,
-                                            formController: formController,
-                                            inspectionPhotoMandatory:
-                                                widget.inspectionPhotoMandatory,
-                                            inspectionAudioMandatory:
-                                                widget.inspectionAudioMandatory,
-                                            jobId: widget.jobid,
-                                            taskId: widget.taskid,
-                                            formId: widget.formid,
-                                            inspectionTypeId:widget.inspectionTypeid!
-                                          );
-                                 
-                                        if (isCompleted) {
-                                          context.go(
-                                            "/inspectionsummarypage",
-                                            extra: {
-                                              "jobId": widget.jobid,
-                                              "flag": 0,
-                                            },
-                                          );
-                                        }
-                                      
-                                  }
-                                  
-                                  // For Predefined Inspection Save the Inspection
-                                  else{
-                                      final formController = context
-                                      .read<InspectionFormController>();
-                                  final isCompleted = await cardController
-                                      .onSavePressed(
-                                        context: context,
-                                        formController: formController,
-                                        inspectionPhotoMandatory:
-                                            widget.inspectionPhotoMandatory,
-                                        inspectionAudioMandatory:
-                                            widget.inspectionAudioMandatory,
-                                        jobId: widget.jobid,
-                                        taskId: widget.taskid,
-                                        formId: widget.formid,
-                                        categoryId: widget.categoryId!,
-                                      );
-                                  // if (isCompleted) {
-                                    // Navigator.of(context).pushReplacement(
-                                    //   MaterialPageRoute(
-                                    //     builder: (_) => InspectionSummaryPage(
-                                    //       jobId: widget.jobid,
-                                    //       flag: 0,
-                                    //     ),
-                                    //   ),
-                                    // );
+                                  if (widget.formid == 0) {
+                                    final formController = context
+                                        .read<InspectionFormController>();
+                                    final isCompleted = await cardController
+                                        .onCustomSavePressed(
+                                          context: context,
+                                          formController: formController,
+                                          inspectionPhotoMandatory:
+                                              widget.inspectionPhotoMandatory,
+                                          inspectionAudioMandatory:
+                                              widget.inspectionAudioMandatory,
+                                          jobId: widget.jobid,
+                                          taskId: widget.taskid,
+                                          formId: widget.formid,
+                                          inspectionTypeId:
+                                              widget.inspectionTypeid!,
+                                        );
                                     if (isCompleted) {
                                       context.go(
                                         "/inspectionsummarypage",
@@ -410,10 +367,33 @@ class _InspectionCardState extends State<InspectionCard> {
                                           "flag": 0,
                                         },
                                       );
-                                    // }
+                                    }
+                                  } else {
+                                    final formController = context
+                                        .read<InspectionFormController>();
+                                    final isCompleted = await cardController
+                                        .onSavePressed(
+                                          context: context,
+                                          formController: formController,
+                                          inspectionPhotoMandatory:
+                                              widget.inspectionPhotoMandatory,
+                                          inspectionAudioMandatory:
+                                              widget.inspectionAudioMandatory,
+                                          jobId: widget.jobid,
+                                          taskId: widget.taskid,
+                                          formId: widget.formid,
+                                          categoryId: widget.categoryId!,
+                                        );
+                                    if (isCompleted) {
+                                      context.go(
+                                        "/inspectionsummarypage",
+                                        extra: {
+                                          "jobId": widget.jobid,
+                                          "flag": 0,
+                                        },
+                                      );
+                                    }
                                   }
-                                  }
-                                 
                                 },
                               ),
                             ),
@@ -444,7 +424,6 @@ class _InspectionCardState extends State<InspectionCard> {
                           ),
                         ),
                       ),
-
                 if (widget.allowMultipleImage &&
                     widget.inspectionPhotoMandatory)
                   Builder(
@@ -455,9 +434,7 @@ class _InspectionCardState extends State<InspectionCard> {
                       final hasNote = cardController.noteController.text
                           .trim()
                           .isNotEmpty;
-
                       if (hasImage && hasNote) return const SizedBox();
-
                       return Padding(
                         padding: const EdgeInsets.only(top: 6, bottom: 6),
                         child: Container(

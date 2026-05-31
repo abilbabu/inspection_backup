@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -19,14 +18,10 @@ class InspectionDetailsController extends ChangeNotifier {
   int? jobSuperVisorId;
   int? loginTechnicianId;
 
-
   Future<void> loadLoginTechnicianId() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-
     final value = prefs.get("userId");
-
     loginTechnicianId = int.tryParse(value.toString());
-
     notifyListeners();
   }
 
@@ -34,10 +29,8 @@ class InspectionDetailsController extends ChangeNotifier {
     try {
       isTechnicianLoading = true;
       notifyListeners();
-
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
-
       final response = await http.post(
         Uri.parse(ApiServices.allTechnicianList),
         headers: {
@@ -45,10 +38,8 @@ class InspectionDetailsController extends ChangeNotifier {
           "Authorization": "Bearer $userToken",
         },
       );
-
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-
         technicianList = List<Map<String, dynamic>>.from(decoded['data']);
       }
     } catch (e) {
@@ -126,19 +117,14 @@ class InspectionDetailsController extends ChangeNotifier {
   }) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-
       String? userToken = prefs.getString('userToken');
-
       Map<String, dynamic> payload = {
         "jobId": jobId,
-        "status": 5,
+        "status": 4,
         "assignedBy": assigneeId,
-        "vimIfMasterId": formMasterId ?? "",
+        "vimIfMasterId": formMasterId,
         "vimInspectionType": formMasterId != null ? 1 : 2,
       };
-
-      // log("Payload : ${jsonEncode(payload)}");
-
       final response = await http.post(
         Uri.parse(ApiServices.assignTechnician),
         headers: {
@@ -147,29 +133,17 @@ class InspectionDetailsController extends ChangeNotifier {
         },
         body: jsonEncode(payload),
       );
-
-      // log("Status Code : ${response.statusCode}");
-      // log("Response : ${response.body}");
-
       if (response.statusCode == 200) {
         technicianAssigned = true;
-
         assignedTechnicianName = technicianName;
-
         assignedTechnicianId = assigneeId;
-
         jobTechnicianId = assigneeId;
-
         jobSuperVisorId = supervisorId;
-
         notifyListeners();
-
         return true;
       }
-
       return false;
     } catch (e) {
-      log("Assign Error : $e");
       return false;
     }
   }

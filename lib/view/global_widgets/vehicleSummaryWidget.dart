@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously, camel_case_types
+
 import 'package:flutter/material.dart';
 import 'package:inspection/controller/basicInspectionReport_controller.dart';
 import 'package:inspection/controller/jobCardDetails_controller.dart';
@@ -8,9 +10,7 @@ import 'package:provider/provider.dart';
 
 class VehicleSummaryWidget extends StatefulWidget {
   final int? jobId;
-
   const VehicleSummaryWidget({super.key, this.jobId});
-
   @override
   State<VehicleSummaryWidget> createState() => _vehicleSummaryWidgetState();
 }
@@ -21,13 +21,11 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
   @override
   void initState() {
     super.initState();
-
     Future.microtask(() {
       if (widget.jobId != null) {
         context.read<JobcarddetailsController>().postJobCardDetails(
           widget.jobId!,
         );
-
         context.read<BasicInspectionReportController>().getBasicInspection(
           widget.jobId!,
         );
@@ -88,12 +86,10 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                                 fontSize: 10,
                                 color: ColorConstants.blackColor,
                               ).copyWith(fontWeight: FontWeight.bold),
-
                               children: [
                                 TextSpan(
                                   text:
                                       "${jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
-
                                   style: ApptextstyleConstants.thinText(
                                     fontSize: 10,
                                     color: ColorConstants.textBlueColor,
@@ -131,7 +127,7 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                               ).copyWith(fontWeight: FontWeight.bold),
                               children: [
                                 TextSpan(
-                                  text: "",
+                                  text: vehicle["vVinNo"]?.toString() ?? '',
                                   style: ApptextstyleConstants.thinText(
                                     fontSize: 10,
                                     color: ColorConstants.textBlueColor,
@@ -140,25 +136,7 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                               ],
                             ),
                           ),
-                          SizedBox(height: 3),
-                          RichText(
-                            text: TextSpan(
-                              text: "Odometer:  ",
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.blackColor,
-                              ).copyWith(fontWeight: FontWeight.bold),
-                              children: [
-                                TextSpan(
-                                  text: vehicle['vOdometer']?.toString() ?? '',
-                                  style: ApptextstyleConstants.thinText(
-                                    fontSize: 10,
-                                    color: ColorConstants.textBlueColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          SizedBox(height: 3)
                         ],
                       ),
                     ),
@@ -169,26 +147,20 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                   builder: (context, basicController, child) {
                     final comments =
                         basicController.additionalCommentsController.text;
-
                     final complaintList = comments
                         .split('\n')
                         .where((e) => e.trim().isNotEmpty)
                         .toList();
-
                     return Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
-
                       decoration: BoxDecoration(
                         color: ColorConstants.errorcolor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
-
                         border: Border.all(color: ColorConstants.errorcolor),
                       ),
-
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-
                         children: [
                           Text(
                             "Customer Complaint:",
@@ -197,12 +169,10 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                               color: ColorConstants.blackColor,
                             ).copyWith(fontWeight: FontWeight.bold),
                           ),
-
                           const SizedBox(height: 6),
-
                           if (complaintList.isEmpty)
                             Text(
-                              "N/A",
+                              "No Comments Recorded",
                               style: ApptextstyleConstants.thinText(
                                 fontSize: 10,
                                 color: ColorConstants.blackColor,
@@ -212,10 +182,8 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                             ...complaintList.map(
                               (item) => Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
-
                                 child: Text(
                                   "• $item",
-
                                   style: ApptextstyleConstants.thinText(
                                     fontSize: 10,
                                     color: ColorConstants.blackColor,
@@ -312,12 +280,10 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                             fontSize: 10,
                             color: ColorConstants.blackColor,
                           ).copyWith(fontWeight: FontWeight.bold),
-
                           children: [
                             TextSpan(
                               text:
                                   "${jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
-
                               style: ApptextstyleConstants.thinText(
                                 fontSize: 10,
                                 color: ColorConstants.textBlueColor,
@@ -355,7 +321,7 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                           ).copyWith(fontWeight: FontWeight.bold),
                           children: [
                             TextSpan(
-                              text: "",
+                              text: vehicle["vVinNo"]?.toString() ?? '',
                               style: ApptextstyleConstants.thinText(
                                 fontSize: 10,
                                 color: ColorConstants.textBlueColor,
@@ -364,7 +330,6 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                           ],
                         ),
                       ),
-                   
                     ],
                   ),
                 ),

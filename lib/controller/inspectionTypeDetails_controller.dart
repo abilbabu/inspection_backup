@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -18,11 +17,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
 
   List<dynamic> filteredTaskComponents = [];
   List<dynamic> suggestionTaskComponents = [];
-
-  // void initializeTaskComponents() {
-  //   filteredTaskComponents = List.from(allTaskComponents);
-  //   notifyListeners();
-  // }
 
   void searchTaskComponents(String query) {
     if (query.trim().isEmpty) {
@@ -96,18 +90,14 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     InspectionFormController formController,
   ) {
     final inspections = data["inspections"] ?? [];
-
     for (final inspection in inspections) {
       final completedTasks = inspection["completedTasks"] ?? [];
-
       for (final savedTask in completedTasks) {
         final int taskId = savedTask["viTaskId"];
-
         final component = allTaskComponents.firstWhere(
           (e) => e["itcId"] == taskId,
           orElse: () => null,
         );
-
         if (component != null) {
           formController.updateTask(
             InspectionTaskData(
@@ -131,12 +121,10 @@ class InspectionTypeDetailsController extends ChangeNotifier {
               isSaved: true,
             ),
           );
-
           formController.markTaskSaved(taskId);
         }
       }
     }
-
     notifyListeners();
   }
 
@@ -186,7 +174,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("userToken");
-
       final response = await http.post(
         Uri.parse(ApiServices.statusChange),
         headers: {
@@ -200,14 +187,11 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           "assigneeId": "",
         }),
       );
-
       if (response.statusCode == 200) {
         return true;
       }
-
       return false;
     } catch (e) {
-      log("Status Change Error: $e");
       return false;
     }
   }
@@ -305,12 +289,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       final responseBody = jsonDecode(response.body);
       final data = responseBody["data"];
       inspectionFormName = data?["inspectionFormName"] ?? "";
-      // allTaskComponents = (data['componentMappings'] as List)
-      //     .map((e) => e['taskComponent'])
-      //     .where((e) => e != null)
-      //     .toList();
-
-      // filteredTaskComponents = List.from(allTaskComponents);
       final taskMappings = List<Map<String, dynamic>>.from(
         data?["componentMappings"] ?? [],
       );

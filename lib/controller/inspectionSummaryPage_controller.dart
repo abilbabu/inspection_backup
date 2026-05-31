@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -12,17 +11,14 @@ class InspectionsummarypageController extends ChangeNotifier {
   Map<String, List<InspectionItem>> groupedItems = {};
   int? vimInspectionTypeId;
   int? vimIfMasterId;
-
   String inspectionFormName = "";
 
   Future<ApiResponse> getInspectionSummary(int jobId) async {
     isLoading = true;
     notifyListeners();
-
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('userToken');
-
       final response = await http.post(
         Uri.parse(ApiServices.getInspectionSummary),
         headers: {
@@ -33,16 +29,10 @@ class InspectionsummarypageController extends ChangeNotifier {
       );
 
       final result = jsonDecode(response.body);
-      final inspections = result["data"]["inspections"] as List;
-      vimInspectionTypeId = inspections.last["master"]["vimInspectionType"];
-      vimIfMasterId = inspections.last["master"]["vimIfMasterId"];
-      print("**************************************************");
-      print(vimIfMasterId);
-      print("**************************************************");
+      final inspections = result["data"]["inspections"] as List? ?? [];
+
       final attachments =
           result["data"]["jobCard"]["attachments"] as List? ?? [];
-
-      // final Map<int, String> imageMap = {};
       final Map<int, List<String>> imageMap = {};
       final Map<int, String> videoMap = {};
       final Map<int, String> audioMap = {};
@@ -50,60 +40,73 @@ class InspectionsummarypageController extends ChangeNotifier {
       for (final att in attachments) {
         final taskId = att["iaInspectionTaskId"];
         if (taskId == null) continue;
-
         if (att["iaType"] == 0) {
           imageMap.putIfAbsent(taskId, () => []).add(att["iaUrl"]);
         }
-
-        if (att["iaType"] == 1) {
-          audioMap[taskId] = att["iaUrl"];
-        }
-
-        if (att["iaType"] == 2) {
-          videoMap[taskId] = att["iaUrl"];
-        }
+        if (att["iaType"] == 1) audioMap[taskId] = att["iaUrl"];
+        if (att["iaType"] == 2) videoMap[taskId] = att["iaUrl"];
       }
 
       groupedItems.clear();
+      inspectionFormName = "";
 
-      final inspectionTask = inspections.firstWhere(
-        (e) => e["master"]["vimInspectionType"] == 1,
-        orElse: () => null,
-      );
+      for (final inspection in inspections) {
+        final master = inspection["master"];
+        if (master == null) continue;
 
-      if (inspectionTask != null) {
-        inspectionFormName =
-            inspectionTask["master"]?["formName"]?.toString() ?? "";
+        final int? inspType = master["vimInspectionType"];
+        final int? ifMasterId = master["vimIfMasterId"];
+        final tasks = inspection["inspectionTasks"] as List? ?? [];
 
-        for (final category in inspectionTask["inspectionTasks"]) {
-          final name = category["taskCategoryName"];
-          final tasks = category["tasks"] as List;
+        vimInspectionTypeId = inspType;
+        vimIfMasterId = ifMasterId;
 
-          groupedItems[name] = tasks.map<InspectionItem>((task) {
-            final taskId = task["viTaskId"];
+        // Skip basic inspection (ifMasterId == 0) — no tasks to show
+        if (ifMasterId != null && ifMasterId == 0) continue;
 
-            final flags = task["inspectionTaskFlags"] ?? {};
+        // Set form name
+        if (inspType == 1) {
+          inspectionFormName = master["formName"]?.toString() ?? "";
+        } else if (inspType == 2 || ifMasterId == null) {
+          // Custom inspection — ifMasterId is null
+          inspectionFormName = "Custom Inspection";
+        }
 
-            return InspectionItem(
-              title: task["taskName"] ?? "",
-              category: name,
-              status: _mapStatus(task),
+        // Skip if no tasks returned from backend
+        if (tasks.isEmpty) continue;
 
-              allowGood: flags["good"] == true,
-              allowRepair: flags["repair"] == true,
-              allowPoor: flags["poor"] == true,
-              allowReplace: flags["replace"] == true,
-              allowNA: flags["notApplicable"] == true,
+        for (final category in tasks) {
+          final name = category["taskCategoryName"]?.toString() ?? "General";
+          final categoryTasks = category["tasks"] as List? ?? [];
 
-              imageUrls: imageMap[taskId] ?? [],
-              videoUrl: videoMap[taskId],
-              audioUrl: audioMap[taskId],
-              note: (task["viNote"] ?? "").toString(),
-              initialNote: (task["viDescription"] ?? "").toString(),
-            );
-          }).toList();
+          if (categoryTasks.isEmpty) continue;
+
+          groupedItems
+              .putIfAbsent(name, () => [])
+              .addAll(
+                categoryTasks.map<InspectionItem>((task) {
+                  final taskId = task["viTaskId"];
+                  final flags = task["inspectionTaskFlags"] ?? {};
+                  return InspectionItem(
+                    title: task["taskName"] ?? "",
+                    category: name,
+                    status: _mapStatus(task),
+                    allowGood: flags["good"] == true,
+                    allowRepair: flags["repair"] == true,
+                    allowPoor: flags["poor"] == true,
+                    allowReplace: flags["replace"] == true,
+                    allowNA: flags["notApplicable"] == true,
+                    imageUrls: imageMap[taskId] ?? [],
+                    videoUrl: videoMap[taskId],
+                    audioUrl: audioMap[taskId],
+                    note: (task["viNote"] ?? "").toString(),
+                    initialNote: (task["viDescription"] ?? "").toString(),
+                  );
+                }).toList(),
+              );
         }
       }
+
       return ApiResponse(
         success: result["statusCode"] == 200,
         statusCode: result['statusCode'],

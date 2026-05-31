@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-// import 'dart:developer';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
@@ -16,7 +15,6 @@ import 'package:inspection/utils/constant/mediaCacheService%20.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
-// import 'package:inspection/view/inspection_screen/inspection_summary_page.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -44,7 +42,6 @@ class InspectioncardController extends ChangeNotifier {
   bool isAudioDownloading = false;
   bool isVideoLoading = false;
   bool isRecording = false;
-  // bool _navigatedToSummary = false;
   bool isPlaying = false;
   bool isPaused = false;
   final record = AudioRecorder();
@@ -459,7 +456,6 @@ class InspectioncardController extends ChangeNotifier {
       isAudioDownloading = false;
       notifyListeners();
     }
-
     if (formController.isTaskSaved(taskId)) {
       isSuccess = true;
       showSaveButton = false;
@@ -515,7 +511,6 @@ class InspectioncardController extends ChangeNotifier {
     if (isNotApplicable) {
     } else {
       final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
-
       if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
         setValidationError(
           "Inspection photo is required",
@@ -544,12 +539,7 @@ class InspectioncardController extends ChangeNotifier {
     notifyListeners();
     final willCompleteAll =
         (formController.savedTasks + 1) == formController.totalTasks;
-
     final int status = willCompleteAll ? 6 : 5;
-    // log("👉 savedTasks: ${formController.savedTasks}");
-    // log("👉 totalTasks: ${formController.totalTasks}");
-    // log("👉 willCompleteAll: $willCompleteAll");
-    // log("👉 STATUS: $status");
     final ApiResponse response = await saveSingleInspectionTask(
       status: status,
       jobId: jobId,
@@ -571,32 +561,6 @@ class InspectioncardController extends ChangeNotifier {
     if (status == 6) {
       return true;
     }
-    // log("👉 _navigatedToSummary: $_navigatedToSummary");
-    // if (isNowComplete && !_navigatedToSummary) {
-    //   log("🚀 NAVIGATION TRIGGERED");
-
-    //   _navigatedToSummary = true;
-    //   return true;
-    //   // return isNowComplete;
-    //   // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   //   log("📌 INSIDE postFrameCallback");
-    //   //   // if (!context.mounted) return;
-    //   //   // if (!context.mounted) {
-    //   //   //   log("❌ Context not mounted");
-    //   //   //   return;
-    //   //   // }
-
-    //   //   log("✅ Navigating to InspectionSummaryPage");
-    //   //   Navigator.of(context).pushReplacement(
-    //   //     MaterialPageRoute(
-    //   //       builder: (_) => InspectionSummaryPage(jobId: jobId, flag: 0),
-    //   //     ),
-    //   //   );
-    //   // });
-    // }
-    // if (isNowComplete) {
-    //   // 🔥 FIX
-    // }
     return false;
   }
 
@@ -620,8 +584,6 @@ class InspectioncardController extends ChangeNotifier {
     int? inspectionTypeId,
   }) async {
     try {
-      // print("Form ID Inside Save Single Inspection");
-      // print("Form ID Inside Save Single Inspection");
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString('userToken');
       if (token == null || token.isEmpty) {
@@ -722,7 +684,6 @@ class InspectioncardController extends ChangeNotifier {
   Future<Size> getImageSize(File imageFile) async {
     final bytes = await imageFile.readAsBytes();
     final decoded = await decodeImageFromList(bytes);
-
     return Size(decoded.width.toDouble(), decoded.height.toDouble());
   }
 
@@ -736,15 +697,12 @@ class InspectioncardController extends ChangeNotifier {
     required int formId,
     int? inspectionTypeId,
   }) async {
-    // same validation logic
-
     updateCustomTask(
       formController: formController,
       jobId: jobId,
       taskId: taskId,
       formId: formId,
     );
-
     final ApiResponse response = await saveSingleInspectionTask(
       status: 5,
       jobId: jobId,
@@ -764,7 +722,6 @@ class InspectioncardController extends ChangeNotifier {
     markSaved();
     formController.markTaskSaved(taskId);
     notifyListeners();
-    //
     return false;
   }
 
@@ -779,14 +736,12 @@ class InspectioncardController extends ChangeNotifier {
         jobId: jobId,
         taskId: taskId,
         formId: formId,
-
         condition: selectedOption,
         note: noteController.text,
         description: descriptionController.text,
         imageFiles: _capturedImages.whereType<File>().toList(),
         videoFile: _capturedVideo,
         audioFilePath: _recordedFilePath,
-
         inserted: false,
       ),
     );

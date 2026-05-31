@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
-// import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -30,10 +28,13 @@ class JobcarddetailsController extends ChangeNotifier {
   List transmissionList = [];
   List customerTypeList = [];
   List serviceTypeList = [];
+  List<Map<String, dynamic>> jobcardList = [];
+  bool isJobcardLoading = false;
   bool isTechnicianAssigned = false;
   int? assignedTechnicianId;
   int? jobSuperVisorId;
   String? assignedTechnicianName;
+  bool isDownloading = false;
 
   Future<ApiResponse> postJobCardDetails(int jobId) async {
     if (hasLoaded && jobCardData != null) {
@@ -60,10 +61,6 @@ class JobcarddetailsController extends ChangeNotifier {
         },
         body: jsonEncode(body),
       );
-
-      log("Status Code : ${response.statusCode}");
-      log("Response ===================================> : ${response.body}");
-
       final decoded = jsonDecode(response.body);
       if (response.statusCode == 200) {
         jobCardData = decoded['data'];
@@ -74,27 +71,15 @@ class JobcarddetailsController extends ChangeNotifier {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         userDepartment =
             int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
-        // print("User Department");
-        // print(userDepartment);
-        // print(supervisorData);
         if (technicianData != null) {
           isTechnicianAssigned = true;
         } else {
           isTechnicianAssigned = false;
         }
-        // TECHNICIAN ASSIGNED CHECK
-        // print("******************90000000000");
-        // log(isTechnicianAssigned.toString());
-        // print("********************************90000000000");
-
-        // TECHNICIAN DETAILS
         if (technicianData != null) {
           assignedTechnicianId = technicianData!["userId"];
-
           assignedTechnicianName = technicianData!["userName"] ?? "";
         }
-
-        // SUPERVISOR DETAILS
         if (supervisorData != null) {
           jobSuperVisorId = supervisorData!["userId"];
         }
@@ -126,8 +111,6 @@ class JobcarddetailsController extends ChangeNotifier {
     return null;
   }
 
-  bool isDownloading = false;
-
   void setDownloading(bool value) {
     isDownloading = value;
     notifyListeners();
@@ -137,7 +120,6 @@ class JobcarddetailsController extends ChangeNotifier {
     if (jobCardData == null) return;
     fuelList = custCtrl.fuelTypeList;
     transmissionList = custCtrl.transmissionTypeList;
-    // customerTypeList = custCtrl.customerTypeList;
     serviceTypeList = custCtrl.serviceTypeList;
     final jobcard = jobCardData?['jobcard'];
     final vehicle = jobcard?['vehicle'];
@@ -175,9 +157,7 @@ class JobcarddetailsController extends ChangeNotifier {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString('userToken');
       if (token == null) return null;
-
       final dio = Dio();
-
       final response = await dio.post(
         ApiServices.generateInspectionPdf,
         data: {"orderId": jobId},
@@ -195,37 +175,25 @@ class JobcarddetailsController extends ChangeNotifier {
       } else {
         dir = await getApplicationDocumentsDirectory();
       }
-
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
-
       final jobCardNumber =
           jobCardData?['jobcard']?['jobCardNo']?.toString() ?? jobId.toString();
-
       final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-
       final baseName = "ALMJBC-$jobCardNumber($cleanPhone)";
-
-      // 🔥 Find next available number
       int count = 1;
       String filePath = "";
-
       while (true) {
         final suffix = count.toString().padLeft(2, '0');
         filePath = "${dir.path}/$baseName$suffix.pdf";
-
         final file = File(filePath);
-
         if (!await file.exists()) {
-          // ✅ file not exists → use this
           await file.writeAsBytes(response.data, flush: true);
           break;
         }
-
         count++;
       }
-
       return filePath;
     } catch (e) {
       print("PDF Download Error: $e");
@@ -236,12 +204,9 @@ class JobcarddetailsController extends ChangeNotifier {
   String formatPhone(String code, String mobile) {
     String cleanCode = code.replaceAll("+", "");
     String cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
-
-    // remove leading 0 (important for UAE/India)
     if (cleanMobile.startsWith("0")) {
       cleanMobile = cleanMobile.substring(1);
     }
-
     return "$cleanCode$cleanMobile";
   }
 
@@ -249,32 +214,24 @@ class JobcarddetailsController extends ChangeNotifier {
     final Uri url = Uri.parse(
       "whatsapp://send?phone=$phone&text=${Uri.encodeComponent(message)}",
     );
-
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
-
-  List<Map<String, dynamic>> jobcardList = [];
-  bool isJobcardLoading = false;
 
   Future<void> getInspectionListByUserId() async {
     isLoading = true;
     isJobcardLoading = true;
     notifyListeners();
-
     final url = Uri.parse(ApiServices.allInspectionList);
-
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
       String? userId = prefs.getString('userId');
-
       if (userId == null) {
         isLoading = false;
         isJobcardLoading = false;
         notifyListeners();
         return;
       }
-
       final response = await http.post(
         url,
         headers: {
@@ -283,11 +240,9 @@ class JobcarddetailsController extends ChangeNotifier {
         },
         body: jsonEncode({"userId": int.parse(userId)}),
       );
-
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
         final List rawList = res["data"] ?? [];
-
         jobcardList = rawList
             .where((item) {
               final int status =
@@ -317,7 +272,6 @@ class JobcarddetailsController extends ChangeNotifier {
     } catch (e) {
       print("❗ EXCEPTION: $e");
     }
-
     isLoading = false;
     isJobcardLoading = false;
     notifyListeners();
