@@ -293,10 +293,17 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                         context,
                                       ).showSnackBar(
                                         const SnackBar(
+                                          backgroundColor:
+                                              ColorConstants.greenColor,
                                           content: Text(
                                             "Custom inspection complete",
                                             style: TextStyle(
-                                              color: ColorConstants.whiteColor,
+                                              color: Color.fromARGB(
+                                                255,
+                                                201,
+                                                170,
+                                                170,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -804,15 +811,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           );
                         }),
                       const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text("Mark & Save"),
-                        ),
-                      ),
                     ],
                   );
                 },

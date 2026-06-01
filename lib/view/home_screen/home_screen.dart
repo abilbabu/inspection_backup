@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -35,10 +36,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> loadUserDepartment() async {
     final prefs = await SharedPreferences.getInstance();
+
+    log("userDepartment from prefs = ${prefs.getString("userDepartment")}");
     setState(() {
       userDepartment =
           int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
     });
+
+    log("parsed userDepartment = $userDepartment");
   }
 
   @override
@@ -178,8 +183,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final bool hasInspection = inspectionList.isNotEmpty;
     final bool hasJobCard = jobcardList.isNotEmpty;
+
     final bool isOnlyJobCardDepartment =
-        userDepartment == 2 || userDepartment == 4;
+        userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
+
     return Scaffold(
       body: AppTheme(
         child: SingleChildScrollView(
@@ -465,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (userDepartment != 2 && userDepartment != 4)
+          if (userDepartment != 2 && userDepartment != 4 && userDepartment != 5)
             Row(
               children: [
                 Text(
@@ -626,6 +633,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                           },
                         ),
+
                         /// ================= Assigned =================
                         Builder(
                           builder: (context) {
@@ -680,6 +688,196 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
+
+          if (userDepartment == 5) ...[
+            DefaultTabController(
+              length: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 45,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      gradient: ColorConstants.tabgradientColor,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: TabBar(
+                      indicator: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(
+                          color: const Color(0xFF0066A6),
+                          width: 1.5,
+                        ),
+                      ),
+                      labelColor: Colors.transparent,
+                      unselectedLabelColor: ColorConstants.activecolor,
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerColor: Colors.transparent,
+                      tabs: [
+                        Tab(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) {
+                              return const LinearGradient(
+                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                              ).createShader(bounds);
+                            },
+                            child: const Text(
+                              "Pending",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Tab(
+                          child: ShaderMask(
+                            shaderCallback: (bounds) {
+                              return const LinearGradient(
+                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                              ).createShader(bounds);
+                            },
+                            child: const Text(
+                              "Assigned",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search Job Card No",
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.75,
+                    child: TabBarView(
+                      children: [
+                        /// ================= Pending =================
+                        Builder(
+                          builder: (context) {
+                            final pendingList = reversedList.where((item) {
+                              final status =
+                                  int.tryParse(item["jobStatus"].toString()) ??
+                                  0;
+
+                              final searchMatch =
+                                  item["jobNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["plateNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["vinNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true;
+                              return status == 3 && searchMatch;
+                            }).toList();
+                            if (pendingList.isEmpty) {
+                              return const Center(
+                                child: Text("No Pending Jobs"),
+                              );
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: pendingList.length,
+                                separatorBuilder: (_, __) =>
+                                    SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    pendingList[index],
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+
+                        /// ================= Assigned =================
+                        Builder(
+                          builder: (context) {
+                            final assignedList = reversedList.where((item) {
+                              final status =
+                                  int.tryParse(item["jobStatus"].toString()) ??
+                                  0;
+                              final searchMatch =
+                                  item["jobNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["plateNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true ||
+                                  item["vinNo"]
+                                          ?.toString()
+                                          .toLowerCase()
+                                          .contains(searchText) ==
+                                      true;
+                              return (status == 5 || status == 4) &&
+                                  searchMatch;
+                            }).toList();
+                            if (assignedList.isEmpty) {
+                              return const Center(
+                                child: Text("No Assigned Jobs"),
+                              );
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: assignedList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    assignedList[index],
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           //  userDepartment == 4 use
           if (userDepartment == 4) ...[
             DefaultTabController(

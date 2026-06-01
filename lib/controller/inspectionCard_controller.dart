@@ -697,6 +697,37 @@ class InspectioncardController extends ChangeNotifier {
     required int formId,
     int? inspectionTypeId,
   }) async {
+    validationError = null;
+    validationType = ValidationType.none;
+    if (isLoading) return false;
+    if (selectedOption == null) {
+      setValidationError(
+        "Please select inspection condition",
+        ValidationType.condition,
+      );
+      _showSnackBar(context, validationError!);
+      return false;
+    }
+    if (isNotApplicable) {
+    } else {
+      final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
+      if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
+        setValidationError(
+          "Inspection photo is required",
+          ValidationType.image,
+        );
+        _showSnackBar(context, validationError!);
+        return false;
+      }
+      if (inspectionAudioMandatory && _recordedFilePath == null) {
+        setValidationError(
+          "Inspection audio recording is required",
+          ValidationType.audio,
+        );
+        _showSnackBar(context, validationError!);
+        return false;
+      }
+    }
     updateCustomTask(
       formController: formController,
       jobId: jobId,
