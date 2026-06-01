@@ -132,7 +132,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           SizedBox(height: 15),
                           if (jobStatus != 5 &&
                               userDepartment != 3 &&
-                              jobStatus != 6)
+                              jobStatus != 6 && jobController.isTechnicianAssigned == false)
                             Align(
                               alignment: Alignment.centerRight,
                               child: CustomButtonWidget(

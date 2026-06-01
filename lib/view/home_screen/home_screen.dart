@@ -182,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final bool hasInspection = inspectionList.isNotEmpty;
-    final bool hasJobCard = jobcardList.isNotEmpty;
+    // final bool hasJobCard = jobcardList.isNotEmpty;
 
     final bool isOnlyJobCardDepartment =
         userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
@@ -204,7 +204,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 inspectionModeSection(context),
               ],
-              if (hasJobCard) ...[const SizedBox(height: 12), jobCardSection()],
+              SizedBox(height: 12),
+              jobCardSection(),
               const SizedBox(height: 16),
             ],
           ),
@@ -456,7 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget jobCardSection() {
-    if (jobcardList.isEmpty) return const SizedBox();
+    // if (jobcardList.isEmpty) return const SizedBox();
     final reversedList = jobcardList.reversed.toList();
     final latestFiveList = reversedList
         .where((item) {
@@ -497,10 +498,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          if (userDepartment != 2 &&
+              userDepartment != 4 &&
+              userDepartment != 5) ...[
+            if (latestFiveList.isNotEmpty) ...[
+              SizedBox(
+                height: 240,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: latestFiveList.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 1),
+                  itemBuilder: (context, index) {
+                    final item = latestFiveList[index];
+                    return jobCardItem(context, item);
+                  },
+                ),
+              ),
+            ] else ...[
+              emptyJobCardContainer(
+                title: "No Job Cards",
+                subtitle: "There are no job cards available.",
+              ),
+            ],
+          ],
 
           //  userDepartment == 2 use
-          if (userDepartment == 2 || userDepartment == 5) ...[
+          if (userDepartment == 2) ...[
             DefaultTabController(
               length: 2,
               child: Column(
@@ -613,8 +637,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               return status == 3 && searchMatch;
                             }).toList();
                             if (pendingList.isEmpty) {
-                              return const Center(
-                                child: Text("No Pending Jobs"),
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Pending Jobs",
+                                    subtitle:
+                                        "There are no pending job cards available.",
+                                  ),
+                                ),
                               );
                             }
                             return Padding(
@@ -661,8 +692,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   searchMatch;
                             }).toList();
                             if (assignedList.isEmpty) {
-                              return const Center(
-                                child: Text("No Assigned Jobs"),
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Assigned Jobs",
+                                    subtitle:
+                                        "There are no assigned job cards available.",
+                                  ),
+                                ),
                               );
                             }
                             return Padding(
@@ -802,8 +840,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               return status == 3 && searchMatch;
                             }).toList();
                             if (pendingList.isEmpty) {
-                              return const Center(
-                                child: Text("No Pending Jobs"),
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Pending Jobs",
+                                    subtitle:
+                                        "There are no pending job cards available.",
+                                  ),
+                                ),
                               );
                             }
                             return Padding(
@@ -849,9 +894,17 @@ class _HomeScreenState extends State<HomeScreen> {
                               return (status == 5 || status == 4) &&
                                   searchMatch;
                             }).toList();
+
                             if (assignedList.isEmpty) {
-                              return const Center(
-                                child: Text("No Assigned Jobs"),
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Assigned Jobs",
+                                    subtitle:
+                                        "There are no assigned job cards available.",
+                                  ),
+                                ),
                               );
                             }
                             return Padding(
@@ -991,8 +1044,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               return (status == 4) && searchMatch;
                             }).toList();
                             if (pendingList.isEmpty) {
-                              return const Center(
-                                child: Text("No Pending Jobs"),
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Pending Jobs",
+                                    subtitle:
+                                        "There are no pending job cards available.",
+                                  ),
+                                ),
                               );
                             }
                             return Padding(
@@ -1037,8 +1097,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               return (status == 5) && searchMatch;
                             }).toList();
                             if (ongoingList.isEmpty) {
-                              return const Center(
-                                child: Text("No On Going Jobs"),
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No On Going Jobs",
+                                    subtitle:
+                                        "There are no ongoing job cards available.",
+                                  ),
+                                ),
                               );
                             }
                             return Padding(
@@ -1063,25 +1130,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-          ],
-          // normal cases
-          if (userDepartment != 2 &&
-              userDepartment != 4 &&
-              userDepartment != 5) ...[
-            if (latestFiveList.isNotEmpty) ...[
-              SizedBox(
-                height: 240,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: latestFiveList.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 1),
-                  itemBuilder: (context, index) {
-                    final item = latestFiveList[index];
-                    return jobCardItem(context, item);
-                  },
-                ),
-              ),
-            ],
           ],
         ],
       ),
@@ -1591,6 +1639,45 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget emptyJobCardContainer({
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 12,
+            color: Colors.blue.withOpacity(.3),
+            blurStyle: BlurStyle.outer,
+          ),
+        ],
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.receipt_long, size: 48, color: Colors.grey),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ],
       ),
     );
   }

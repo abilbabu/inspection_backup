@@ -58,6 +58,16 @@ class InspectionCard extends StatefulWidget {
 }
 
 class _InspectionCardState extends State<InspectionCard> {
+  final FocusNode noteFocusNode = FocusNode();
+  final FocusNode descriptionFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    noteFocusNode.dispose();
+    descriptionFocusNode.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -230,8 +240,11 @@ class _InspectionCardState extends State<InspectionCard> {
                                 alignment: Alignment.centerRight,
                                 children: [
                                   TextField(
+                                    focusNode: descriptionFocusNode,
                                     controller:
                                         cardController.descriptionController,
+                                    canRequestFocus: true,
+
                                     readOnly: cardController.isSuccess,
                                     textCapitalization:
                                         TextCapitalization.sentences,
@@ -404,7 +417,9 @@ class _InspectionCardState extends State<InspectionCard> {
                         height: fieldHeight,
                         width: double.infinity,
                         child: TextField(
+                          focusNode: descriptionFocusNode,
                           controller: cardController.descriptionController,
+                          canRequestFocus: true,
                           readOnly: true,
                           maxLines: 18,
                           decoration: InputDecoration(
@@ -640,7 +655,9 @@ class _InspectionCardState extends State<InspectionCard> {
         alignment: Alignment.centerRight,
         children: [
           TextField(
+            focusNode: noteFocusNode,
             controller: controller.noteController,
+            canRequestFocus: true,
             readOnly: controller.isSuccess || controller.isNotApplicable,
             expands: true,
             maxLines: null,

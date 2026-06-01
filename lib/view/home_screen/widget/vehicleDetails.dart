@@ -130,6 +130,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
           builder: (context, controller, child) {
             final customerCtrl = context.watch<CustomerDetailsController>();
             final vehicleData = customerCtrl.getSelectedVehicleData();
+            final isNewVehicle = customerCtrl.selectedVehicle == "new";
             return Stack(
               children: [
                 SingleChildScrollView(
@@ -142,7 +143,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                         SizedBox(height: 20),
                         _buildMobileSearchRow(context),
                         SizedBox(height: 8),
-                        if (vehicleData != null)
+                        if (vehicleData != null && !isNewVehicle)
                           Container(
                             margin: const EdgeInsets.only(top: 6),
                             padding: const EdgeInsets.all(10),
@@ -1457,7 +1458,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                   listen: false,
                                 );
                             if (value == "new") {
-                              vehicleCtrl.clearAll(context);
+                              vehicleCtrl.clearAll(context, keepName: true);
                             } else {
                               final data = ctrl.getSelectedVehicleData();
                               if (data != null) {
