@@ -399,7 +399,7 @@ class VehicleDetailsController with ChangeNotifier {
     }
   }
 
-  void clearAll(context) {
+  void clearAll(BuildContext context, {bool keepName = false}) {
     final customerCtrl = Provider.of<CustomerDetailsController>(
       context,
       listen: false,
@@ -413,7 +413,9 @@ class VehicleDetailsController with ChangeNotifier {
     customerCtrl.setCountryCode('+971');
     selectedEmirate = "AUH";
     selectedPlateCode = PlateDummyDB.getCodesByEmirate("AUH").first;
-    nameController.clear();
+    if (!keepName) {
+      nameController.clear();
+    }
     selectedCustomerTypeId = null;
     selectedLanguages = 'EN';
     vinDisplayImage = null;

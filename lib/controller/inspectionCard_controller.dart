@@ -687,6 +687,55 @@ class InspectioncardController extends ChangeNotifier {
     return Size(decoded.width.toDouble(), decoded.height.toDouble());
   }
 
+  // void _customshowSnackBar(BuildContext context, String message) {
+  //   final messenger = ScaffoldMessenger.of(
+  //     Navigator.of(context, rootNavigator: true).context,
+  //   );
+
+  //   messenger
+  //     ..hideCurrentSnackBar()
+  //     ..showSnackBar(
+  //       SnackBar(
+  //         content: Text(message),
+  //         backgroundColor: Colors.red,
+  //         behavior: SnackBarBehavior.floating,
+  //       ),
+  //     );
+  // }
+
+  void _showValidationDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 50),
+              const SizedBox(height: 12),
+              const Text(
+                "Validation Error",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<bool> onCustomSavePressed({
     required BuildContext context,
     required InspectionFormController formController,
@@ -705,28 +754,27 @@ class InspectioncardController extends ChangeNotifier {
         "Please select inspection condition",
         ValidationType.condition,
       );
-      _showSnackBar(context, validationError!);
+
+      _showValidationDialog(context, validationError!);
       return false;
     }
-    if (isNotApplicable) {
-    } else {
-      final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
-      if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
-        setValidationError(
-          "Inspection photo is required",
-          ValidationType.image,
-        );
-        _showSnackBar(context, validationError!);
-        return false;
-      }
-      if (inspectionAudioMandatory && _recordedFilePath == null) {
-        setValidationError(
-          "Inspection audio recording is required",
-          ValidationType.audio,
-        );
-        _showSnackBar(context, validationError!);
-        return false;
-      }
+    final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
+
+    if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
+      setValidationError("Inspection photo is required", ValidationType.image);
+
+      _showValidationDialog(context, validationError!);
+      return false;
+    }
+
+    if (inspectionAudioMandatory && _recordedFilePath == null) {
+      setValidationError(
+        "Inspection audio recording is required",
+        ValidationType.audio,
+      );
+
+      _showValidationDialog(context, validationError!);
+      return false;
     }
     updateCustomTask(
       formController: formController,

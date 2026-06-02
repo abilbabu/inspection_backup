@@ -27,7 +27,7 @@ class _BottomnavbarScreenState extends State<BottomnavbarScreen> {
         final int userDepartment = controller.userDepartment;
 
         final bool isJobCardDepartment =
-            userDepartment == 2 || userDepartment == 4;
+            userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
 
         final List<String> routes = isJobCardDepartment
             ? ['/home', '/history', '/settings']
