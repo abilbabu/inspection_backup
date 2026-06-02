@@ -10,6 +10,7 @@ import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shimmer_animation/shimmer_animation.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool isLoading = true;
+
   final PageController _pageController = PageController();
   TextEditingController searchController = TextEditingController();
   String searchText = "";
@@ -46,10 +49,18 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     loadUserDepartment();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      setState(() {
+        isLoading = true;
+      });
       await Future.wait([
         getInspectionListByUserId(),
         getJobCardListByUserId(),
       ]);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     });
     searchController.addListener(() {
       setState(() {
@@ -168,10 +179,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _onRefresh() async {
-    await Future.wait([getInspectionListByUserId(), getJobCardListByUserId()]);
-  }
-
   @override
   void dispose() {
     _pageController.dispose();
@@ -180,9 +187,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return SingleChildScrollView(child: Scaffold(body: inspectionShimmer()));
+    }
+
     final bool hasInspection = inspectionList.isNotEmpty;
+    // final bool hasJobCard = jobcardList.isNotEmpty;
+
     final bool isOnlyJobCardDepartment =
         userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
+
     return Scaffold(
       body: AppTheme(
         child: SingleChildScrollView(
@@ -453,6 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget jobCardSection() {
+    // if (jobcardList.isEmpty) return const SizedBox();
     final reversedList = jobcardList.reversed.toList();
     final latestFiveList = reversedList
         .where((item) {
@@ -605,6 +620,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: MediaQuery.sizeOf(context).height * 0.75,
                     child: TabBarView(
                       children: [
+                        /// ================= Pending =================
                         Builder(
                           builder: (context) {
                             final pendingList = reversedList.where((item) {
@@ -631,49 +647,35 @@ class _HomeScreenState extends State<HomeScreen> {
                               return status == 3 && searchMatch;
                             }).toList();
                             if (pendingList.isEmpty) {
-                              return RefreshIndicator(
-                                onRefresh: _onRefresh,
-                                child: ListView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    SizedBox(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.6,
-                                      child: Center(
-                                        child: emptyJobCardContainer(
-                                          title: "No Pending Jobs",
-                                          subtitle:
-                                              "There are no pending job cards available.",
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Pending Jobs",
+                                    subtitle:
+                                        "There are no pending job cards available.",
+                                  ),
                                 ),
                               );
                             }
-                            return RefreshIndicator(
-                              onRefresh: _onRefresh,
-                              child: Padding(
-                                padding: const EdgeInsets.all(5),
-                                child: ListView.separated(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  itemCount: pendingList.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 0),
-                                  itemBuilder: (context, index) {
-                                    return jobCardItemlist(
-                                      context,
-                                      pendingList[index],
-                                    );
-                                  },
-                                ),
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: pendingList.length,
+                                separatorBuilder: (_, __) =>
+                                    SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    pendingList[index],
+                                  );
+                                },
                               ),
                             );
                           },
                         ),
+
+                        /// ================= Assigned =================
                         Builder(
                           builder: (context) {
                             final assignedList = reversedList.where((item) {
@@ -700,45 +702,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                   searchMatch;
                             }).toList();
                             if (assignedList.isEmpty) {
-                              return RefreshIndicator(
-                                onRefresh: _onRefresh,
-                                child: ListView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    SizedBox(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.6,
-                                      child: Center(
-                                        child: emptyJobCardContainer(
-                                          title: "No Assigned Jobs",
-                                          subtitle:
-                                              "There are no assigned job cards available.",
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Assigned Jobs",
+                                    subtitle:
+                                        "There are no assigned job cards available.",
+                                  ),
                                 ),
                               );
                             }
-                            return RefreshIndicator(
-                              onRefresh: _onRefresh,
-                              child: Padding(
-                                padding: const EdgeInsets.all(5),
-                                child: ListView.separated(
-                                  itemCount: assignedList.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 0),
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  itemBuilder: (context, index) {
-                                    return jobCardItemlist(
-                                      context,
-                                      assignedList[index],
-                                    );
-                                  },
-                                ),
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: assignedList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    assignedList[index],
+                                  );
+                                },
                               ),
                             );
                           },
@@ -864,49 +850,35 @@ class _HomeScreenState extends State<HomeScreen> {
                               return status == 3 && searchMatch;
                             }).toList();
                             if (pendingList.isEmpty) {
-                              return RefreshIndicator(
-                                onRefresh: _onRefresh,
-                                child: ListView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    SizedBox(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.6,
-                                      child: Center(
-                                        child: emptyJobCardContainer(
-                                          title: "No Pending Jobs",
-                                          subtitle:
-                                              "There are no pending job cards available.",
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Pending Jobs",
+                                    subtitle:
+                                        "There are no pending job cards available.",
+                                  ),
                                 ),
                               );
                             }
-                            return RefreshIndicator(
-                              onRefresh: _onRefresh,
-                              child: Padding(
-                                padding: const EdgeInsets.all(5),
-                                child: ListView.separated(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  itemCount: pendingList.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 0),
-                                  itemBuilder: (context, index) {
-                                    return jobCardItemlist(
-                                      context,
-                                      pendingList[index],
-                                    );
-                                  },
-                                ),
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: pendingList.length,
+                                separatorBuilder: (_, __) =>
+                                    SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    pendingList[index],
+                                  );
+                                },
                               ),
                             );
                           },
                         ),
+
+                        /// ================= Assigned =================
                         Builder(
                           builder: (context) {
                             final assignedList = reversedList.where((item) {
@@ -932,46 +904,31 @@ class _HomeScreenState extends State<HomeScreen> {
                               return (status == 5 || status == 4) &&
                                   searchMatch;
                             }).toList();
+
                             if (assignedList.isEmpty) {
-                              return RefreshIndicator(
-                                onRefresh: _onRefresh,
-                                child: ListView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    SizedBox(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.6,
-                                      child: Center(
-                                        child: emptyJobCardContainer(
-                                          title: "No Assigned Jobs",
-                                          subtitle:
-                                              "There are no assigned job cards available.",
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Assigned Jobs",
+                                    subtitle:
+                                        "There are no assigned job cards available.",
+                                  ),
                                 ),
                               );
                             }
-                            return RefreshIndicator(
-                              onRefresh: _onRefresh,
-                              child: Padding(
-                                padding: const EdgeInsets.all(5),
-                                child: ListView.separated(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  itemCount: assignedList.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 0),
-                                  itemBuilder: (context, index) {
-                                    return jobCardItemlist(
-                                      context,
-                                      assignedList[index],
-                                    );
-                                  },
-                                ),
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: assignedList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    assignedList[index],
+                                  );
+                                },
                               ),
                             );
                           },
@@ -983,6 +940,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
+
+          //  userDepartment == 4 use
           if (userDepartment == 4) ...[
             DefaultTabController(
               length: 2,
@@ -1095,46 +1054,30 @@ class _HomeScreenState extends State<HomeScreen> {
                               return (status == 4) && searchMatch;
                             }).toList();
                             if (pendingList.isEmpty) {
-                              return RefreshIndicator(
-                                onRefresh: _onRefresh,
-                                child: ListView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    SizedBox(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.6,
-                                      child: Center(
-                                        child: emptyJobCardContainer(
-                                          title: "No Pending Jobs",
-                                          subtitle:
-                                              "There are no pending job cards available.",
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No Pending Jobs",
+                                    subtitle:
+                                        "There are no pending job cards available.",
+                                  ),
                                 ),
                               );
                             }
-                            return RefreshIndicator(
-                              onRefresh: _onRefresh,
-                              child: Padding(
-                                padding: const EdgeInsets.all(5),
-                                child: ListView.separated(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  shrinkWrap: true,
-                                  itemCount: pendingList.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 0),
-                                  itemBuilder: (context, index) {
-                                    return jobCardItemTechinician(
-                                      context,
-                                      pendingList[index],
-                                    );
-                                  },
-                                ),
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: pendingList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemTechinician(
+                                    context,
+                                    pendingList[index],
+                                  );
+                                },
                               ),
                             );
                           },
@@ -1164,45 +1107,29 @@ class _HomeScreenState extends State<HomeScreen> {
                               return (status == 5) && searchMatch;
                             }).toList();
                             if (ongoingList.isEmpty) {
-                              return RefreshIndicator(
-                                onRefresh: _onRefresh,
-                                child: ListView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    SizedBox(
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.6,
-                                      child: Center(
-                                        child: emptyJobCardContainer(
-                                          title: "No On Going Jobs",
-                                          subtitle:
-                                              "There are no ongoing job cards available.",
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: emptyJobCardContainer(
+                                    title: "No On Going Jobs",
+                                    subtitle:
+                                        "There are no ongoing job cards available.",
+                                  ),
                                 ),
                               );
                             }
-                            return RefreshIndicator(
-                              onRefresh: _onRefresh,
-                              child: Padding(
-                                padding: const EdgeInsets.all(5),
-                                child: ListView.separated(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  itemCount: ongoingList.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 0),
-                                  itemBuilder: (context, index) {
-                                    return jobCardItemlist(
-                                      context,
-                                      ongoingList[index],
-                                    );
-                                  },
-                                ),
+                            return Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: ListView.separated(
+                                itemCount: ongoingList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 0),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemlist(
+                                    context,
+                                    ongoingList[index],
+                                  );
+                                },
                               ),
                             );
                           },
@@ -1761,6 +1688,46 @@ class _HomeScreenState extends State<HomeScreen> {
             style: const TextStyle(color: Colors.grey),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget inspectionShimmer() {
+    return Shimmer(
+      duration: const Duration(seconds: 15),
+      color: Colors.white,
+      colorOpacity: 0.3,
+      child: Column(
+        children: List.generate(
+          6,
+          (index) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+            child: Container(
+              height: 100,
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: Colors.grey.shade300,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(height: 14, width: 150, color: Colors.grey.shade400),
+                  const SizedBox(height: 10),
+                  Container(
+                    height: 12,
+                    width: double.infinity,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 6),
+                  Container(height: 12, width: 200, color: Colors.grey.shade400),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
