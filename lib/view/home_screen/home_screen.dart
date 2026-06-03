@@ -8,6 +8,7 @@ import 'package:inspection/controller/homeScreen_controller.dart';
 import 'package:inspection/utils/app_theme/app_theme.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -188,7 +189,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return SingleChildScrollView(child: Scaffold(body: inspectionShimmer()));
+      return Scaffold(
+        appBar: CustomAppBar(title: ""),
+        body: SingleChildScrollView(child: inspectionShimmer()),
+      );
     }
 
     final bool hasInspection = inspectionList.isNotEmpty;
@@ -1699,7 +1703,7 @@ class _HomeScreenState extends State<HomeScreen> {
       colorOpacity: 0.3,
       child: Column(
         children: List.generate(
-          6,
+          8,
           (index) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
             child: Container(
@@ -1714,7 +1718,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(height: 14, width: 150, color: Colors.grey.shade400),
+                  Container(
+                    height: 14,
+                    width: 150,
+                    color: Colors.grey.shade400,
+                  ),
                   const SizedBox(height: 10),
                   Container(
                     height: 12,
@@ -1722,7 +1730,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.grey.shade400,
                   ),
                   const SizedBox(height: 6),
-                  Container(height: 12, width: 200, color: Colors.grey.shade400),
+                  Container(
+                    height: 12,
+                    width: 200,
+                    color: Colors.grey.shade400,
+                  ),
                 ],
               ),
             ),
