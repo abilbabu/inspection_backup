@@ -73,7 +73,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     _currentZoom = 1.0;
     _zoomIndex = baseLevels.indexOf(1.0);
     await _controller.setZoomLevel(_currentZoom);
-    await _controller.setFlashMode(_flashMode);
+    try {
+      await _controller.setFlashMode(_flashMode);
+    } on CameraException catch (e) {
+      debugPrint("Flash not supported: ${e.description}");
+      _flashMode = FlashMode.off;
+    }
     if (!mounted) return;
     setState(() => _ready = true);
   }
@@ -87,7 +92,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           ? FlashMode.always
           : FlashMode.off;
     });
-    await _controller.setFlashMode(_flashMode);
+    try {
+      await _controller.setFlashMode(_flashMode);
+    } on CameraException catch (e) {
+      debugPrint("Flash not supported: ${e.description}");
+      _flashMode = FlashMode.off;
+    }
   }
 
   IconData get _flashIcon {
