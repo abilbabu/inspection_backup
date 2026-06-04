@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/authentication_%20controller.dart';
@@ -193,6 +195,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (!mounted) return;
                         if (_formKey.currentState?.validate() ?? false) {
                           bool success = await auth.postAuthUser();
+                          log("Login Success : $success");
+
                           if (success) {
                             context.go("/home");
                           } else {

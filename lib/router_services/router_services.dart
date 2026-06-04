@@ -13,6 +13,8 @@ import 'package:inspection/view/history_screen/history_details.dart';
 import 'package:inspection/view/history_screen/history_screen.dart';
 import 'package:inspection/view/home_screen/home_screen.dart';
 import 'package:inspection/view/home_screen/widget/JobCardDetails.dart';
+import 'package:inspection/view/home_screen/widget/allJobCardView.dart';
+import 'package:inspection/view/home_screen/widget/allPendingInspection.dart';
 import 'package:inspection/view/home_screen/widget/customerDetails.dart';
 import 'package:inspection/view/inspection_screen/inspectionDetails.dart';
 import 'package:inspection/view/basicInspection_screen/basicInspectionReport.dart';
@@ -241,6 +243,26 @@ final GoRouter router = GoRouter(
           videoUrl: args['videoUrl']!,
           label: args['label']!,
         );
+      },
+    ),
+
+    GoRoute(
+      path: '/alljobcardview',
+      name: ' All JobCard View',
+      builder: (BuildContext context, GoRouterState state) {
+         final jobcardList =
+        state.extra as List;
+        return Alljobcardview( jobcardList: jobcardList,);
+      },
+    ),
+
+    GoRoute(
+      path: '/allpendinginspection',
+      name: 'Basic Inspection Pending List',
+      builder: (BuildContext context, GoRouterState state) {
+        final inspectionList = state.extra as List;
+
+        return Allpendinginspection(inspectionList: inspectionList);
       },
     ),
   ],

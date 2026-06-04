@@ -285,7 +285,6 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                 onClear: () =>
                                     controller.clearField('odometer'),
                               ),
-                              SizedBox(height: 15),
                               _buildFuelMark(context),
                               SizedBox(height: 15),
                             ],
@@ -785,48 +784,60 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                   ),
                 ],
               ),
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: Colors.green,
-                  inactiveTrackColor: Colors.grey.shade300,
-                  thumbColor: Colors.green,
-                  overlayColor: Colors.green.withOpacity(0.2),
-                  trackHeight: 6,
-                  activeTickMarkColor: Colors.green,
-                  inactiveTickMarkColor: Colors.grey,
-                  tickMarkShape: const RoundSliderTickMarkShape(
-                    tickMarkRadius: 4,
-                  ),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade400, width: 1.5),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Slider(
-                  value: vController.fuelValue,
-                  min: 0,
-                  max: 4,
-                  divisions: 4,
-                  label: vController.fuelMarks[vController.fuelValue.round()],
-                  onChanged: (value) {
-                    vController.fuelValue = value;
-                    // ignore: invalid_use_of_protected_member
-                    vController.notifyListeners();
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: vController.fuelMarks.map((e) {
-                    int index = vController.fuelMarks.indexOf(e);
-                    return Text(
-                      e,
-                      style: TextStyle(
-                        color: index == vController.fuelValue.round()
-                            ? Colors.green
-                            : Colors.grey,
-                        fontWeight: FontWeight.bold,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  children: [
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: Colors.green,
+                        inactiveTrackColor: Colors.grey.shade300,
+                        thumbColor: Colors.green,
+                        overlayColor: Colors.green.withOpacity(0.2),
+                        trackHeight: 6,
+                        activeTickMarkColor: Colors.green,
+                        inactiveTickMarkColor: Colors.grey,
+                        tickMarkShape: const RoundSliderTickMarkShape(
+                          tickMarkRadius: 4,
+                        ),
                       ),
-                    );
-                  }).toList(),
+                      child: Slider(
+                        value: vController.fuelValue,
+                        min: 0,
+                        max: 4,
+                        divisions: 4,
+                        label: vController
+                            .fuelMarks[vController.fuelValue.round()],
+                        onChanged: (value) {
+                          vController.fuelValue = value;
+                          // ignore: invalid_use_of_protected_member
+                          vController.notifyListeners();
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: vController.fuelMarks.map((e) {
+                          int index = vController.fuelMarks.indexOf(e);
+                          return Text(
+                            e,
+                            style: TextStyle(
+                              color: index == vController.fuelValue.round()
+                                  ? Colors.green
+                                  : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               SizedBox(height: 15),

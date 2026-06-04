@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -25,6 +26,7 @@ class AuthenticationController with ChangeNotifier {
           "userPassword": passwordController.text.trim(),
         }),
       );
+      log(response.body);
       final body = jsonDecode(response.body);
       if (response.statusCode == 200 && body["statusCode"] == 200) {
         String userId = body["data"]["userId"].toString();
@@ -35,6 +37,8 @@ class AuthenticationController with ChangeNotifier {
         String userToken = body["data"]["userToken"] ?? "";
         String userRole = body["data"]["userRole"]["roleName"] ?? "";
         String userPassword = passwordController.text.trim();
+        String userDepartment = body["data"]["userDepartment"].toString();
+
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setBool("isLoggedIn", true);
         await prefs.setString("userId", userId);
@@ -45,6 +49,12 @@ class AuthenticationController with ChangeNotifier {
         await prefs.setString("userRole", userRole);
         await prefs.setString("userPhone", userPhone);
         await prefs.setString("userPhoneCode", userPhoneCode);
+        await prefs.setString("userDepartment", userDepartment);
+
+        log("isLoggedIn : ${prefs.getBool("isLoggedIn")}");
+        log("userId : ${prefs.getString("userId")}");
+        log("userDepartment : ${prefs.getString("userDepartment")}");
+
         isSuccess = true;
         isLoading = false;
         notifyListeners();

@@ -35,8 +35,10 @@ class ApiServices {
       "${baseUrl}vehicleinspection/searchVehicleRegNo";
   static String inspectionFormSearch =
       "${baseUrl}inspectionform/inspectionFormSearch";
-      static String generateInspectionPdf =
+  static String generateInspectionPdf =
       "${baseUrl}print/generate-inspectionreport-pdf";
+  static String allTechnicianList = "${baseUrl}user/technicianList";
+  static String assignTechnician = "${baseUrl}jobcard/assignTechnician";
 
   // <-----"GET Method"------>
   static String vehicleBrand = "${baseUrl}vehicle/brands";
@@ -51,4 +53,3 @@ class ApiServices {
   static String taskCategoryList = "${baseUrl}settings/taskCategoryList";
   static String basicimageSettingList = "${baseUrl}settings/imageSettingsList";
 }
- 
