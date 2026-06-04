@@ -67,4 +67,11 @@ class ColorConstants {
     end: Alignment.bottomCenter,
     // stops: [0.0, 0.0],
   );
+
+  static LinearGradient tabgradientColor = LinearGradient(
+    colors: [const Color(0xFFFFFFFF), const Color(0xFFEDFFFD)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    // stops: [0.0, 0.0],
+  );
 }

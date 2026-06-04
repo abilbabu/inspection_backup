@@ -130,6 +130,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
           builder: (context, controller, child) {
             final customerCtrl = context.watch<CustomerDetailsController>();
             final vehicleData = customerCtrl.getSelectedVehicleData();
+            final isNewVehicle = customerCtrl.selectedVehicle == "new";
             return Stack(
               children: [
                 SingleChildScrollView(
@@ -142,38 +143,8 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                         SizedBox(height: 20),
                         _buildMobileSearchRow(context),
                         SizedBox(height: 8),
-                        if (vehicleData != null)
-                          Container(
-                            margin: const EdgeInsets.only(top: 6),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: BoxBorder.all(
-                                color: ColorConstants.greenColor,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.directions_car,
-                                  size: 18,
-                                  color: ColorConstants.greenColor,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "${vehicleData['vMake'] ?? ''} ${vehicleData['vModel'] ?? ''} (${vehicleData['vModelYear'] ?? ''})",
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: ColorConstants.greenColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        if (vehicleData != null && !isNewVehicle)
+                          _vehicleNameContainer(vehicleData),
                         SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -463,6 +434,38 @@ class _VehicleDetailsState extends State<VehicleDetails> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _vehicleNameContainer(Map<String, dynamic> vehicleData) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: BoxBorder.all(color: ColorConstants.greenColor),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.directions_car,
+            size: 18,
+            color: ColorConstants.greenColor,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "${vehicleData['vMake'] ?? ''} ${vehicleData['vModel'] ?? ''} (${vehicleData['vModelYear'] ?? ''})",
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: ColorConstants.greenColor,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1457,7 +1460,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                   listen: false,
                                 );
                             if (value == "new") {
-                              vehicleCtrl.clearAll(context);
+                              vehicleCtrl.clearAll(context, keepName: true);
                             } else {
                               final data = ctrl.getSelectedVehicleData();
                               if (data != null) {

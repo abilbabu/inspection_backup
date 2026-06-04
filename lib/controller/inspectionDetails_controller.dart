@@ -7,6 +7,48 @@ import 'package:shared_preferences/shared_preferences.dart';
 class InspectionDetailsController extends ChangeNotifier {
   bool isLoading = false;
   List<Map<String, dynamic>> inspectiontypesList = [];
+  List<Map<String, dynamic>> technicianList = [];
+  String assignedTechnicianName = "";
+  int? assignedTechnicianId;
+  bool isTechnicianLoading = false;
+  bool technicianAssigned = false;
+  int? assignedInspectionType;
+  String selectedInspectionName = "";
+  int? jobTechnicianId;
+  int? jobSuperVisorId;
+  int? loginTechnicianId;
+
+  Future<void> loadLoginTechnicianId() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final value = prefs.get("userId");
+    loginTechnicianId = int.tryParse(value.toString());
+    notifyListeners();
+  }
+
+  Future<void> getTechnicianList() async {
+    try {
+      isTechnicianLoading = true;
+      notifyListeners();
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      final response = await http.post(
+        Uri.parse(ApiServices.allTechnicianList),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        technicianList = List<Map<String, dynamic>>.from(decoded['data']);
+      }
+    } catch (e) {
+      debugPrint("Error : $e");
+    } finally {
+      isTechnicianLoading = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> getInspectionTypes() async {
     isLoading = true;
@@ -64,5 +106,45 @@ class InspectionDetailsController extends ChangeNotifier {
     }
     isLoading = false;
     notifyListeners();
+  }
+
+  Future<bool> assignTechnician({
+    required int jobId,
+    required int assigneeId,
+    required int supervisorId,
+    required String technicianName,
+    int? formMasterId,
+  }) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      Map<String, dynamic> payload = {
+        "jobId": jobId,
+        "status": 4,
+        "assignedBy": assigneeId,
+        "vimIfMasterId": formMasterId,
+        "vimInspectionType": formMasterId != null ? 1 : 2,
+      };
+      final response = await http.post(
+        Uri.parse(ApiServices.assignTechnician),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 200) {
+        technicianAssigned = true;
+        assignedTechnicianName = technicianName;
+        assignedTechnicianId = assigneeId;
+        jobTechnicianId = assigneeId;
+        jobSuperVisorId = supervisorId;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
   }
 }

@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-// import 'dart:developer';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
@@ -16,7 +15,6 @@ import 'package:inspection/utils/constant/mediaCacheService%20.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
-// import 'package:inspection/view/inspection_screen/inspection_summary_page.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -44,7 +42,6 @@ class InspectioncardController extends ChangeNotifier {
   bool isAudioDownloading = false;
   bool isVideoLoading = false;
   bool isRecording = false;
-  // bool _navigatedToSummary = false;
   bool isPlaying = false;
   bool isPaused = false;
   final record = AudioRecorder();
@@ -459,7 +456,6 @@ class InspectioncardController extends ChangeNotifier {
       isAudioDownloading = false;
       notifyListeners();
     }
-
     if (formController.isTaskSaved(taskId)) {
       isSuccess = true;
       showSaveButton = false;
@@ -515,7 +511,6 @@ class InspectioncardController extends ChangeNotifier {
     if (isNotApplicable) {
     } else {
       final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
-
       if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
         setValidationError(
           "Inspection photo is required",
@@ -544,12 +539,7 @@ class InspectioncardController extends ChangeNotifier {
     notifyListeners();
     final willCompleteAll =
         (formController.savedTasks + 1) == formController.totalTasks;
-
     final int status = willCompleteAll ? 6 : 5;
-    // log("👉 savedTasks: ${formController.savedTasks}");
-    // log("👉 totalTasks: ${formController.totalTasks}");
-    // log("👉 willCompleteAll: $willCompleteAll");
-    // log("👉 STATUS: $status");
     final ApiResponse response = await saveSingleInspectionTask(
       status: status,
       jobId: jobId,
@@ -571,32 +561,6 @@ class InspectioncardController extends ChangeNotifier {
     if (status == 6) {
       return true;
     }
-    // log("👉 _navigatedToSummary: $_navigatedToSummary");
-    // if (isNowComplete && !_navigatedToSummary) {
-    //   log("🚀 NAVIGATION TRIGGERED");
-
-    //   _navigatedToSummary = true;
-    //   return true;
-    //   // return isNowComplete;
-    //   // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   //   log("📌 INSIDE postFrameCallback");
-    //   //   // if (!context.mounted) return;
-    //   //   // if (!context.mounted) {
-    //   //   //   log("❌ Context not mounted");
-    //   //   //   return;
-    //   //   // }
-
-    //   //   log("✅ Navigating to InspectionSummaryPage");
-    //   //   Navigator.of(context).pushReplacement(
-    //   //     MaterialPageRoute(
-    //   //       builder: (_) => InspectionSummaryPage(jobId: jobId, flag: 0),
-    //   //     ),
-    //   //   );
-    //   // });
-    // }
-    // if (isNowComplete) {
-    //   // 🔥 FIX
-    // }
     return false;
   }
 
@@ -617,6 +581,7 @@ class InspectioncardController extends ChangeNotifier {
     required int jobId,
     required int taskId,
     required int formId,
+    int? inspectionTypeId,
   }) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -658,7 +623,9 @@ class InspectioncardController extends ChangeNotifier {
       }
       Map<String, dynamic> payload = {
         "vimJobId": jobId,
-        "vimIfMasterId": formId,
+        "vimIfMasterId": (inspectionTypeId == 2 || inspectionTypeId == 0)
+            ? null
+            : formId,
         "viTaskId": taskId,
         "viGood": isGood,
         "viRepair": isRepair,
@@ -717,7 +684,145 @@ class InspectioncardController extends ChangeNotifier {
   Future<Size> getImageSize(File imageFile) async {
     final bytes = await imageFile.readAsBytes();
     final decoded = await decodeImageFromList(bytes);
-
     return Size(decoded.width.toDouble(), decoded.height.toDouble());
+  }
+
+  // void _customshowSnackBar(BuildContext context, String message) {
+  //   final messenger = ScaffoldMessenger.of(
+  //     Navigator.of(context, rootNavigator: true).context,
+  //   );
+
+  //   messenger
+  //     ..hideCurrentSnackBar()
+  //     ..showSnackBar(
+  //       SnackBar(
+  //         content: Text(message),
+  //         backgroundColor: Colors.red,
+  //         behavior: SnackBarBehavior.floating,
+  //       ),
+  //     );
+  // }
+
+  void _showValidationDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 50),
+              const SizedBox(height: 12),
+              const Text(
+                "Validation Error",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<bool> onCustomSavePressed({
+    required BuildContext context,
+    required InspectionFormController formController,
+    required bool inspectionPhotoMandatory,
+    required bool inspectionAudioMandatory,
+    required int jobId,
+    required int taskId,
+    required int formId,
+    int? inspectionTypeId,
+  }) async {
+    validationError = null;
+    validationType = ValidationType.none;
+    if (isLoading) return false;
+    if (selectedOption == null) {
+      setValidationError(
+        "Please select inspection condition",
+        ValidationType.condition,
+      );
+
+      _showValidationDialog(context, validationError!);
+      return false;
+    }
+    final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
+
+    if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
+      setValidationError("Inspection photo is required", ValidationType.image);
+
+      _showValidationDialog(context, validationError!);
+      return false;
+    }
+
+    if (inspectionAudioMandatory && _recordedFilePath == null) {
+      setValidationError(
+        "Inspection audio recording is required",
+        ValidationType.audio,
+      );
+
+      _showValidationDialog(context, validationError!);
+      return false;
+    }
+    updateCustomTask(
+      formController: formController,
+      jobId: jobId,
+      taskId: taskId,
+      formId: formId,
+    );
+    final ApiResponse response = await saveSingleInspectionTask(
+      status: 5,
+      jobId: jobId,
+      taskId: taskId,
+      formId: formId,
+      inspectionTypeId: inspectionTypeId,
+    );
+    if (response.success != true) {
+      isLoading = false;
+      markSaved();
+      notifyListeners();
+      return false;
+    }
+    isLoading = false;
+    isSuccess = true;
+    showSaveButton = false;
+    markSaved();
+    formController.markTaskSaved(taskId);
+    notifyListeners();
+    return false;
+  }
+
+  void updateCustomTask({
+    required InspectionFormController formController,
+    required int jobId,
+    required int taskId,
+    required int formId,
+  }) {
+    formController.updateTask(
+      InspectionTaskData(
+        jobId: jobId,
+        taskId: taskId,
+        formId: formId,
+        condition: selectedOption,
+        note: noteController.text,
+        description: descriptionController.text,
+        imageFiles: _capturedImages.whereType<File>().toList(),
+        videoFile: _capturedVideo,
+        audioFilePath: _recordedFilePath,
+        inserted: false,
+      ),
+    );
   }
 }

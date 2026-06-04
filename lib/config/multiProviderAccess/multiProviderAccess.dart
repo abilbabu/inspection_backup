@@ -24,7 +24,7 @@ class MultiProviderAccess extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => AuthenticationController()),
+        ChangeNotifierProvider(create: (context) => AuthenticationController()..loadUserDepartment()),
         ChangeNotifierProvider(create: (context) => VehicleDetailsController()),
         ChangeNotifierProvider(
           create: (context) => CustomerDetailsController(),

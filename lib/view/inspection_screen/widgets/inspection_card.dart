@@ -10,7 +10,7 @@ import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenv
 import 'package:provider/provider.dart';
 
 class InspectionCard extends StatefulWidget {
-  final int categoryId;
+  final int? categoryId;
   final int jobid;
   final int taskid;
   final int formid;
@@ -27,10 +27,12 @@ class InspectionCard extends StatefulWidget {
   final String? inspectionTaskInstruction;
   final bool allowMultipleImage;
   final bool allowVideo;
+  // To Check it Is Custom Or Not
+  final int? inspectionTypeid;
 
   const InspectionCard({
     super.key,
-    required this.categoryId,
+    this.categoryId,
     required this.jobid,
     required this.taskid,
     required this.formid,
@@ -47,6 +49,8 @@ class InspectionCard extends StatefulWidget {
     required this.inspectionTaskNotApplicable,
     required this.allowMultipleImage,
     required this.allowVideo,
+    // To Check it Is Custom Or Not
+    this.inspectionTypeid,
   });
 
   @override
@@ -54,6 +58,16 @@ class InspectionCard extends StatefulWidget {
 }
 
 class _InspectionCardState extends State<InspectionCard> {
+  final FocusNode noteFocusNode = FocusNode();
+  final FocusNode descriptionFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    noteFocusNode.dispose();
+    descriptionFocusNode.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -226,8 +240,11 @@ class _InspectionCardState extends State<InspectionCard> {
                                 alignment: Alignment.centerRight,
                                 children: [
                                   TextField(
+                                    focusNode: descriptionFocusNode,
                                     controller:
                                         cardController.descriptionController,
+                                    canRequestFocus: true,
+
                                     readOnly: cardController.isSuccess,
                                     textCapitalization:
                                         TextCapitalization.sentences,
@@ -338,30 +355,48 @@ class _InspectionCardState extends State<InspectionCard> {
                                     cardController.isVideoLoading ||
                                     cardController.isAudioDownloading,
                                 onPressed: () async {
-                                  final formController = context
-                                      .read<InspectionFormController>();
-                                  final isCompleted = await cardController
-                                      .onSavePressed(
-                                        context: context,
-                                        formController: formController,
-                                        inspectionPhotoMandatory:
-                                            widget.inspectionPhotoMandatory,
-                                        inspectionAudioMandatory:
-                                            widget.inspectionAudioMandatory,
-                                        jobId: widget.jobid,
-                                        taskId: widget.taskid,
-                                        formId: widget.formid,
-                                        categoryId: widget.categoryId,
+                                  if (widget.formid == 0) {
+                                    final formController = context
+                                        .read<InspectionFormController>();
+                                    final isCompleted = await cardController
+                                        .onCustomSavePressed(
+                                          context: context,
+                                          formController: formController,
+                                          inspectionPhotoMandatory:
+                                              widget.inspectionPhotoMandatory,
+                                          inspectionAudioMandatory:
+                                              widget.inspectionAudioMandatory,
+                                          jobId: widget.jobid,
+                                          taskId: widget.taskid,
+                                          formId: widget.formid,
+                                          inspectionTypeId:
+                                              widget.inspectionTypeid!,
+                                        );
+                                    if (isCompleted) {
+                                      context.go(
+                                        "/inspectionsummarypage",
+                                        extra: {
+                                          "jobId": widget.jobid,
+                                          "flag": 0,
+                                        },
                                       );
-                                  if (isCompleted) {
-                                    // Navigator.of(context).pushReplacement(
-                                    //   MaterialPageRoute(
-                                    //     builder: (_) => InspectionSummaryPage(
-                                    //       jobId: widget.jobid,
-                                    //       flag: 0,
-                                    //     ),
-                                    //   ),
-                                    // );
+                                    }
+                                  } else {
+                                    final formController = context
+                                        .read<InspectionFormController>();
+                                    final isCompleted = await cardController
+                                        .onSavePressed(
+                                          context: context,
+                                          formController: formController,
+                                          inspectionPhotoMandatory:
+                                              widget.inspectionPhotoMandatory,
+                                          inspectionAudioMandatory:
+                                              widget.inspectionAudioMandatory,
+                                          jobId: widget.jobid,
+                                          taskId: widget.taskid,
+                                          formId: widget.formid,
+                                          categoryId: widget.categoryId!,
+                                        );
                                     if (isCompleted) {
                                       context.go(
                                         "/inspectionsummarypage",
@@ -382,7 +417,9 @@ class _InspectionCardState extends State<InspectionCard> {
                         height: fieldHeight,
                         width: double.infinity,
                         child: TextField(
+                          focusNode: descriptionFocusNode,
                           controller: cardController.descriptionController,
+                          canRequestFocus: true,
                           readOnly: true,
                           maxLines: 18,
                           decoration: InputDecoration(
@@ -402,7 +439,6 @@ class _InspectionCardState extends State<InspectionCard> {
                           ),
                         ),
                       ),
-
                 if (widget.allowMultipleImage &&
                     widget.inspectionPhotoMandatory)
                   Builder(
@@ -413,9 +449,7 @@ class _InspectionCardState extends State<InspectionCard> {
                       final hasNote = cardController.noteController.text
                           .trim()
                           .isNotEmpty;
-
                       if (hasImage && hasNote) return const SizedBox();
-
                       return Padding(
                         padding: const EdgeInsets.only(top: 6, bottom: 6),
                         child: Container(
@@ -621,7 +655,9 @@ class _InspectionCardState extends State<InspectionCard> {
         alignment: Alignment.centerRight,
         children: [
           TextField(
+            focusNode: noteFocusNode,
             controller: controller.noteController,
+            canRequestFocus: true,
             readOnly: controller.isSuccess || controller.isNotApplicable,
             expands: true,
             maxLines: null,

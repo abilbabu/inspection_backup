@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
-// import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -17,27 +15,26 @@ class JobcarddetailsController extends ChangeNotifier {
   bool hasLoaded = false;
 
   Map<String, dynamic>? jobCardData;
+  Map<String, dynamic>? technicianData;
+  Map<String, dynamic>? supervisorData;
+  int? userDepartment;
 
   String fuelTypeName = "";
   String transmissionTypeName = "";
   String customerTypeName = "";
   String serviceTypeName = "";
 
-  List<Map<String, dynamic>> technicianList = [];
-  int? selectedAssigneeId;
-  bool isTechnicianAssigned = false;
-  String assignedTechnicianName = "";
-  int? jobTechnicianId;
-  int? jobSuperVisorId;
   List fuelList = [];
   List transmissionList = [];
   List customerTypeList = [];
   List serviceTypeList = [];
-
-  void setSelectedAssignee(int? value) {
-    selectedAssigneeId = value;
-    notifyListeners();
-  }
+  List<Map<String, dynamic>> jobcardList = [];
+  bool isJobcardLoading = false;
+  bool isTechnicianAssigned = false;
+  int? assignedTechnicianId;
+  int? jobSuperVisorId;
+  String? assignedTechnicianName;
+  bool isDownloading = false;
 
   Future<ApiResponse> postJobCardDetails(int jobId) async {
     if (hasLoaded && jobCardData != null) {
@@ -64,31 +61,28 @@ class JobcarddetailsController extends ChangeNotifier {
         },
         body: jsonEncode(body),
       );
-      log("***************************************");
-      log(response.body);
-      log("***************************************");
       final decoded = jsonDecode(response.body);
       if (response.statusCode == 200) {
         jobCardData = decoded['data'];
-        final jobcard = jobCardData?['jobcard'];
-
-        final technicianData = jobcard?['jobTechnicianId'];
-        final supervisorData = jobcard?['jobSuperVisorId'];
-
-        jobTechnicianId = technicianData?['userId'];
-        jobSuperVisorId = supervisorData?['userId'];
-
-        if (jobTechnicianId != null) {
+        isLoading = false;
+        final jobcard = jobCardData!["jobcard"];
+        technicianData = jobcard["jobTechnicianId"];
+        supervisorData = jobcard["jobSuperVisorId"];
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        userDepartment =
+            int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
+        if (technicianData != null) {
           isTechnicianAssigned = true;
-
-          assignedTechnicianName =
-              technicianData?['userName']?.toString() ?? "Assigned";
         } else {
           isTechnicianAssigned = false;
-          assignedTechnicianName = "";
         }
-
-        isLoading = false;
+        if (technicianData != null) {
+          assignedTechnicianId = technicianData!["userId"];
+          assignedTechnicianName = technicianData!["userName"] ?? "";
+        }
+        if (supervisorData != null) {
+          jobSuperVisorId = supervisorData!["userId"];
+        }
         notifyListeners();
         return ApiResponse(
           success: true,
@@ -117,8 +111,6 @@ class JobcarddetailsController extends ChangeNotifier {
     return null;
   }
 
-  bool isDownloading = false;
-
   void setDownloading(bool value) {
     isDownloading = value;
     notifyListeners();
@@ -128,7 +120,6 @@ class JobcarddetailsController extends ChangeNotifier {
     if (jobCardData == null) return;
     fuelList = custCtrl.fuelTypeList;
     transmissionList = custCtrl.transmissionTypeList;
-    // customerTypeList = custCtrl.customerTypeList;
     serviceTypeList = custCtrl.serviceTypeList;
     final jobcard = jobCardData?['jobcard'];
     final vehicle = jobcard?['vehicle'];
@@ -150,37 +141,15 @@ class JobcarddetailsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // void reset() {
-  //   jobCardData = null;
-  //   fuelTypeName = "";
-  //   transmissionTypeName = "";
-  //   customerTypeName = "";
-  //   serviceTypeName = "";
-  //   notifyListeners();
-  //   hasLoaded = false;
-  //   isLoading = false;
-  // }
-
   void reset() {
-    isLoading = false;
-    hasLoaded = false;
-
     jobCardData = null;
-
     fuelTypeName = "";
     transmissionTypeName = "";
     customerTypeName = "";
     serviceTypeName = "";
-
-    selectedAssigneeId = null;
-
-    // DON'T RESET THESE
-    // isTechnicianAssigned = false;
-    // assignedTechnicianName = "";
-    // jobTechnicianId = null;
-    // jobSuperVisorId = null;
-
     notifyListeners();
+    hasLoaded = false;
+    isLoading = false;
   }
 
   Future<String?> downloadInspectionPdf(int jobId, String phone) async {
@@ -188,9 +157,7 @@ class JobcarddetailsController extends ChangeNotifier {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString('userToken');
       if (token == null) return null;
-
       final dio = Dio();
-
       final response = await dio.post(
         ApiServices.generateInspectionPdf,
         data: {"orderId": jobId},
@@ -208,37 +175,25 @@ class JobcarddetailsController extends ChangeNotifier {
       } else {
         dir = await getApplicationDocumentsDirectory();
       }
-
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
-
       final jobCardNumber =
           jobCardData?['jobcard']?['jobCardNo']?.toString() ?? jobId.toString();
-
       final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-
       final baseName = "ALMJBC-$jobCardNumber($cleanPhone)";
-
-      // 🔥 Find next available number
       int count = 1;
       String filePath = "";
-
       while (true) {
         final suffix = count.toString().padLeft(2, '0');
         filePath = "${dir.path}/$baseName$suffix.pdf";
-
         final file = File(filePath);
-
         if (!await file.exists()) {
-          // ✅ file not exists → use this
           await file.writeAsBytes(response.data, flush: true);
           break;
         }
-
         count++;
       }
-
       return filePath;
     } catch (e) {
       print("PDF Download Error: $e");
@@ -249,12 +204,9 @@ class JobcarddetailsController extends ChangeNotifier {
   String formatPhone(String code, String mobile) {
     String cleanCode = code.replaceAll("+", "");
     String cleanMobile = mobile.replaceAll(RegExp(r'\D'), '');
-
-    // remove leading 0 (important for UAE/India)
     if (cleanMobile.startsWith("0")) {
       cleanMobile = cleanMobile.substring(1);
     }
-
     return "$cleanCode$cleanMobile";
   }
 
@@ -262,49 +214,35 @@ class JobcarddetailsController extends ChangeNotifier {
     final Uri url = Uri.parse(
       "whatsapp://send?phone=$phone&text=${Uri.encodeComponent(message)}",
     );
-
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
-
-  List<Map<String, dynamic>> jobcardList = [];
-  bool isJobcardLoading = false;
 
   Future<void> getInspectionListByUserId() async {
     isLoading = true;
     isJobcardLoading = true;
     notifyListeners();
-
     final url = Uri.parse(ApiServices.allInspectionList);
-
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
       String? userId = prefs.getString('userId');
-      String? userDepartment = prefs.getString('userDepartment');
-
       if (userId == null) {
         isLoading = false;
         isJobcardLoading = false;
         notifyListeners();
         return;
       }
-
       final response = await http.post(
         url,
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $userToken",
         },
-        body: jsonEncode({
-          "userId": int.parse(userId),
-          "userDepartment": int.parse(userDepartment.toString()),
-        }),
+        body: jsonEncode({"userId": int.parse(userId)}),
       );
-
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
         final List rawList = res["data"] ?? [];
-
         jobcardList = rawList
             .where((item) {
               final int status =
@@ -325,6 +263,7 @@ class JobcarddetailsController extends ChangeNotifier {
                 "jobStatus": item["jobStatus"]?.toString() ?? "",
                 "vehicleTypeId": vehicle["vTypeId"] ?? -1,
                 "jobCreatedOn": item["jobCreatedOn"] ?? "",
+                "jobTechnicianId": item["jobTechnicianId"],
                 "inspections": item["inspections"] ?? [],
               };
             })
@@ -333,105 +272,8 @@ class JobcarddetailsController extends ChangeNotifier {
     } catch (e) {
       print("❗ EXCEPTION: $e");
     }
-
     isLoading = false;
     isJobcardLoading = false;
     notifyListeners();
-  }
-
-  Future<void> getTechnicianList() async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? userToken = prefs.getString('userToken');
-      // log("Hello This Is Before ");
-      final response = await http.post(
-        Uri.parse(ApiServices.allTechnicianList),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $userToken",
-        },
-      );
-      log(response.body);
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        technicianList = List<Map<String, dynamic>>.from(decoded['data']);
-        notifyListeners();
-        debugPrint("Technician List : $technicianList");
-      }
-    } catch (e) {
-      debugPrint("Error : $e");
-    }
-  }
-
-  Future<bool> assignTechnician({
-    required int jobId,
-    required int assigneeId,
-    required int supervisorId,
-    required String technicianName,
-  }) async {
-    try {
-      log("========== ASSIGN TECHNICIAN START ==========");
-
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-
-      String? userToken = prefs.getString('userToken');
-
-      log("Job ID : $jobId");
-      log("Assignee ID : $assigneeId");
-      log("Technician Name : $technicianName");
-      log("User Token Available : ${userToken != null}");
-
-      final payload = {
-        "jobId": jobId,
-        "assigneeId": assigneeId,
-        "supervisorId": supervisorId,
-      };
-
-      log("API URL : ${ApiServices.assignTechnician}");
-      log("Request Payload : ${jsonEncode(payload)}");
-
-      final response = await http.post(
-        Uri.parse(ApiServices.assignTechnician),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $userToken",
-        },
-        body: jsonEncode(payload),
-      );
-
-      log("Response Status Code : ${response.statusCode}");
-      log("Response Body : ${response.body}");
-
-      if (response.statusCode == 200) {
-        log("Technician Assigned Successfully");
-
-        isTechnicianAssigned = true;
-        assignedTechnicianName = technicianName;
-        jobTechnicianId = assigneeId;
-        jobSuperVisorId = supervisorId;
-        selectedAssigneeId = null;
-        notifyListeners();
-
-        log("isTechnicianAssigned : $isTechnicianAssigned");
-        log("assignedTechnicianName : $assignedTechnicianName");
-
-        log("========== ASSIGN TECHNICIAN SUCCESS ==========");
-
-        return true;
-      } else {
-        log("Assignment Failed");
-        log("Failed Status Code : ${response.statusCode}");
-
-        log("========== ASSIGN TECHNICIAN FAILED ==========");
-
-        return false;
-      }
-    } catch (e, stackTrace) {
-      log("========== ASSIGN TECHNICIAN ERROR ==========");
-      log("Exception : $e");
-      log("StackTrace : $stackTrace");
-
-      return false;
-    }
   }
 }
