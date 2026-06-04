@@ -1,4 +1,5 @@
 import 'dart:async';
+// import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
@@ -376,6 +377,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
   }
 
   Future<void> showTechnicianBottomSheet({int? inspectionFormId}) async {
+    final parentContext = context;
     final controller = context.read<InspectionDetailsController>();
 
     await controller.getTechnicianList();
@@ -511,9 +513,14 @@ class _InspectionDetailsState extends State<InspectionDetails> {
 
                                 formMasterId: inspectionFormId,
                               );
+                              // log("Assign Technician Response: $success");
 
                               if (success) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                // log(success.toString());
+                                // log("======================================");
+                                ScaffoldMessenger.of(
+                                  parentContext,
+                                ).showSnackBar(
                                   SnackBar(
                                     backgroundColor: ColorConstants.greenColor,
                                     content: Text(
@@ -521,9 +528,14 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                     ),
                                   ),
                                 );
-                                context.go("/home");
+                                parentContext.go("/home");
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                // log("Technician Assignment Failed");
+
+                                // log("======================================");
+                                ScaffoldMessenger.of(
+                                  parentContext,
+                                ).showSnackBar(
                                   const SnackBar(
                                     backgroundColor: ColorConstants.errorcolor,
                                     content: Text(
