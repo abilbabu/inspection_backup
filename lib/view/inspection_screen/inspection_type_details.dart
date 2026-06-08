@@ -670,7 +670,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
     );
     FocusManager.instance.primaryFocus?.unfocus();
     final searchController = TextEditingController();
-
     showModalBottomSheet(
       context: context,
       requestFocus: false,
@@ -684,10 +683,13 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
           ),
-          child: ChangeNotifierProvider.value(
-            value: inspectionFormController,
-            child: Consumer<InspectionFormController>(
-              builder: (context, formController, _) {
+          child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: inspectionFormController),
+            ChangeNotifierProvider.value(value: controller), // 👈 ADD THIS
+          ],
+          child: Consumer2<InspectionFormController, InspectionTypeDetailsController>(
+            builder: (context, formController, detailsController, _) {
                 return DraggableScrollableSheet(
                   expand: false,
                   initialChildSize: 0.8,
@@ -721,11 +723,25 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           child: TextField(
                             controller: searchController,
                             onChanged: (value) {
-                              controller.searchTaskComponents(value);
+                              detailsController.searchTaskComponents(value);
                             },
                             decoration: InputDecoration(
                               hintText: "Search Inspection",
                               prefixIcon: const Icon(Icons.search),
+                              suffixIcon:
+                                  detailsController
+                                      .isSearching
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(10),
+                                      child: SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    )
+                                  : null,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),

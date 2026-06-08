@@ -1,7 +1,6 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiServices {
-  // <-----"POST Method"------>
   static final String baseUrl = dotenv.env['API_URL'] ?? "";
   static String loginUrl = "${baseUrl}user-auth/userLogin";
   static String openJobcard = "${baseUrl}jobcard/open";
@@ -37,12 +36,10 @@ class ApiServices {
   static String generateInspectionPdf =
       "${baseUrl}print/generate-inspectionreport-pdf";
   static String allTechnicianList = "${baseUrl}user/technicianList";
-  static String assignTechnician = "${baseUrl}jobcard/assignTechnicianAndUpdateStatus";
+  static String assignTechnician =
+      "${baseUrl}jobcard/assignTechnicianAndUpdateStatus";
   static String startInspection = "${baseUrl}jobcard/startInspection";
   static String statusChange = "${baseUrl}jobcard/updateJobCardStatus";
-
-
-  // <-----"GET Method"------>
   static String vehicleBrand = "${baseUrl}vehicle/brands";
   static String inspectionFormList =
       "${baseUrl}inspectionform/inspectionFormList";
@@ -54,6 +51,6 @@ class ApiServices {
       "${baseUrl}settings/vehicleEssentialList";
   static String taskCategoryList = "${baseUrl}settings/taskCategoryList";
   static String basicimageSettingList = "${baseUrl}settings/imageSettingsList";
-
   static String componentList = "${baseUrl}settings/componentList";
+  static String componentSearch = "${baseUrl}settings/componentList/search";
 }

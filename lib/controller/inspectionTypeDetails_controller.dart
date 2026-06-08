@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -12,26 +13,64 @@ class InspectionTypeDetailsController extends ChangeNotifier {
   List<Map<String, dynamic>> taskMapping = [];
   List<Map<String, dynamic>> taskCategoryList = [];
   Map<int, List<Map<dynamic, dynamic>>> groupedTasks = {};
-  bool isLoading = false;
   List<dynamic> allTaskComponents = [];
-
   List<dynamic> filteredTaskComponents = [];
   List<dynamic> suggestionTaskComponents = [];
 
+  bool isLoading = false;
+  bool isSearching = false;
+
+  Timer? _debounceTimer;
+  String _lastQuery = '';
+
   void searchTaskComponents(String query) {
+    _debounceTimer?.cancel();
+    if (query.trim() == _lastQuery) return;
     if (query.trim().isEmpty) {
+      _lastQuery = '';
       filteredTaskComponents = List.from(allTaskComponents);
-      suggestionTaskComponents = [];
-    } else {
-      suggestionTaskComponents = allTaskComponents.where((item) {
-        final name = (item["itcName"] ?? "").toString().toLowerCase();
-        return name.contains(query.toLowerCase());
-      }).toList();
-
-      filteredTaskComponents = List.from(suggestionTaskComponents);
+      isSearching = false;
+      notifyListeners();
+      return;
     }
-
+    isSearching = true;
     notifyListeners();
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
+      await _fetchSearchResults(query.trim());
+    });
+  }
+
+  Future<void> _fetchSearchResults(String query) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userToken = prefs.getString('userToken');
+      if (userToken == null || userToken.isEmpty) {
+        isSearching = false;
+        notifyListeners();
+        return;
+      }
+      final uri = Uri.parse(
+        ApiServices.componentSearch,
+      ).replace(queryParameters: {"query": query});
+      final response = await http.get(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+      );
+      final result = jsonDecode(response.body);
+      final data = result["data"];
+      if (data != null && result["statusCode"] == 200) {
+        _lastQuery = query;
+        filteredTaskComponents = List.from(data);
+      }
+    } catch (e) {
+      debugPrint("❌ Search fetch error: $e");
+    } finally {
+      isSearching = false;
+      notifyListeners();
+    }
   }
 
   void selectSuggestion(String name) {
@@ -40,7 +79,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         name.toLowerCase(),
       );
     }).toList();
-
     suggestionTaskComponents = [];
     notifyListeners();
   }
@@ -136,6 +174,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       if (userToken == null || userToken.isEmpty) {
         return ApiResponse(success: false, status: "Unauthorized");
       }
+
       final response = await http.get(
         Uri.parse(ApiServices.componentList),
         headers: {
@@ -145,9 +184,9 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       );
       final result = jsonDecode(response.body);
       final data = result["data"];
-      allTaskComponents = List.from(data);
-      filteredTaskComponents = List.from(data);
-      print(allTaskComponents);
+      debugPrint(
+        "📦 getComponentList → statusCode: ${result["statusCode"]}, count: ${data?.length}",
+      );
       if (data == null) {
         return ApiResponse(
           success: false,
@@ -156,6 +195,8 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           timeStamp: result["timeStamp"],
         );
       }
+      allTaskComponents = List.from(data);
+      filteredTaskComponents = List.from(data);
       return ApiResponse(
         success: result["statusCode"] == 200,
         statusCode: result["statusCode"],
@@ -164,6 +205,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         data: data,
       );
     } catch (e) {
+      debugPrint("❌ getComponentList error: $e");
       return ApiResponse(success: false, status: "Unexpected Error");
     } finally {
       notifyListeners();
