@@ -26,6 +26,7 @@ class BasicInspectionReport extends StatefulWidget {
 class _BasicInspectionReportState extends State<BasicInspectionReport> {
   @override
   void initState() {
+    debugPrint('Job ID::::::::::::::: ${widget.jobId}');
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final reportController = context.read<BasicInspectionReportController>();
@@ -300,6 +301,7 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
           )
           .join(' ');
     }
+
     return Container(
       decoration: BoxDecoration(
         color: ColorConstants.whiteColor,

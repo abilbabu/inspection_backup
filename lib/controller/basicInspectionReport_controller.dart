@@ -33,7 +33,7 @@ class BasicInspectionReportController with ChangeNotifier {
   bool isExternalVideoPlaying = false;
   bool isInternalVideoPlaying = false;
   bool isVideoInitialized = false;
-  bool _isDataLoaded = false;
+  int? _loadedJobId;
   Duration externalVideoPosition = Duration.zero;
   Duration externalVideoDuration = Duration.zero;
   Duration internalVideoPosition = Duration.zero;
@@ -108,10 +108,10 @@ class BasicInspectionReportController with ChangeNotifier {
   }
 
   Future<void> getBasicInspection(int jobId) async {
-   if (_isDataLoaded) return;
-
-  _isDataLoaded = true;
+    if (_loadedJobId == jobId) return;
+    _loadedJobId = jobId;
     try {
+      debugPrint("Loading inspection for JobId : $jobId");
       externalVideoController?.dispose();
       internalVideoController?.dispose();
       externalVideoController = null;
@@ -124,17 +124,19 @@ class BasicInspectionReportController with ChangeNotifier {
       internal360Comment = null;
       externalGroups.clear();
       internalGroups.clear();
+      diagram = null;
+      signature = null;
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
-      final url = Uri.parse(ApiServices.getBasicInspection);
       final response = await http.post(
-        url,
+        Uri.parse(ApiServices.getBasicInspection),
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $userToken",
         },
         body: jsonEncode({"jobId": jobId}),
       );
+      debugPrint("Response : ${response.body}");
       final result = jsonDecode(response.body);
       final data = result["data"];
       vimDocType = data["vimDocType"];
@@ -142,7 +144,9 @@ class BasicInspectionReportController with ChangeNotifier {
       essentialImageUrl = data["essentinalImage"];
       String fuelMark = (data["vFuelMark"] ?? "E").toString();
       fuelValue = fuelMarks.indexOf(fuelMark).toDouble();
-      if (fuelValue < 0) fuelValue = 0;
+      if (fuelValue < 0) {
+        fuelValue = 0;
+      }
       additionalCommentsController.text = (data["vimAdditionalComments"] ?? "")
           .toString()
           .trim();
@@ -150,12 +154,6 @@ class BasicInspectionReportController with ChangeNotifier {
           .map<int>((e) => e["veId"] as int)
           .toSet()
           .toList();
-      externalGroups.clear();
-      internalGroups.clear();
-      external360Video = null;
-      internal360Video = null;
-      diagram = null;
-      signature = null;
       final attachments = data["basicinspectionattachments"];
       if (attachments != null) {
         List external = attachments["externalImages"] ?? [];
@@ -180,13 +178,9 @@ class BasicInspectionReportController with ChangeNotifier {
               normalVideoUrl = url;
               comment ??= item["iaInspectionNote"];
             }
-            if (iaType == 2) {
-              if (iaImageType == 10) {
-                external360Video = url;
-                external360Comment = item["iaInspectionNote"];
-              } else {
-                normalVideoUrl = url;
-              }
+            if (iaType == 2 && iaImageType == 10) {
+              external360Video = url;
+              external360Comment = item["iaInspectionNote"];
             }
           }
           externalGroups.add({
@@ -218,13 +212,9 @@ class BasicInspectionReportController with ChangeNotifier {
               normalVideoUrl = url;
               comment ??= item["iaInspectionNote"];
             }
-            if (iaType == 2) {
-              if (iaImageType == 10) {
-                internal360Video = url;
-                internal360Comment = item["iaInspectionNote"];
-              } else {
-                normalVideoUrl = url;
-              }
+            if (iaType == 2 && iaImageType == 10) {
+              internal360Video = url;
+              internal360Comment = item["iaInspectionNote"];
             }
           }
           internalGroups.add({
@@ -249,9 +239,8 @@ class BasicInspectionReportController with ChangeNotifier {
       if (internal360Video != null && internal360Video!.isNotEmpty) {
         await initializeInternalVideo(internal360Video!);
       }
-      
     } catch (e) {
-      print(e) ;
+      debugPrint("Error : $e");
     } finally {
       notifyListeners();
     }

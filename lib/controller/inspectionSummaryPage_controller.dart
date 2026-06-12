@@ -30,16 +30,13 @@ class InspectionsummarypageController extends ChangeNotifier {
         },
         body: jsonEncode({"jobId": jobId}),
       );
-
       final result = jsonDecode(response.body);
       final inspections = result["data"]["inspections"] as List? ?? [];
-
       final attachments =
           result["data"]["jobCard"]["attachments"] as List? ?? [];
       final Map<int, List<String>> imageMap = {};
       final Map<int, String> videoMap = {};
       final Map<int, String> audioMap = {};
-
       for (final att in attachments) {
         final taskId = att["iaInspectionTaskId"];
         if (taskId == null) continue;
@@ -49,61 +46,42 @@ class InspectionsummarypageController extends ChangeNotifier {
         if (att["iaType"] == 1) audioMap[taskId] = att["iaUrl"];
         if (att["iaType"] == 2) videoMap[taskId] = att["iaUrl"];
       }
-
       groupedItems.clear();
       inspectionFormName = "";
       isInspectionAssigned = false;
       isPredefinedInspectionAssigned = false;
       isCustomInspectionAssigned = false;
-
       if (inspections.length > 1) {
         isInspectionAssigned = true;
-
         final assignedInspection = inspections[1];
         final master = assignedInspection["master"];
-
         if (master["vimIfMasterId"] == null) {
           isCustomInspectionAssigned = true;
-          isInspectionAssigned=true;
+          isInspectionAssigned = true;
         } else {
           isPredefinedInspectionAssigned = true;
-          isInspectionAssigned=true;
+          isInspectionAssigned = true;
         }
       }
-
       for (final inspection in inspections) {
         final master = inspection["master"];
-       
-
         if (master == null) continue;
-
         final int? inspType = master["vimInspectionType"];
         final int? ifMasterId = master["vimIfMasterId"];
         final tasks = inspection["inspectionTasks"] as List? ?? [];
-
         vimInspectionTypeId = inspType;
         vimIfMasterId = ifMasterId;
-
-        // Skip basic inspection (ifMasterId == 0) — no tasks to show
         if (ifMasterId != null && ifMasterId == 0) continue;
-
-        // Set form name
         if (inspType == 1) {
           inspectionFormName = master["formName"]?.toString() ?? "";
         } else if (inspType == 2 || ifMasterId == null) {
-          // Custom inspection — ifMasterId is null
           inspectionFormName = "Custom Inspection";
         }
-
-        // Skip if no tasks returned from backend
         if (tasks.isEmpty) continue;
-
         for (final category in tasks) {
           final name = category["taskCategoryName"]?.toString() ?? "General";
           final categoryTasks = category["tasks"] as List? ?? [];
-
           if (categoryTasks.isEmpty) continue;
-
           groupedItems
               .putIfAbsent(name, () => [])
               .addAll(
@@ -129,7 +107,6 @@ class InspectionsummarypageController extends ChangeNotifier {
               );
         }
       }
-
       return ApiResponse(
         success: result["statusCode"] == 200,
         statusCode: result['statusCode'],
