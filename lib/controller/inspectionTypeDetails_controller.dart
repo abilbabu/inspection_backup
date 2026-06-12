@@ -99,6 +99,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         },
         body: jsonEncode({"jobId": jobId}),
       );
+      // log(response.body);
       final result = jsonDecode(response.body);
       final data = result["data"];
       if (data == null) {
@@ -123,46 +124,96 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     }
   }
 
+  // void applySavedCustomInspection(
+  //   Map<String, dynamic> data,
+  //   InspectionFormController formController,
+  // ) {
+  //   log("DATA+++++");
+  //   print(data);
+  //   log("+++++++++++++++++++++");
+  //   final inspections = data["inspections"] ?? [];
+  //   for (final inspection in inspections) {
+  //     final completedTasks = inspection["completedTasks"] ?? [];
+  //     for (final savedTask in completedTasks) {
+  //       final int taskId = savedTask["viTaskId"];
+  //       final component = allTaskComponents.firstWhere(
+  //         (e) => e["itcId"] == taskId,
+  //         orElse: () => null,
+  //       );
+  //       if (component != null) {
+  //         formController.updateTask(
+  //           InspectionTaskData(
+  //             jobId: data["jobId"],
+  //             taskId: taskId,
+  //             formId: inspection["inspectionFormId"],
+  //             condition: savedTask["viGood"] == true
+  //                 ? "Good"
+  //                 : savedTask["viRepair"] == true
+  //                 ? "Repair"
+  //                 : savedTask["viReplace"] == true
+  //                 ? "Replace"
+  //                 : savedTask["viPoor"] == true
+  //                 ? "Poor"
+  //                 : savedTask["viNotApplicable"] == true
+  //                 ? "N/A"
+  //                 : null,
+  //             note: savedTask["viNote"] ?? "",
+  //             description: savedTask["viDescription"] ?? "",
+  //             inserted: true,
+  //             isSaved: true,
+  //           ),
+  //         );
+  //         formController.markTaskSaved(taskId);
+  //       }
+  //     }
+  //   }
+  //   notifyListeners();
+  // }
+
   void applySavedCustomInspection(
     Map<String, dynamic> data,
     InspectionFormController formController,
   ) {
     final inspections = data["inspections"] ?? [];
+
     for (final inspection in inspections) {
+      // Custom Inspection only
+      if (inspection["inspectionFormId"] != null) {
+        continue;
+      }
+
       final completedTasks = inspection["completedTasks"] ?? [];
+
       for (final savedTask in completedTasks) {
         final int taskId = savedTask["viTaskId"];
-        final component = allTaskComponents.firstWhere(
-          (e) => e["itcId"] == taskId,
-          orElse: () => null,
+
+        formController.updateTask(
+          InspectionTaskData(
+            jobId: data["jobId"],
+            taskId: taskId,
+            formId: null,
+            condition: savedTask["viGood"] == true
+                ? "Good"
+                : savedTask["viRepair"] == true
+                ? "Repair"
+                : savedTask["viReplace"] == true
+                ? "Replace"
+                : savedTask["viPoor"] == true
+                ? "Poor"
+                : savedTask["viNotApplicable"] == true
+                ? "N/A"
+                : null,
+            note: savedTask["viNote"] ?? "",
+            description: savedTask["viDescription"] ?? "",
+            inserted: true,
+            isSaved: true,
+          ),
         );
-        if (component != null) {
-          formController.updateTask(
-            InspectionTaskData(
-              jobId: data["jobId"],
-              taskId: taskId,
-              formId: inspection["inspectionFormId"],
-              condition: savedTask["viGood"] == true
-                  ? "Good"
-                  : savedTask["viRepair"] == true
-                  ? "Repair"
-                  : savedTask["viReplace"] == true
-                  ? "Replace"
-                  : savedTask["viPoor"] == true
-                  ? "Poor"
-                  : savedTask["viNotApplicable"] == true
-                  ? "N/A"
-                  : null,
-              note: savedTask["viNote"] ?? "",
-              description: savedTask["viDescription"] ?? "",
-              inserted: true,
-              isSaved: true,
-            ),
-          );
-          formController.markTaskSaved(taskId);
-        }
+
+        formController.markTaskSaved(taskId);
       }
     }
+
     notifyListeners();
   }
 

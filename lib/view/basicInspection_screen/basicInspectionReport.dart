@@ -29,8 +29,10 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final reportController = context.read<BasicInspectionReportController>();
-      await reportController.getVehicleEssentialList();
-      await reportController.getBasicInspection(widget.jobId);
+      await Future.wait([
+        reportController.getVehicleEssentialList(),
+        reportController.getBasicInspection(widget.jobId),
+      ]);
     });
   }
 

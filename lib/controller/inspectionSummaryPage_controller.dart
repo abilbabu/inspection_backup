@@ -12,6 +12,9 @@ class InspectionsummarypageController extends ChangeNotifier {
   int? vimInspectionTypeId;
   int? vimIfMasterId;
   String inspectionFormName = "";
+  bool isInspectionAssigned = false;
+  bool isPredefinedInspectionAssigned = false;
+  bool isCustomInspectionAssigned = false;
 
   Future<ApiResponse> getInspectionSummary(int jobId) async {
     isLoading = true;
@@ -49,9 +52,29 @@ class InspectionsummarypageController extends ChangeNotifier {
 
       groupedItems.clear();
       inspectionFormName = "";
+      isInspectionAssigned = false;
+      isPredefinedInspectionAssigned = false;
+      isCustomInspectionAssigned = false;
+
+      if (inspections.length > 1) {
+        isInspectionAssigned = true;
+
+        final assignedInspection = inspections[1];
+        final master = assignedInspection["master"];
+
+        if (master["vimIfMasterId"] == null) {
+          isCustomInspectionAssigned = true;
+          isInspectionAssigned=true;
+        } else {
+          isPredefinedInspectionAssigned = true;
+          isInspectionAssigned=true;
+        }
+      }
 
       for (final inspection in inspections) {
         final master = inspection["master"];
+       
+
         if (master == null) continue;
 
         final int? inspType = master["vimInspectionType"];

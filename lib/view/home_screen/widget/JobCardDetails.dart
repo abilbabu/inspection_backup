@@ -132,7 +132,8 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           SizedBox(height: 15),
                           if (jobStatus != 5 &&
                               userDepartment != 3 &&
-                              jobStatus != 6 && jobController.isTechnicianAssigned == false)
+                              jobStatus != 6 &&
+                              jobController.isTechnicianAssigned == false)
                             Align(
                               alignment: Alignment.centerRight,
                               child: CustomButtonWidget(
@@ -272,6 +273,29 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 );
                               },
                             ),
+                          // admin side show only
+                          if ((userDepartment == 0 || userDepartment == 1) &&
+                              jobController.isTechnicianAssigned &&
+                              ![5, 6, 7, 8, 9, 10].contains(jobStatus))
+                            Builder(
+                              builder: (context) {
+                                final item = jobController.jobcardList
+                                    .firstWhere(
+                                      (e) =>
+                                          e['jobId'].toString() ==
+                                          widget.jobId.toString(),
+                                      orElse: () => {},
+                                    );
+
+                                if (item.isEmpty) return const SizedBox();
+
+                                return _inspTechnician(
+                                  context,
+                                  controller,
+                                  item,
+                                );
+                              },
+                            ),
                           if (jobStatus == 6)
                             _inspectionsummarypage(context, controller),
                         ],
@@ -302,6 +326,58 @@ class _JobCardDetailsState extends State<JobCardDetails> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _inspTechnician(
+    BuildContext context,
+    InspectionsummarypageController controller,
+    Map<String, dynamic> item,
+  ) {
+    return InkWell(
+      onTap: () {
+        context.push("/inspectiondetails", extra: widget.jobId);
+      },
+      child: Container(
+        width: double.infinity,
+        margin: EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: ColorConstants.whiteColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: ColorConstants.dashboardboxShadow,
+        ),
+        padding: EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                SizedBox(width: 15),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    "assets/image/Car_logo.png",
+                    height: 50,
+                    width: 50,
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      "Inspection Details go",
+
+                      textAlign: TextAlign.center,
+                      style: ApptextstyleConstants.thinText(
+                        fontSize: 16,
+                        color: ColorConstants.textcolor2,
+                      ).copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 

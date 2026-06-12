@@ -212,7 +212,9 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                                         backgroundColor:
                                             ColorConstants.errorcolor,
                                         content: Text(
-                                          "Please capture required image",
+                                          controller.is360Stage
+                                              ? "External 360 Video is mandatory"
+                                              : "Please capture required image",
                                           style: ApptextstyleConstants.thinText(
                                             color: ColorConstants.whiteColor,
                                             fontSize: 12,
