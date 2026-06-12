@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -274,7 +272,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 );
                               },
                             ),
-                          // admin side show only
                           if ((userDepartment == 0 || userDepartment == 1) &&
                               jobController.isTechnicianAssigned &&
                               ![5, 6, 7, 8, 9, 10].contains(jobStatus))
@@ -287,9 +284,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                           widget.jobId.toString(),
                                       orElse: () => {},
                                     );
-
                                 if (item.isEmpty) return const SizedBox();
-
                                 return _inspTechnician(
                                   context,
                                   controller,
@@ -297,7 +292,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 );
                               },
                             ),
-                          if (jobStatus == 6)
+                          if ([6, 7, 8, 9].contains(jobStatus))
                             _inspectionsummarypage(context, controller),
                         ],
                       ),
@@ -365,7 +360,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                   child: Center(
                     child: Text(
                       "Inspection Details go",
-
                       textAlign: TextAlign.center,
                       style: ApptextstyleConstants.thinText(
                         fontSize: 16,
@@ -439,7 +433,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                   child: Center(
                     child: Text(
                       "${controller.vimInspectionTypeId == 2 ? 'Custom Inspection' : controller.inspectionFormName} - In Progress",
-
                       textAlign: TextAlign.center,
                       style: ApptextstyleConstants.thinText(
                         fontSize: 16,
