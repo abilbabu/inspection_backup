@@ -488,4 +488,45 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       return [];
     }
   }
+
+  Future<ApiResponse?> loadPage({
+    required int jobId,
+    required int inspectionFormId,
+    required InspectionFormController formController,
+  }) async {
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final inspectionResponse = await getInspectionDetailsById(jobId);
+
+      await postInspectionTypeDetails(inspectionFormId);
+      await getComponentList();
+
+      if (inspectionResponse.success == true &&
+          inspectionResponse.data != null) {
+        applySavedInspection(
+          inspectionResponse.data as Map<String, dynamic>,
+          formController,
+        );
+
+        applySavedCustomInspection(
+          inspectionResponse.data as Map<String, dynamic>,
+          formController,
+        );
+      }
+
+      final totalTasks = groupedTasks.values.expand((e) => e).length;
+
+      formController.setTotalTasks(totalTasks);
+
+      return inspectionResponse;
+    } catch (e) {
+      debugPrint("Load Page Error: $e");
+      return null;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
 }

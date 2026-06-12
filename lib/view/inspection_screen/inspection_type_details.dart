@@ -33,36 +33,49 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final detailsController = Provider.of<InspectionTypeDetailsController>(
-        context,
-        listen: false,
-      );
-      final formController = Provider.of<InspectionFormController>(
-        context,
-        listen: false,
-      );
-      final ApiResponse inspectionResponse = await detailsController
-          .getInspectionDetailsById(widget.jobId);
-      await detailsController.postInspectionTypeDetails(
-        widget.inspectionFormId,
-      );
-      await detailsController.getComponentList();
-      if (inspectionResponse.success == true &&
-          inspectionResponse.data != null) {
-        detailsController.applySavedInspection(
-          inspectionResponse.data as Map<String, dynamic>,
-          formController,
+      final detailsController = context.read<InspectionTypeDetailsController>();
+
+      final formController = context.read<InspectionFormController>();
+
+      detailsController.isLoading = true;
+      // ignore: invalid_use_of_protected_member
+      detailsController.notifyListeners();
+
+      try {
+        final ApiResponse inspectionResponse = await detailsController
+            .getInspectionDetailsById(widget.jobId);
+
+        await detailsController.postInspectionTypeDetails(
+          widget.inspectionFormId,
         );
-        detailsController.applySavedCustomInspection(
-          inspectionResponse.data,
-          formController,
-        );
+
+        await detailsController.getComponentList();
+
+        if (inspectionResponse.success == true &&
+            inspectionResponse.data != null) {
+          detailsController.applySavedInspection(
+            inspectionResponse.data as Map<String, dynamic>,
+            formController,
+          );
+
+          detailsController.applySavedCustomInspection(
+            inspectionResponse.data as Map<String, dynamic>,
+            formController,
+          );
+        }
+
+        final totalTasks = detailsController.groupedTasks.values
+            .expand((e) => e)
+            .length;
+
+        formController.setTotalTasks(totalTasks);
+      } finally {
+        detailsController.isLoading = false;
+        // ignore: invalid_use_of_protected_member
+        detailsController.notifyListeners();
       }
-      final totalTasks = detailsController.groupedTasks.values
-          .expand((e) => e)
-          .length;
-      formController.setTotalTasks(totalTasks);
     });
   }
 
@@ -1000,18 +1013,30 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
 
   Widget _inspectionShimmer() {
     return Shimmer(
+      duration: const Duration(seconds: 15),
+      interval: const Duration(seconds: 500),
       color: Colors.white,
       colorOpacity: 0.3,
       enabled: true,
       direction: const ShimmerDirection.fromLTRB(),
       child: Container(
-        height: 200,
+        height: 150,
         width: double.infinity,
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           color: Colors.grey.shade300,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(height: 14, width: 150, color: Colors.grey.shade400),
+            const SizedBox(height: 10),
+            Container(height: 12, width: double.infinity, color: Colors.grey),
+            const SizedBox(height: 6),
+            Container(height: 12, width: 200, color: Colors.grey),
+          ],
         ),
       ),
     );
