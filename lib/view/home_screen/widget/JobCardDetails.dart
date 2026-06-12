@@ -31,6 +31,7 @@ class JobCardDetails extends StatefulWidget {
 class _JobCardDetailsState extends State<JobCardDetails> {
   @override
   void initState() {
+    //  debugPrint('Job ID: ${widget.jobId}');
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<InspectionsummarypageController>().getInspectionSummary(
