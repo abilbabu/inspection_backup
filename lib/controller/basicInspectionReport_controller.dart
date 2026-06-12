@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
-import 'package:inspection/model/apiResponsModel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
@@ -34,6 +33,7 @@ class BasicInspectionReportController with ChangeNotifier {
   bool isExternalVideoPlaying = false;
   bool isInternalVideoPlaying = false;
   bool isVideoInitialized = false;
+  bool _isDataLoaded = false;
   Duration externalVideoPosition = Duration.zero;
   Duration externalVideoDuration = Duration.zero;
   Duration internalVideoPosition = Duration.zero;
@@ -61,16 +61,24 @@ class BasicInspectionReportController with ChangeNotifier {
 
   void _externalVideoListener() {
     if (externalVideoController == null) return;
-    externalVideoPosition = externalVideoController!.value.position;
-    isExternalVideoPlaying = externalVideoController!.value.isPlaying;
-    notifyListeners();
+
+    final newPosition = externalVideoController!.value.position;
+
+    if (newPosition.inSeconds != externalVideoPosition.inSeconds) {
+      externalVideoPosition = newPosition;
+      notifyListeners();
+    }
   }
 
   void _internalVideoListener() {
     if (internalVideoController == null) return;
-    internalVideoPosition = internalVideoController!.value.position;
-    isInternalVideoPlaying = internalVideoController!.value.isPlaying;
-    notifyListeners();
+
+    final newPosition = internalVideoController!.value.position;
+
+    if (newPosition.inSeconds != internalVideoPosition.inSeconds) {
+      internalVideoPosition = newPosition;
+      notifyListeners();
+    }
   }
 
   void toggleExternalPlayPause() {
@@ -99,9 +107,10 @@ class BasicInspectionReportController with ChangeNotifier {
     internalVideoController?.seekTo(position);
   }
 
-  Future<ApiResponse> getBasicInspection(int jobId) async {
-    isLoading = true;
-    notifyListeners();
+  Future<void> getBasicInspection(int jobId) async {
+   if (_isDataLoaded) return;
+
+  _isDataLoaded = true;
     try {
       externalVideoController?.dispose();
       internalVideoController?.dispose();
@@ -240,17 +249,10 @@ class BasicInspectionReportController with ChangeNotifier {
       if (internal360Video != null && internal360Video!.isNotEmpty) {
         await initializeInternalVideo(internal360Video!);
       }
-      return ApiResponse(
-        success: result["statusCode"] == 200,
-        statusCode: result['statusCode'],
-        timeStamp: result['timeStamp'],
-        status: result['status'],
-        data: result['data'],
-      );
+      
     } catch (e) {
-      return ApiResponse(success: false, status: "Unexpected Error");
+      print(e) ;
     } finally {
-      isLoading = false;
       notifyListeners();
     }
   }

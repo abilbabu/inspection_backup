@@ -35,6 +35,11 @@ class _VehicleDetailsState extends State<VehicleDetails> {
   void initState() {
     super.initState();
     plateSearchFocus = FocusNode();
+    plateSearchFocus.addListener(() {
+      if (plateSearchFocus.hasFocus) {
+        setState(() {});
+      }
+    });
     final customerCtrl = Provider.of<CustomerDetailsController>(
       context,
       listen: false,
@@ -1336,11 +1341,20 @@ class _VehicleDetailsState extends State<VehicleDetails> {
             RawAutocomplete<String>(
               textEditingController: customerController.vehiclePlateController,
               focusNode: plateSearchFocus,
+              // optionsBuilder: (TextEditingValue value) {
+              //   if (value.text.trim().length < 2) {
+              //     return const Iterable<String>.empty();
+              //   }
+              //   return customerController.regNoSuggestions;
+              // },
               optionsBuilder: (TextEditingValue value) {
-                if (value.text.trim().length < 2) {
-                  return const Iterable<String>.empty();
-                }
-                return customerController.regNoSuggestions;
+                final query = value.text.trim();
+
+                // if (customerController.regNoSuggestions.isEmpty) {
+                //   return const Iterable<String>.empty();
+                // }
+
+                return customerController.filterPlateSuggestions(query);
               },
               displayStringForOption: (option) => option,
               fieldViewBuilder: (context, controller, focusNode, onSubmit) {
@@ -1349,8 +1363,23 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                   focusNode: focusNode,
                   decoration: _inputDecoration("Search Vehicle Plate Number"),
                   textCapitalization: TextCapitalization.characters,
+
+                  onTap: () {
+                    // Trigger autocomplete even when text is empty
+                    controller.value = TextEditingValue(
+                      text: controller.text,
+                      selection: TextSelection.collapsed(
+                        offset: controller.text.length,
+                      ),
+                    );
+                  },
                   onChanged: (value) {
                     customerController.searchByPlateDebounced(context);
+                    Future.delayed(const Duration(milliseconds: 200), () {
+                      if (mounted) {
+                        setState(() {});
+                      }
+                    });
                   },
                 );
               },
@@ -1490,32 +1519,44 @@ class _VehicleDetailsState extends State<VehicleDetails> {
   }
 
   Widget _highlightText(String text, String query) {
-    if (query.isEmpty) return Text(text);
+    if (query.isEmpty) {
+      return Text(text);
+    }
     final lowerText = text.toLowerCase();
-    final start = lowerText.indexOf(query);
-    if (start == -1) return Text(text);
-    final end = start + query.length;
-    return RichText(
-      text: TextSpan(
-        children: [
+    final lowerQuery = query.toLowerCase();
+    final spans = <TextSpan>[];
+    int start = 0;
+    while (true) {
+      final index = lowerText.indexOf(lowerQuery, start);
+      if (index == -1) {
+        spans.add(
           TextSpan(
-            text: text.substring(0, start),
+            text: text.substring(start),
             style: const TextStyle(color: Colors.black),
           ),
+        );
+        break;
+      }
+      if (index > start) {
+        spans.add(
           TextSpan(
-            text: text.substring(start, end),
-            style: const TextStyle(
-              color: Colors.blue,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextSpan(
-            text: text.substring(end),
+            text: text.substring(start, index),
             style: const TextStyle(color: Colors.black),
           ),
-        ],
-      ),
-    );
+        );
+      }
+      spans.add(
+        TextSpan(
+          text: text.substring(index, index + query.length),
+          style: const TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+      start = index + query.length;
+    }
+    return RichText(text: TextSpan(children: spans));
   }
 
   InputDecoration _inputDecoration(String label) {

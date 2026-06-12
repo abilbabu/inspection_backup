@@ -4,7 +4,7 @@ class InspectionTaskData {
   final int? categoryId;
   final int jobId;
   final int taskId;
-  final int formId;
+  final int? formId;
   final String? condition;
   final String note;
   final String description;
@@ -24,7 +24,7 @@ class InspectionTaskData {
    this.categoryId,
     required this.jobId,
     required this.taskId,
-    required this.formId,
+    this.formId,
     required this.condition,
     required this.note,
     required this.description,

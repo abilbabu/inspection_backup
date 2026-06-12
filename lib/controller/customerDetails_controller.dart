@@ -56,6 +56,44 @@ class CustomerDetailsController extends ChangeNotifier {
 
   final Map<String, List<String>> _cache = {};
   bool isSearching = false;
+  List<String> filterPlateSuggestions(String query) {
+    if (query.length < 2) {
+      return [];
+    }
+
+    final q = query.toLowerCase().trim();
+
+    final matches = regNoSuggestions.where((plate) {
+      return plate.toLowerCase().contains(q);
+    }).toList();
+
+    int rank(String value) {
+      final text = value.toLowerCase();
+
+      if (text == q) return 1; // Exact Match
+
+      if (text.startsWith(q)) return 2; // Starts With
+
+      if (text.endsWith(q)) return 3; // Ends With
+
+      if (text.contains(q)) return 4; // Middle Match
+
+      return 5;
+    }
+
+    matches.sort((a, b) {
+      final rankA = rank(a);
+      final rankB = rank(b);
+
+      if (rankA != rankB) {
+        return rankA.compareTo(rankB);
+      }
+
+      return a.length.compareTo(b.length);
+    });
+
+    return matches;
+  }
 
   String get selectedCountryFlag {
     final country = dummyDB.countryMobileNumberCodeList.firstWhere(
@@ -122,7 +160,10 @@ class CustomerDetailsController extends ChangeNotifier {
             .toList();
         if (currentRequest != _activeRequest) return;
         _cache[data] = results;
-        regNoSuggestions = results;
+        regNoSuggestions = (res['data'] as List)
+            .map((e) => e.toString())
+            .toList();
+        notifyListeners();
       } else {
         regNoSuggestions.clear();
       }
@@ -396,23 +437,32 @@ class CustomerDetailsController extends ChangeNotifier {
   }
 
   void searchByPlateDebounced(BuildContext context) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 120), () {
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 300), () {
       final text = vehiclePlateController.text.trim();
+
       if (text == _lastPlateQuery) return;
       _lastPlateQuery = text;
-      if (text.length >= 2) {
-        if (_cache.containsKey(text)) {
-          regNoSuggestions = _cache[text]!;
-          notifyListeners();
-          return;
-        }
-        _activeRequest = text;
-        postVehicleRegNoList(text);
-      } else {
+
+      // Don't search for empty or single character
+      if (text.length < 2) {
         regNoSuggestions.clear();
         notifyListeners();
+        return;
       }
+
+      // Return cached result
+      if (_cache.containsKey(text)) {
+        regNoSuggestions = _cache[text]!;
+        notifyListeners();
+        return;
+      }
+
+      _activeRequest = text;
+      postVehicleRegNoList(text);
     });
   }
 

@@ -131,8 +131,6 @@ final GoRouter router = GoRouter(
         final inspectionFormId = data["inspectionFormId"];
         final jobId = data["jobId"];
         final inspectionTypeId = data["inspectionTypeId"];
-
-        print("inspectionTypeId from route = $inspectionTypeId");
         return MultiProvider(
           providers: [
             ChangeNotifierProvider(create: (_) => InspectionFormController()),

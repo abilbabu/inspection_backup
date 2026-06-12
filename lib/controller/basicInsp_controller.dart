@@ -561,13 +561,24 @@ class BasicinspController extends ChangeNotifier {
   bool get is360Stage =>
       currentStage == InspectionStage.external360 ||
       currentStage == InspectionStage.internal360;
+
   bool get shouldShowSkip {
-    if (currentStage == InspectionStage.diagram) {
+    if (currentStage == InspectionStage.diagram ||
+        currentStage == InspectionStage.signature) {
       return false;
     }
-    if (is360Stage) return true;
-    if (!isCurrentMandatory) return true;
-    return false;
+
+    // External 360 Video is mandatory
+    if (currentStage == InspectionStage.external360) {
+      return false;
+    }
+
+    // Internal 360 Video can be skipped
+    if (currentStage == InspectionStage.internal360) {
+      return true;
+    }
+
+    return !isCurrentMandatory;
   }
 
   int get currentAttachType {
