@@ -88,8 +88,6 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                     SizedBox(height: 15),
                     _cardiagramSection(context, controller),
                     SizedBox(height: 15),
-                    // _additionalCommentSection(controller),
-                    // SizedBox(height: 15),
                     _signatureSection(controller, context),
                     SizedBox(height: 30),
                   ],
@@ -163,61 +161,6 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
       ),
     );
   }
-
-  // Container _additionalCommentSection(
-  //   BasicInspectionReportController controller,
-  // ) {
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       borderRadius: BorderRadius.circular(15),
-  //       color: ColorConstants.whiteColor,
-  //       boxShadow: ColorConstants.dashboardboxShadow,
-  //     ),
-  //     child: Padding(
-  //       padding: const EdgeInsets.all(8.0),
-  //       child: Column(
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           Text(
-  //             " Customer Complaint:",
-  //             style: ApptextstyleConstants.mediumText(
-  //               fontSize: 14,
-  //               color: ColorConstants.blackColor,
-  //             ),
-  //           ),
-  //           Container(
-  //             decoration: BoxDecoration(
-  //               color: ColorConstants.whiteColor,
-  //               border: Border.all(color: ColorConstants.greyColor),
-  //               borderRadius: BorderRadius.circular(8),
-  //               boxShadow: ColorConstants.dashboardboxShadow,
-  //             ),
-  //             child: TextField(
-  //               controller: controller.additionalCommentsController,
-  //               readOnly: true,
-  //               maxLines: 4,
-  //               style: ApptextstyleConstants.lightText(
-  //                 color: ColorConstants.blackColor,
-  //                 fontSize: 14,
-  //               ),
-  //               decoration: InputDecoration(
-  //                 hintText: "No additional comments available",
-  //                 hintStyle: ApptextstyleConstants.lightText(
-  //                   color: ColorConstants.greyColor,
-  //                   fontSize: 13,
-  //                 ),
-  //                 contentPadding: const EdgeInsets.all(12),
-  //                 border: InputBorder.none,
-  //                 filled: true,
-  //                 fillColor: ColorConstants.whiteColor,
-  //               ),
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
 
   Container _cardiagramSection(
     BuildContext context,
@@ -357,7 +300,6 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
           )
           .join(' ');
     }
-
     return Container(
       decoration: BoxDecoration(
         color: ColorConstants.whiteColor,
@@ -627,7 +569,6 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
     );
   }
 
-  // ignore: non_constant_identifier_names
   Widget _360VideoSection() {
     return Consumer<BasicInspectionReportController>(
       builder: (context, controller, _) {
@@ -900,7 +841,6 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                     activeColor: ColorConstants.syanColor,
                   ),
                 ),
-
                 Text(
                   controller.documentTypeText,
                   style: ApptextstyleConstants.lightText(
@@ -1200,19 +1140,14 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
 Future<ImageInfo> _getNetworkImageSize(String url) async {
   final completer = Completer<ImageInfo>();
   final image = NetworkImage(url);
-
   final stream = image.resolve(const ImageConfiguration());
-
   late ImageStreamListener listener;
-
   listener = ImageStreamListener((ImageInfo info, bool _) {
     if (!completer.isCompleted) {
       completer.complete(info);
     }
     stream.removeListener(listener); // ✅ prevent memory leak
   });
-
   stream.addListener(listener);
-
   return completer.future;
 }
