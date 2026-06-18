@@ -59,8 +59,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     );
     _controller = CameraController(
       rearCamera,
-      ResolutionPreset.high,
-      enableAudio: widget.isVideo,
+      widget.isVideo ? ResolutionPreset.medium : ResolutionPreset.high,
+      enableAudio: false,
     );
     await _controller.initialize();
     double minZoom = await _controller.getMinZoomLevel();

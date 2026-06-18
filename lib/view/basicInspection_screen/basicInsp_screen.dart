@@ -61,6 +61,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                       ),
                     );
                   }
+                  controller.checkAndShowResumeStage(context);
                   if (!controller.isBackendFullyConfigured) {
                     return Center(
                       child: Padding(
