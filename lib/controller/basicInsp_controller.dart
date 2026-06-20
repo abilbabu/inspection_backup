@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
@@ -71,7 +72,45 @@ class BasicinspController extends ChangeNotifier {
   bool get isBackendFullyConfigured => externalImageList.isNotEmpty;
 
   Set<int> completedImageIds = {};
+  int? lastcompleteId;
   bool isResumeLoaded = false;
+  bool hasOpenedResumeStage = false;
+
+  int get firstExternalImageId {
+    if (externalImageList.isNotEmpty) {
+      final images = externalImageList.first['images'] ?? [];
+      if (images.isNotEmpty) {
+        return images.first['id'] ?? 0;
+      }
+    }
+    return 0;
+  }
+
+  int get firstInternalImageId {
+    if (internalImageList.isNotEmpty) {
+      final images = internalImageList.first['images'] ?? [];
+      if (images.isNotEmpty) {
+        return images.first['id'] ?? 0;
+      }
+    }
+    return 0;
+  }
+
+  void checkAndShowResumeStage(BuildContext context) {
+    if (isResumeLoaded && !hasOpenedResumeStage) {
+      if (currentStage == InspectionStage.diagram) {
+        hasOpenedResumeStage = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          openCarDiagram(context);
+        });
+      } else if (currentStage == InspectionStage.signature) {
+        hasOpenedResumeStage = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          openSignature(context);
+        });
+      }
+    }
+  }
 
   Future<void> initSpeech() async {
     speechEnabled = await _speechToText.initialize();
@@ -149,12 +188,17 @@ class BasicinspController extends ChangeNotifier {
   }
 
   bool get hasAnyMedia {
+    if (isCurrentStageCompleted) return true;
     final hasImage = _capturedImages.any((file) => file != null);
     final hasVideo = capturedVideo != null;
     return hasImage || hasVideo;
   }
 
   bool validateMandatoryImage() {
+    if (isCurrentStageCompleted) {
+      showValidation = false;
+      return true;
+    }
     if (is360Stage) {
       if (_capturedVideo == null) {
         showValidation = true;
@@ -311,9 +355,9 @@ class BasicinspController extends ChangeNotifier {
   Future<File> compressVideo(File videoFile) async {
     final info = await VideoCompress.compressVideo(
       videoFile.path,
-      quality: VideoQuality.MediumQuality,
+      quality: VideoQuality.LowQuality,
       deleteOrigin: false,
-      includeAudio: true,
+      includeAudio: false,
     );
     if (info == null || info.file == null) {
       return videoFile;
@@ -370,15 +414,6 @@ class BasicinspController extends ChangeNotifier {
         }
         await getBasicInspection(jobId);
         _calculateResumeStep();
-        if (currentImages.isEmpty && internalImageList.isNotEmpty) {
-          currentStage = InspectionStage.internalImages;
-          currentSectionData = internalImageList.first;
-          currentImages = List.from(currentSectionData!['images']);
-          _safeSortImages(currentImages);
-          currentStep = 0;
-          isExternalSelected = false;
-          _initializeCaptureList();
-        }
         isLoading = false;
         notifyListeners();
       } else {
@@ -457,84 +492,162 @@ class BasicinspController extends ChangeNotifier {
   //   currentStage = InspectionStage.completed;
   // }
 
-  void _calculateResumeStep() {
-    // 🔁 START WITH INTERNAL
+  List<Map<String, dynamic>> buildFlowSteps() {
+    List<Map<String, dynamic>> steps = [];
+
+    // 1. Internal Images
     if (internalImageList.isNotEmpty) {
       final section = internalImageList.first;
-      final images = List.from(section['images']);
-
+      final images = List.from(section['images'] ?? []);
+      _safeSortImages(images);
       for (int i = 0; i < images.length; i++) {
-        final id = images[i]['id'];
-        final mandatory = images[i]['imageMandatory'] ?? false;
-
-        if (mandatory && !completedImageIds.contains(id)) {
-          currentStage = InspectionStage.internalImages;
-          currentSectionData = section;
-          currentImages = images;
-          currentStep = i;
-          isExternalSelected = false;
-          _initializeCaptureList();
-          return;
-        }
-
-        if (!mandatory && !completedImageIds.contains(id)) {
-          completedImageIds.add(id);
-        }
+        steps.add({
+          'stage': InspectionStage.internalImages,
+          'index': i,
+          'id': images[i]['id'],
+          'isMandatory': images[i]['imageMandatory'] ?? false,
+        });
       }
 
-      if (!completedImageIds.contains(-20)) {
-        currentStage = InspectionStage.internal360;
-        currentSectionData = section;
-        currentImages = [];
-        _capturedVideo = null;
-        return;
-      }
+      // 2. Internal 360 Video
+      steps.add({
+        'stage': InspectionStage.internal360,
+        'index': null,
+        'id': -20,
+        'isMandatory': false,
+      });
     }
 
-    // 🔁 THEN EXTERNAL
+    // 3. External Images
     if (externalImageList.isNotEmpty) {
       final section = externalImageList.first;
-      final images = List.from(section['images']);
-
+      final images = List.from(section['images'] ?? []);
+      _safeSortImages(images);
       for (int i = 0; i < images.length; i++) {
-        final id = images[i]['id'];
-        final mandatory = images[i]['imageMandatory'] ?? false;
+        steps.add({
+          'stage': InspectionStage.externalImages,
+          'index': i,
+          'id': images[i]['id'],
+          'isMandatory': images[i]['imageMandatory'] ?? false,
+        });
+      }
 
-        if (mandatory && !completedImageIds.contains(id)) {
-          currentStage = InspectionStage.externalImages;
-          currentSectionData = section;
-          currentImages = images;
-          currentStep = i;
-          isExternalSelected = true;
-          _initializeCaptureList();
-          return;
-        }
+      // 4. External 360 Video
+      steps.add({
+        'stage': InspectionStage.external360,
+        'index': null,
+        'id': -10,
+        'isMandatory': true,
+      });
+    }
 
-        if (!mandatory && !completedImageIds.contains(id)) {
-          completedImageIds.add(id);
+    // 5. Diagram
+    steps.add({
+      'stage': InspectionStage.diagram,
+      'index': null,
+      'id': -30,
+      'isMandatory': true,
+    });
+
+    // 6. Signature
+    steps.add({
+      'stage': InspectionStage.signature,
+      'index': null,
+      'id': -40,
+      'isMandatory': true,
+    });
+
+    return steps;
+  }
+
+  void _calculateResumeStep() {
+    final steps = buildFlowSteps();
+    if (steps.isEmpty) {
+      isResumeLoaded = true;
+      notifyListeners();
+      return;
+    }
+
+    debugPrint("CalculateResumeStep: lastcompleteId=$lastcompleteId, completedImageIds=$completedImageIds, firstExternalImageId=$firstExternalImageId, firstInternalImageId=$firstInternalImageId");
+
+    int lastProcessedIndex = -1;
+    for (int i = 0; i < steps.length; i++) {
+      final step = steps[i];
+      final id = step['id'];
+
+      bool isCompleted = false;
+
+      // Check completedImageIds
+      if (completedImageIds.contains(id)) {
+        isCompleted = true;
+      }
+
+      // Check lastcompleteId
+      if (lastcompleteId != null) {
+        if (id == lastcompleteId) {
+          isCompleted = true;
+        } else if (id == -20 && lastcompleteId == 2) {
+          // Internal 360 (section ID: 2)
+          isCompleted = true;
+        } else if (id == -10 && lastcompleteId == 1) {
+          // External 360 (section ID: 1)
+          isCompleted = true;
         }
       }
 
-      if (!completedImageIds.contains(-10)) {
-        currentStage = InspectionStage.external360;
-        currentSectionData = section;
+      if (isCompleted) {
+        lastProcessedIndex = i;
+      }
+    }
+
+    final resumeIndex = lastProcessedIndex + 1;
+    if (resumeIndex < steps.length) {
+      final resumeStep = steps[resumeIndex];
+      currentStage = resumeStep['stage'];
+
+      if (currentStage != InspectionStage.diagram &&
+          currentStage != InspectionStage.signature) {
+        hasOpenedResumeStage = true;
+      }
+
+      if (currentStage == InspectionStage.internalImages) {
+        currentSectionData = internalImageList.first;
+        currentImages = List.from(currentSectionData!['images'] ?? []);
+        _safeSortImages(currentImages);
+        currentStep = resumeStep['index'];
+        isExternalSelected = false;
+        _initializeCaptureList();
+      } else if (currentStage == InspectionStage.internal360) {
+        currentSectionData = internalImageList.first;
         currentImages = [];
         _capturedVideo = null;
-        return;
+      } else if (currentStage == InspectionStage.externalImages) {
+        currentSectionData = externalImageList.first;
+        currentImages = List.from(currentSectionData!['images'] ?? []);
+        _safeSortImages(currentImages);
+        currentStep = resumeStep['index'];
+        isExternalSelected = true;
+        _initializeCaptureList();
+      } else if (currentStage == InspectionStage.external360) {
+        currentSectionData = externalImageList.first;
+        currentImages = [];
+        _capturedVideo = null;
+      } else if (currentStage == InspectionStage.diagram) {
+        currentSectionData = null;
+        currentImages = [];
+      } else if (currentStage == InspectionStage.signature) {
+        currentSectionData = null;
+        currentImages = [];
       }
+    } else {
+      currentStage = InspectionStage.completed;
+      currentSectionData = null;
+      currentImages = [];
+      hasOpenedResumeStage = true;
     }
 
-    if (!completedImageIds.contains(-30)) {
-      currentStage = InspectionStage.diagram;
-      return;
-    }
-
-    if (!completedImageIds.contains(-40)) {
-      currentStage = InspectionStage.signature;
-      return;
-    }
-
-    currentStage = InspectionStage.completed;
+    isResumeLoaded = true;
+    notifyListeners();
   }
 
   Map<String, dynamic>? get currentItem {
@@ -561,6 +674,26 @@ class BasicinspController extends ChangeNotifier {
   bool get is360Stage =>
       currentStage == InspectionStage.external360 ||
       currentStage == InspectionStage.internal360;
+
+  bool get isCurrentStageCompleted {
+    if (currentStage == InspectionStage.external360) {
+      return completedImageIds.contains(-10);
+    }
+    if (currentStage == InspectionStage.internal360) {
+      return completedImageIds.contains(-20);
+    }
+    if (currentStage == InspectionStage.diagram) {
+      return completedImageIds.contains(-30);
+    }
+    if (currentStage == InspectionStage.signature) {
+      return completedImageIds.contains(-40);
+    }
+    final item = currentItem;
+    if (item != null) {
+      return completedImageIds.contains(item['id']);
+    }
+    return false;
+  }
 
   bool get shouldShowSkip {
     if (currentStage == InspectionStage.diagram ||
@@ -618,7 +751,7 @@ class BasicinspController extends ChangeNotifier {
         completedImageIds.add(currentItem!['id']);
       }
       int nextIndex = -1;
-      for (int i = 0; i < currentImages.length; i++) {
+      for (int i = currentStep + 1; i < currentImages.length; i++) {
         final id = currentImages[i]['id'];
         if (!completedImageIds.contains(id)) {
           nextIndex = i;
@@ -723,7 +856,7 @@ class BasicinspController extends ChangeNotifier {
       _moveToNextStage(context);
       return;
     }
-    for (int i = 0; i < currentImages.length; i++) {
+    for (int i = currentStep + 1; i < currentImages.length; i++) {
       final imageId = currentImages[i]['id'];
       if (!completedImageIds.contains(imageId)) {
         currentStep = i;
@@ -736,8 +869,8 @@ class BasicinspController extends ChangeNotifier {
   }
 
   Future<void> skipStep(BuildContext context) async {
-    final success = await proceedStep(jobId: jobId, status: 2);
-    if (!success) return;
+    // final success = await proceedStep(jobId: jobId, status: 2);
+    // if (!success) return;
     if (currentItem != null) {
       completedImageIds.add(currentItem!['id']);
     }
@@ -795,6 +928,15 @@ class BasicinspController extends ChangeNotifier {
     String additionalComment = "",
   }) async {
     final item = currentItem;
+    
+    final bool hasNewMedia = is360Stage 
+        ? (_capturedVideo != null) 
+        : (_capturedImages.any((img) => img != null) || _capturedVideo != null);
+    
+    if (isCurrentStageCompleted && !hasNewMedia) {
+      return true;
+    }
+
     if (item == null &&
         currentStage != InspectionStage.diagram &&
         currentStage != InspectionStage.signature &&
@@ -830,24 +972,47 @@ class BasicinspController extends ChangeNotifier {
           "Accept": "application/json",
         };
       FormData formData = FormData();
-      final int imageId = item != null
-          ? item['id']
-          : (currentSectionData?['id'] ?? 0);
+      int imageIdVal = 0;
+      if (item != null) {
+        imageIdVal = item['id'];
+      } else {
+        if (currentStage == InspectionStage.internal360) {
+          imageIdVal = firstInternalImageId;
+        } else if (currentStage == InspectionStage.external360) {
+          imageIdVal = firstExternalImageId;
+        } else {
+          imageIdVal = firstExternalImageId != 0 ? firstExternalImageId : firstInternalImageId;
+        }
+      }
+      final String imageId = imageIdVal != 0 ? imageIdVal.toString() : "";
       formData.fields.addAll([
         MapEntry("jobId", jobId.toString()),
-        MapEntry("inspectionImageId", imageId.toString()),
+        MapEntry("job_id", jobId.toString()),
+        MapEntry("inspectionImageId", imageId),
+        MapEntry("inspection_image_id", imageId),
         MapEntry("status", status.toString()),
         MapEntry("inspectionNote", inspectionNote),
         MapEntry("additionalComment", additionalComment),
         MapEntry("attachType", currentAttachType.toString()),
       ]);
+      debugPrint("--- UPLOADING MEDIA ---");
+      for (var f in formData.fields) {
+        debugPrint("Field: ${f.key} = ${f.value}");
+      }
+      for (var f in formData.files) {
+        debugPrint("File: ${f.key} = ${f.value.filename}");
+      }
       int mediaIndex = 0;
       if (is360Stage) {
         if (_capturedVideo != null && await _capturedVideo!.exists()) {
           formData.files.add(
             MapEntry(
               "mediaFiles[$mediaIndex].file",
-              await MultipartFile.fromFile(_capturedVideo!.path),
+              await MultipartFile.fromFile(
+                _capturedVideo!.path,
+                filename: "inspection_360_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
+                contentType: http_parser.MediaType("video", "mp4"),
+              ),
             ),
           );
           formData.fields.add(MapEntry("mediaFiles[$mediaIndex].type", "2"));
@@ -856,10 +1021,20 @@ class BasicinspController extends ChangeNotifier {
       } else {
         for (var img in _capturedImages) {
           if (img != null && await img.exists()) {
+            String suffix = "image";
+            if (currentStage == InspectionStage.diagram) {
+              suffix = "diagram";
+            } else if (currentStage == InspectionStage.signature) {
+              suffix = "signature";
+            }
             formData.files.add(
               MapEntry(
                 "mediaFiles[$mediaIndex].file",
-                await MultipartFile.fromFile(img.path),
+                await MultipartFile.fromFile(
+                  img.path,
+                  filename: "inspection_${suffix}_${mediaIndex}_${DateTime.now().millisecondsSinceEpoch}.jpg",
+                  contentType: http_parser.MediaType("image", "jpeg"),
+                ),
               ),
             );
             formData.fields.add(MapEntry("mediaFiles[$mediaIndex].type", "0"));
@@ -870,7 +1045,11 @@ class BasicinspController extends ChangeNotifier {
           formData.files.add(
             MapEntry(
               "mediaFiles[$mediaIndex].file",
-              await MultipartFile.fromFile(_capturedVideo!.path),
+              await MultipartFile.fromFile(
+                _capturedVideo!.path,
+                filename: "inspection_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
+                contentType: http_parser.MediaType("video", "mp4"),
+              ),
             ),
           );
           formData.fields.add(MapEntry("mediaFiles[$mediaIndex].type", "2"));
@@ -881,7 +1060,24 @@ class BasicinspController extends ChangeNotifier {
         ApiServices.basicInspection,
         data: formData,
       );
+      
+      debugPrint(
+        "-----------------------------🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉-----------------------------",
+      );
+      debugPrint("SAVE RESPONSE => ${response.data}");
+      debugPrint(
+        "-----------------------------🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉-----------------------------",
+      );
       if (response.statusCode == 200) {
+        final resData = response.data;
+        if (resData is Map) {
+          final bodyStatusCode = resData['statusCode'];
+          final bodyStatus = resData['status'];
+          if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
+            debugPrint("API business logic failure: ${resData['data']}");
+            return false;
+          }
+        }
         if (!is360Stage && item != null) {
           completedImageIds.add(item['id']);
         }
@@ -901,9 +1097,11 @@ class BasicinspController extends ChangeNotifier {
       }
       notifyListeners();
       return false;
-    } on DioException {
+    } on DioException catch (dioErr) {
+      debugPrint("Dio error: ${dioErr.message}, response: ${dioErr.response?.data}");
       return false;
     } catch (e) {
+      debugPrint("Generic error in proceedStep: $e");
       return false;
     } finally {
       isUploading = false;
@@ -926,8 +1124,18 @@ class BasicinspController extends ChangeNotifier {
       final result = jsonDecode(response.body);
       final data = result["data"];
       if (data == null) return;
+
+      if (data["lastcompleteId"] != null) {
+        lastcompleteId = int.tryParse(data["lastcompleteId"].toString());
+      } else if (data["lastCompletedId"] != null) {
+        lastcompleteId = int.tryParse(data["lastCompletedId"].toString());
+      } else {
+        lastcompleteId = null;
+      }
+
       final grouped = data["basicinspectionattachments"];
       if (grouped == null) return;
+      debugPrint("BASIC INSPECTION ATTACHMENTS => ${jsonEncode(grouped)}");
       completedImageIds.clear();
       List allAttachments = [];
       List externalImages = grouped["externalImages"] ?? [];
@@ -936,6 +1144,11 @@ class BasicinspController extends ChangeNotifier {
         List attachments = img["attachments"] ?? [];
         if (attachments.isNotEmpty && masterId != null) {
           completedImageIds.add(masterId);
+        }
+        for (var att in attachments) {
+          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["iaInspectionType"] == 0)) {
+            completedImageIds.add(-10);
+          }
         }
         allAttachments.addAll(attachments);
       }
@@ -946,6 +1159,11 @@ class BasicinspController extends ChangeNotifier {
         if (attachments.isNotEmpty && masterId != null) {
           completedImageIds.add(masterId);
         }
+        for (var att in attachments) {
+          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["iaInspectionType"] == 1)) {
+            completedImageIds.add(-20);
+          }
+        }
         allAttachments.addAll(attachments);
       }
       if (grouped["cardiagram"] != null) {
@@ -954,16 +1172,7 @@ class BasicinspController extends ChangeNotifier {
       if (grouped["signature"] != null) {
         completedImageIds.add(-40);
       }
-      for (var att in allAttachments) {
-        if (att["iaType"] == 2) {
-          if (att["iaInspectionType"] == 0) {
-            completedImageIds.add(-10);
-          }
-          if (att["iaInspectionType"] == 1) {
-            completedImageIds.add(-20);
-          }
-        }
-      }
+      debugPrint("RESUME IDS => $completedImageIds");
       isResumeLoaded = true;
     } catch (e) {
       debugPrint("Resume error: $e");
