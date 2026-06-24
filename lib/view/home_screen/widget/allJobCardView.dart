@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/homeScreen_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
@@ -33,6 +34,7 @@ class _AlljobcardviewState extends State<Alljobcardview> {
     super.initState();
 
     filteredList = widget.jobcardList.reversed.toList();
+    _triggerSearch('');
 
     if (widget.jobcardList.isNotEmpty) {
       userDepartment =
@@ -54,26 +56,39 @@ class _AlljobcardviewState extends State<Alljobcardview> {
   }
 
   void _triggerSearch(String value) {
+    final searchText = value.trim().toLowerCase();
+
     setState(() {
       filteredList = widget.jobcardList
           .where((item) {
             final status = item["jobStatus"]?.toString() ?? "";
-
             final technicianId = item["jobTechnicianId"];
 
             bool statusMatch = true;
 
-            if (selectedFilter == "Assigned") {
-              statusMatch = technicianId != null;
-            } else if (selectedFilter == "Pending") {
+            if (selectedFilter == "Pending") {
               statusMatch = technicianId == null && status == "3";
             } else if (selectedFilter == "On going") {
               statusMatch = status == "4" || status == "5";
             } else if (selectedFilter == "Complete") {
-              statusMatch = status == "6" || status == "7" || status == "8";
+              statusMatch =
+                  status == "6" ||
+                  status == "7" ||
+                  status == "8" ||
+                  status == "9";
             }
 
-            return statusMatch;
+            final jobNo = (item['jobNo'] ?? '').toString().toLowerCase();
+            final plateNo = (item['plateNo'] ?? '').toString().toLowerCase();
+            final vinNo = (item['vinNo'] ?? '').toString().toLowerCase();
+
+            final searchMatch =
+                searchText.isEmpty ||
+                jobNo.contains(searchText) ||
+                plateNo.contains(searchText) ||
+                vinNo.contains(searchText);
+
+            return statusMatch && searchMatch;
           })
           .toList()
           .reversed
@@ -171,22 +186,6 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                               mainAxisSize: MainAxisSize.min,
 
                               children: [
-                                if (searchController.text.isNotEmpty)
-                                  IconButton(
-                                    icon: const Icon(Icons.close),
-
-                                    onPressed: () {
-                                      searchController.clear();
-
-                                      setState(() {
-                                        filteredList = widget
-                                            .jobcardList
-                                            .reversed
-                                            .toList();
-                                      });
-                                    },
-                                  ),
-
                                 IconButton(
                                   icon: const Icon(Icons.search),
 
@@ -200,7 +199,35 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                         ),
                       ),
 
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 5),
+
+                      InkWell(
+                        onTap: () {
+                          searchController.clear();
+                          _triggerSearch('');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: SvgPicture.asset(
+                            'assets/svg/repeat.svg',
+                            width: 20,
+                            height: 20,
+
+                            colorFilter: ColorFilter.mode(
+                              ColorConstants.blackColor,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
 
                       /// FILTER
                       Container(
@@ -228,10 +255,10 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                                 value: "All",
                                 child: Text("All"),
                               ),
-                              DropdownMenuItem(
-                                value: "Assigned",
-                                child: Text("Assigned"),
-                              ),
+                              // DropdownMenuItem(
+                              //   value: "Assigned",
+                              //   child: Text("Assigned"),
+                              // ),
                               DropdownMenuItem(
                                 value: "Pending",
                                 child: Text("Pending"),
@@ -267,19 +294,41 @@ class _AlljobcardviewState extends State<Alljobcardview> {
 
               /// LIST
               Expanded(
-                child: ListView.builder(
-                  itemCount: filteredList.length,
+                child: filteredList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(
+                              Icons.search_off,
+                              size: 60,
+                              color: Colors.grey,
+                            ),
+                            SizedBox(height: 10),
+                            Text(
+                              "No Data Found",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: filteredList.length,
 
-                  itemBuilder: (context, index) {
-                    final item = filteredList[index];
+                        itemBuilder: (context, index) {
+                          final item = filteredList[index];
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
 
-                      child: jobCardItem(context, item),
-                    );
-                  },
-                ),
+                            child: jobCardItem(context, item),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -397,7 +446,7 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                         ],
                       ),
 
-                      const SizedBox(height: 8),                     
+                      const SizedBox(height: 8),
 
                       if (technicianId != null) const SizedBox(height: 8),
 
