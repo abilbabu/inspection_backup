@@ -537,612 +537,558 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ],
 
-          //  userDepartment == 2 use
-          if (userDepartment == 2) ...[
-            DefaultTabController(
-              length: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 45,
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      gradient: ColorConstants.tabgradientColor,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: TabBar(
-                      indicator: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color: const Color(0xFF0066A6),
-                          width: 1.5,
-                        ),
-                      ),
-                      labelColor: Colors.transparent,
-                      unselectedLabelColor: ColorConstants.activecolor,
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      dividerColor: Colors.transparent,
-                      tabs: [
-                        Tab(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) {
-                              return const LinearGradient(
-                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                              ).createShader(bounds);
-                            },
-                            child: const Text(
-                              "Pending",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Tab(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) {
-                              return const LinearGradient(
-                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                              ).createShader(bounds);
-                            },
-                            child: const Text(
-                              "Assigned",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  SizedBox(
-                    height: 40,
-                    child: TextField(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        hintText: "Search Job Card No",
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                        border: OutlineInputBorder(
+          if (userDepartment == 2 || userDepartment == 5) ...[
+            Builder(
+              builder: (context) {
+                final int jcTabLength = 3;
+                return DefaultTabController(
+                  length: jcTabLength,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 45,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          gradient: ColorConstants.tabgradientColor,
                           borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
                         ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: MediaQuery.sizeOf(context).height * 0.75,
-                    child: TabBarView(
-                      children: [
-                        /// ================= Pending =================
-                        Builder(
-                          builder: (context) {
-                            final pendingList = reversedList.where((item) {
-                              final status =
-                                  int.tryParse(item["jobStatus"].toString()) ??
-                                  0;
-
-                              final searchMatch =
-                                  item["jobNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["plateNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["vinNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true;
-                              return status == 3 && searchMatch;
-                            }).toList();
-                            if (pendingList.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Center(
-                                  child: emptyJobCardContainer(
-                                    title: "No Pending Jobs",
-                                    subtitle:
-                                        "There are no pending job cards available.",
+                        child: TabBar(
+                          indicator: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: const Color(0xFF0066A6),
+                              width: 1.5,
+                            ),
+                          ),
+                          labelColor: Colors.transparent,
+                          unselectedLabelColor: ColorConstants.activecolor,
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Colors.transparent,
+                          tabs: [
+                            Tab(
+                              child: ShaderMask(
+                                shaderCallback: (bounds) {
+                                  return const LinearGradient(
+                                    colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                  ).createShader(bounds);
+                                },
+                                child: const Text(
+                                  "Pending",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
                                   ),
                                 ),
-                              );
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: ListView.separated(
-                                itemCount: pendingList.length,
-                                separatorBuilder: (_, __) =>
-                                    SizedBox(height: 0),
-                                itemBuilder: (context, index) {
-                                  return jobCardItemlist(
-                                    context,
-                                    pendingList[index],
-                                  );
-                                },
                               ),
-                            );
-                          },
-                        ),
-
-                        /// ================= Assigned =================
-                        Builder(
-                          builder: (context) {
-                            final assignedList = reversedList.where((item) {
-                              final status =
-                                  int.tryParse(item["jobStatus"].toString()) ??
-                                  0;
-                              final searchMatch =
-                                  item["jobNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["plateNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["vinNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true;
-                              return (status == 5 || status == 4) &&
-                                  searchMatch;
-                            }).toList();
-                            if (assignedList.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Center(
-                                  child: emptyJobCardContainer(
-                                    title: "No Assigned Jobs",
-                                    subtitle:
-                                        "There are no assigned job cards available.",
+                            ),
+                            Tab(
+                              child: ShaderMask(
+                                shaderCallback: (bounds) {
+                                  return const LinearGradient(
+                                    colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                  ).createShader(bounds);
+                                },
+                                child: const Text(
+                                  "Assigned",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
                                   ),
                                 ),
-                              );
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: ListView.separated(
-                                itemCount: assignedList.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 0),
-                                itemBuilder: (context, index) {
-                                  return jobCardItemlist(
-                                    context,
-                                    assignedList[index],
-                                  );
-                                },
                               ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          if (userDepartment == 5) ...[
-            DefaultTabController(
-              length: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 45,
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      gradient: ColorConstants.tabgradientColor,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: TabBar(
-                      indicator: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color: const Color(0xFF0066A6),
-                          width: 1.5,
+                            ),
+                            Tab(
+                              child: ShaderMask(
+                                  shaderCallback: (bounds) {
+                                    return const LinearGradient(
+                                      colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                    ).createShader(bounds);
+                                  },
+                                  child: const Text(
+                                    "Reassigned",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                      labelColor: Colors.transparent,
-                      unselectedLabelColor: ColorConstants.activecolor,
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      dividerColor: Colors.transparent,
-                      tabs: [
-                        Tab(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) {
-                              return const LinearGradient(
-                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                              ).createShader(bounds);
-                            },
-                            child: const Text(
-                              "Pending",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
+                      SizedBox(height: 20),
+                      SizedBox(
+                        height: 40,
+                        child: TextField(
+                          controller: searchController,
+                          decoration: InputDecoration(
+                            hintText: "Search Job Card No",
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide.none,
                             ),
                           ),
                         ),
-                        Tab(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) {
-                              return const LinearGradient(
-                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                              ).createShader(bounds);
-                            },
-                            child: const Text(
-                              "Assigned",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
+                      ),
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height * 0.75,
+                        child: TabBarView(
+                          children: [
+                            /// ================= Pending =================
+                            Builder(
+                              builder: (context) {
+                                final pendingList = reversedList.where((item) {
+                                  final status =
+                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      0;
+
+                                  final searchMatch =
+                                      item["jobNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["plateNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["vinNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true;
+                                  return status == 3 && searchMatch;
+                                }).toList();
+                                if (pendingList.isEmpty) {
+                                  return Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Center(
+                                      child: emptyJobCardContainer(
+                                        title: "No Pending Jobs",
+                                        subtitle:
+                                            "There are no pending job cards available.",
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: ListView.separated(
+                                    itemCount: pendingList.length,
+                                    separatorBuilder: (_, __) =>
+                                        SizedBox(height: 0),
+                                    itemBuilder: (context, index) {
+                                      return jobCardItemlist(
+                                        context,
+                                        pendingList[index],
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  SizedBox(
-                    height: 40,
-                    child: TextField(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        hintText: "Search Job Card No",
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
+
+                            /// ================= Assigned =================
+                            Builder(
+                              builder: (context) {
+                                final assignedList = reversedList.where((item) {
+                                  final status =
+                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      0;
+                                  final searchMatch =
+                                      item["jobNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["plateNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["vinNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true;
+                                  return (status == 5 || status == 4) &&
+                                      searchMatch;
+                                }).toList();
+
+                                if (assignedList.isEmpty) {
+                                  return Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Center(
+                                      child: emptyJobCardContainer(
+                                        title: "No Assigned Jobs",
+                                        subtitle:
+                                            "There are no assigned job cards available.",
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: ListView.separated(
+                                    itemCount: assignedList.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 0),
+                                    itemBuilder: (context, index) {
+                                      return jobCardItemlist(
+                                        context,
+                                        assignedList[index],
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+
+                            /// ================= Re-Assigned =================
+                            Builder(
+                                builder: (context) {
+                                  final reAssignedList = reversedList.where((item) {
+                                    final status =
+                                        int.tryParse(item["jobStatus"].toString()) ??
+                                        0;
+                                    final searchMatch =
+                                        item["jobNo"]
+                                                ?.toString()
+                                                .toLowerCase()
+                                                .contains(searchText) ==
+                                            true ||
+                                        item["plateNo"]
+                                                ?.toString()
+                                                .toLowerCase()
+                                                .contains(searchText) ==
+                                            true ||
+                                        item["vinNo"]
+                                                ?.toString()
+                                                .toLowerCase()
+                                                .contains(searchText) ==
+                                            true;
+                                    return status == 10 && searchMatch;
+                                  }).toList();
+                                  if (reAssignedList.isEmpty) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Center(
+                                        child: emptyJobCardContainer(
+                                          title: "No Reassigned Jobs",
+                                          subtitle:
+                                              "There are no reassigned job cards available.",
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.all(5),
+                                    child: ListView.separated(
+                                      itemCount: reAssignedList.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 0),
+                                      itemBuilder: (context, index) {
+                                        return jobCardItemlist(
+                                          context,
+                                          reAssignedList[index],
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                  SizedBox(
-                    height: MediaQuery.sizeOf(context).height * 0.75,
-                    child: TabBarView(
-                      children: [
-                        /// ================= Pending =================
-                        Builder(
-                          builder: (context) {
-                            final pendingList = reversedList.where((item) {
-                              final status =
-                                  int.tryParse(item["jobStatus"].toString()) ??
-                                  0;
-
-                              final searchMatch =
-                                  item["jobNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["plateNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["vinNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true;
-                              return status == 3 && searchMatch;
-                            }).toList();
-                            if (pendingList.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Center(
-                                  child: emptyJobCardContainer(
-                                    title: "No Pending Jobs",
-                                    subtitle:
-                                        "There are no pending job cards available.",
-                                  ),
-                                ),
-                              );
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: ListView.separated(
-                                itemCount: pendingList.length,
-                                separatorBuilder: (_, __) =>
-                                    SizedBox(height: 0),
-                                itemBuilder: (context, index) {
-                                  return jobCardItemlist(
-                                    context,
-                                    pendingList[index],
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-
-                        /// ================= Assigned =================
-                        Builder(
-                          builder: (context) {
-                            final assignedList = reversedList.where((item) {
-                              final status =
-                                  int.tryParse(item["jobStatus"].toString()) ??
-                                  0;
-                              final searchMatch =
-                                  item["jobNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["plateNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["vinNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true;
-                              return (status == 5 || status == 4) &&
-                                  searchMatch;
-                            }).toList();
-
-                            if (assignedList.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Center(
-                                  child: emptyJobCardContainer(
-                                    title: "No Assigned Jobs",
-                                    subtitle:
-                                        "There are no assigned job cards available.",
-                                  ),
-                                ),
-                              );
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: ListView.separated(
-                                itemCount: assignedList.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 0),
-                                itemBuilder: (context, index) {
-                                  return jobCardItemlist(
-                                    context,
-                                    assignedList[index],
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           ],
 
           //  userDepartment == 4 use
           if (userDepartment == 4) ...[
-            DefaultTabController(
-              length: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 45,
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      gradient: ColorConstants.tabgradientColor,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: TabBar(
-                      indicator: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(25),
-                        border: Border.all(
-                          color: const Color(0xFF0066A6),
-                          width: 1.5,
-                        ),
-                      ),
-                      labelColor: Colors.transparent,
-                      unselectedLabelColor: ColorConstants.activecolor,
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      dividerColor: Colors.transparent,
-                      tabs: [
-                        Tab(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) {
-                              return const LinearGradient(
-                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                              ).createShader(bounds);
-                            },
-                            child: const Text(
-                              "Pending",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Tab(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) {
-                              return const LinearGradient(
-                                colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                              ).createShader(bounds);
-                            },
-                            child: const Text(
-                              "On Going",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    height: 40,
-                    child: TextField(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        hintText: "Search Job No ",
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
-
-                        border: OutlineInputBorder(
+            Builder(
+              builder: (context) {
+                final int techTabLength = 3;
+                return DefaultTabController(
+                  length: techTabLength,
+                  initialIndex: 0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 45,
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          gradient: ColorConstants.tabgradientColor,
                           borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
+                        ),
+                        child: TabBar(
+                          indicator: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: const Color(0xFF0066A6),
+                              width: 1.5,
+                            ),
+                          ),
+                          labelColor: Colors.transparent,
+                          unselectedLabelColor: ColorConstants.activecolor,
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Colors.transparent,
+                          tabs: [
+                            Tab(
+                              child: ShaderMask(
+                                shaderCallback: (bounds) {
+                                  return const LinearGradient(
+                                    colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                  ).createShader(bounds);
+                                },
+                                child: const Text(
+                                  "Pending",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Tab(
+                              child: ShaderMask(
+                                shaderCallback: (bounds) {
+                                  return const LinearGradient(
+                                    colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                  ).createShader(bounds);
+                                },
+                                child: const Text(
+                                  "On Going",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Tab(
+                              child: ShaderMask(
+                                  shaderCallback: (bounds) {
+                                    return const LinearGradient(
+                                      colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                    ).createShader(bounds);
+                                  },
+                                  child: const Text(
+                                    "Reassigned",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: MediaQuery.sizeOf(context).height * 0.75,
-                    child: TabBarView(
-                      children: [
-                        Builder(
-                          builder: (context) {
-                            final pendingList = reversedList.where((item) {
-                              final status =
-                                  int.tryParse(item["jobStatus"].toString()) ??
-                                  0;
-                              final searchMatch =
-                                  item["jobNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["plateNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["vinNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true;
-                              return (status == 4) && searchMatch;
-                            }).toList();
-                            if (pendingList.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Center(
-                                  child: emptyJobCardContainer(
-                                    title: "No Pending Jobs",
-                                    subtitle:
-                                        "There are no pending job cards available.",
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 40,
+                        child: TextField(
+                          controller: searchController,
+                          decoration: InputDecoration(
+                            hintText: "Search Job No ",
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: MediaQuery.sizeOf(context).height * 0.75,
+                        child: TabBarView(
+                          children: [
+                            Builder(
+                              builder: (context) {
+                                final pendingList = reversedList.where((item) {
+                                  final status =
+                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      0;
+                                  final searchMatch =
+                                      item["jobNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["plateNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["vinNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true;
+                                  return (status == 4) && searchMatch;
+                                }).toList();
+                                if (pendingList.isEmpty) {
+                                  return Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Center(
+                                      child: emptyJobCardContainer(
+                                        title: "No Pending Jobs",
+                                        subtitle:
+                                            "There are no pending job cards available.",
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: ListView.separated(
+                                    shrinkWrap: true,
+                                    itemCount: pendingList.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 0),
+                                    itemBuilder: (context, index) {
+                                      return jobCardItemTechinician(
+                                        context,
+                                        pendingList[index],
+                                      );
+                                    },
                                   ),
-                                ),
-                              );
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                itemCount: pendingList.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 0),
-                                itemBuilder: (context, index) {
-                                  return jobCardItemTechinician(
-                                    context,
-                                    pendingList[index],
+                                );
+                              },
+                            ),
+                            Builder(
+                              builder: (context) {
+                                final ongoingList = reversedList.where((item) {
+                                  final status =
+                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      0;
+                                  final searchMatch =
+                                      item["jobNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["plateNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["vinNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true;
+                                  return (status == 5) && searchMatch;
+                                }).toList();
+                                if (ongoingList.isEmpty) {
+                                  return Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Center(
+                                      child: emptyJobCardContainer(
+                                        title: "No On Going Jobs",
+                                        subtitle:
+                                            "There are no ongoing job cards available.",
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: ListView.separated(
+                                    itemCount: ongoingList.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 0),
+                                    itemBuilder: (context, index) {
+                                      return jobCardItemlist(
+                                        context,
+                                        ongoingList[index],
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                            Builder(
+                                builder: (context) {
+                                  final reAssignedList = reversedList.where((item) {
+                                    final status =
+                                        int.tryParse(item["jobStatus"].toString()) ??
+                                        0;
+                                    final searchMatch =
+                                        item["jobNo"]
+                                                ?.toString()
+                                                .toLowerCase()
+                                                .contains(searchText) ==
+                                            true ||
+                                        item["plateNo"]
+                                                ?.toString()
+                                                .toLowerCase()
+                                                .contains(searchText) ==
+                                            true ||
+                                        item["vinNo"]
+                                                ?.toString()
+                                                .toLowerCase()
+                                                .contains(searchText) ==
+                                            true;
+                                    return status == 11 && searchMatch;
+                                  }).toList();
+                                  if (reAssignedList.isEmpty) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Center(
+                                        child: emptyJobCardContainer(
+                                          title: "No Reassigned Jobs",
+                                          subtitle:
+                                              "There are no reassigned job cards available.",
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.all(5),
+                                    child: ListView.separated(
+                                      itemCount: reAssignedList.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 0),
+                                      itemBuilder: (context, index) {
+                                        return jobCardItemTechinician(
+                                          context,
+                                          reAssignedList[index],
+                                        );
+                                      },
+                                    ),
                                   );
                                 },
                               ),
-                            );
-                          },
+                          ],
                         ),
-                        Builder(
-                          builder: (context) {
-                            final ongoingList = reversedList.where((item) {
-                              final status =
-                                  int.tryParse(item["jobStatus"].toString()) ??
-                                  0;
-                              final searchMatch =
-                                  item["jobNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["plateNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true ||
-                                  item["vinNo"]
-                                          ?.toString()
-                                          .toLowerCase()
-                                          .contains(searchText) ==
-                                      true;
-                              return (status == 5) && searchMatch;
-                            }).toList();
-                            if (ongoingList.isEmpty) {
-                              return Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Center(
-                                  child: emptyJobCardContainer(
-                                    title: "No On Going Jobs",
-                                    subtitle:
-                                        "There are no ongoing job cards available.",
-                                  ),
-                                ),
-                              );
-                            }
-                            return Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: ListView.separated(
-                                itemCount: ongoingList.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 0),
-                                itemBuilder: (context, index) {
-                                  return jobCardItemlist(
-                                    context,
-                                    ongoingList[index],
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ],
         ],
@@ -1433,7 +1379,11 @@ class _HomeScreenState extends State<HomeScreen> {
         final int jobId = rawJobId is int
             ? rawJobId
             : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
-        context.go("/jobcarddetails", extra: jobId);
+        if (jobStatus == 10 || jobStatus == 11) {
+          context.go("/reassigneddetails", extra: jobId);
+        } else {
+          context.go("/jobcarddetails", extra: jobId);
+        }
       },
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
@@ -1542,6 +1492,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
+        if (jobStatus == 11) {
+          context.go("/reassigneddetails", extra: jobId);
+          return;
+        }
         final List inspections = item["inspections"] ?? [];
         int inspectionTypeId = 2;
         int inspectionMasterId = 0;

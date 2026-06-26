@@ -76,6 +76,12 @@ class _JobCardDetailsState extends State<JobCardDetails> {
         return "Technician Report Waiting For Approval";
       case "9":
         return "Quotation Requested";
+      case "10":
+        return "Re-Inspection Approved";
+      case "11":
+        return "Re-Inspection In Progress";
+      case "12":
+        return "Re-Inspection Completed";
       default:
         return "Unknown Status";
     }

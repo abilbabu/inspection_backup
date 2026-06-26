@@ -357,6 +357,12 @@ class InspectioncardController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> deleteVideo() async {
+    await _deleteOldVideo(_capturedVideo);
+    _capturedVideo = null;
+    notifyListeners();
+  }
+
   Future<File> compressImage(File file) async {
     final dir = await getTemporaryDirectory();
     final targetPath = path.join(
@@ -391,70 +397,78 @@ class InspectioncardController extends ChangeNotifier {
   Future<void> loadExistingTask({
     required InspectionFormController formController,
     required int taskId,
+    bool isReInspection = false,
   }) async {
     final existing = formController.getTaskById(taskId);
     if (existing == null) return;
-    selectedOption = existing.condition;
-    noteController.text = existing.note;
-    descriptionController.text = existing.description;
-    if (existing.imageFiles != null && existing.imageFiles!.isNotEmpty) {
-      for (
-        int i = 0;
-        i < existing.imageFiles!.length && i < _capturedImages.length;
-        i++
-      ) {
-        _capturedImages[i] = existing.imageFiles![i];
-      }
-    } else if (existing.imageUrls != null && existing.imageUrls!.isNotEmpty) {
-      isImageDownloading = true;
-      notifyListeners();
-      for (
-        int i = 0;
-        i < existing.imageUrls!.length && i < _capturedImages.length;
-        i++
-      ) {
-        final file = await MediaCacheService.instance.getCachedFile(
-          existing.imageUrls![i],
-          CachedMediaType.image,
-        );
-        if (file != null) {
-          _capturedImages[i] = file;
+    final bool alreadySaved = formController.isTaskSaved(taskId);
+    if (isReInspection && !alreadySaved) {
+      selectedOption = null;
+      noteController.text = "";
+      descriptionController.text = "";
+    } else {
+      selectedOption = existing.condition;
+      noteController.text = existing.note;
+      descriptionController.text = existing.description;
+      if (existing.imageFiles != null && existing.imageFiles!.isNotEmpty) {
+        for (
+          int i = 0;
+          i < existing.imageFiles!.length && i < _capturedImages.length;
+          i++
+        ) {
+          _capturedImages[i] = existing.imageFiles![i];
         }
+      } else if (existing.imageUrls != null && existing.imageUrls!.isNotEmpty) {
+        isImageDownloading = true;
+        notifyListeners();
+        for (
+          int i = 0;
+          i < existing.imageUrls!.length && i < _capturedImages.length;
+          i++
+        ) {
+          final file = await MediaCacheService.instance.getCachedFile(
+            existing.imageUrls![i],
+            CachedMediaType.image,
+          );
+          if (file != null) {
+            _capturedImages[i] = file;
+          }
+        }
+        isImageDownloading = false;
       }
-      isImageDownloading = false;
-    }
-    if (existing.videoFile != null) {
-      _capturedVideo = existing.videoFile;
-    } else if (existing.videoUrl != null) {
-      isVideoLoading = true;
-      notifyListeners();
-      _capturedVideo = await MediaCacheService.instance.getCachedFile(
-        existing.videoUrl!,
-        CachedMediaType.video,
-        onDownloadStart: () {
-          isVideoLoading = true;
-          notifyListeners();
-        },
-      );
-      isVideoLoading = false;
-      notifyListeners();
-    }
-    if (existing.audioFilePath != null) {
-      _recordedFilePath = existing.audioFilePath;
-    } else if (existing.audioUrl != null) {
-      isAudioDownloading = true;
-      notifyListeners();
-      final audioFile = await MediaCacheService.instance.getCachedFile(
-        existing.audioUrl!,
-        CachedMediaType.audio,
-        onDownloadStart: () {
-          isAudioDownloading = true;
-          notifyListeners();
-        },
-      );
-      _recordedFilePath = audioFile?.path;
-      isAudioDownloading = false;
-      notifyListeners();
+      if (existing.videoFile != null) {
+        _capturedVideo = existing.videoFile;
+      } else if (existing.videoUrl != null) {
+        isVideoLoading = true;
+        notifyListeners();
+        _capturedVideo = await MediaCacheService.instance.getCachedFile(
+          existing.videoUrl!,
+          CachedMediaType.video,
+          onDownloadStart: () {
+            isVideoLoading = true;
+            notifyListeners();
+          },
+        );
+        isVideoLoading = false;
+        notifyListeners();
+      }
+      if (existing.audioFilePath != null) {
+        _recordedFilePath = existing.audioFilePath;
+      } else if (existing.audioUrl != null) {
+        isAudioDownloading = true;
+        notifyListeners();
+        final audioFile = await MediaCacheService.instance.getCachedFile(
+          existing.audioUrl!,
+          CachedMediaType.audio,
+          onDownloadStart: () {
+            isAudioDownloading = true;
+            notifyListeners();
+          },
+        );
+        _recordedFilePath = audioFile?.path;
+        isAudioDownloading = false;
+        notifyListeners();
+      }
     }
     if (formController.isTaskSaved(taskId)) {
       isSuccess = true;
@@ -496,6 +510,7 @@ class InspectioncardController extends ChangeNotifier {
     required int taskId,
     required int formId,
     required int categoryId,
+    int? inspectionTypeId,
   }) async {
     validationError = null;
     validationType = ValidationType.none;
@@ -539,12 +554,14 @@ class InspectioncardController extends ChangeNotifier {
     notifyListeners();
     final willCompleteAll =
         (formController.savedTasks + 1) == formController.totalTasks;
-    final int status = willCompleteAll ? 6 : 5;
+    final int status = 5;
     final ApiResponse response = await saveSingleInspectionTask(
       status: status,
       jobId: jobId,
       taskId: taskId,
       formId: formId,
+      inspectionTypeId: inspectionTypeId,
+      viReInspection: (inspectionTypeId == 2),
     );
     if (response.success != true) {
       isLoading = false;
@@ -558,9 +575,6 @@ class InspectioncardController extends ChangeNotifier {
     markSaved();
     formController.markTaskSaved(taskId);
     notifyListeners();
-    if (status == 6) {
-      return true;
-    }
     return false;
   }
 
@@ -582,6 +596,8 @@ class InspectioncardController extends ChangeNotifier {
     required int taskId,
     required int formId,
     int? inspectionTypeId,
+    bool? viReInspection,
+    String? vimAdditionalComments,
   }) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -637,6 +653,12 @@ class InspectioncardController extends ChangeNotifier {
         "status": status,
         "inserted": false,
       };
+      if (viReInspection != null) {
+        payload["viReInspection"] = viReInspection;
+      }
+      if (vimAdditionalComments != null) {
+        payload["vimAdditionalComments"] = vimAdditionalComments;
+      }
       MultipartFile dataPart = MultipartFile.fromString(
         jsonEncode(payload),
         contentType: DioMediaType.parse('application/json'),
@@ -788,6 +810,7 @@ class InspectioncardController extends ChangeNotifier {
       taskId: taskId,
       formId: formId,
       inspectionTypeId: inspectionTypeId,
+      viReInspection: (inspectionTypeId == 2),
     );
     if (response.success != true) {
       isLoading = false;

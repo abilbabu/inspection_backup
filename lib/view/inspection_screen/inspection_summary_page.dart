@@ -18,6 +18,7 @@ class InspectionItem {
   final String title;
   final InspectionStatus status;
   final String category;
+  final int? taskId;
 
   final bool allowGood;
   final bool allowRepair;
@@ -31,11 +32,13 @@ class InspectionItem {
   final String? audioUrl;
   final String note;
   final String initialNote;
+  final bool viReInspection;
 
   InspectionItem({
     required this.title,
     required this.status,
     required this.category,
+    this.taskId,
     required this.note,
     required this.initialNote,
     this.audioUrl,
@@ -46,6 +49,7 @@ class InspectionItem {
     required this.allowNA,
     required this.imageUrls,
     this.videoUrl,
+    this.viReInspection = false,
   });
 }
 
@@ -101,7 +105,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
       child: Scaffold(
         backgroundColor: ColorConstants.whiteColor,
         appBar: CustomAppBar(
-          title: 'Inspection Summary',
+          title: widget.flag == 2 ? 'Re-Inspection Summary' : 'Inspection Summary',
           onBackPress: () {
             if (widget.flag == 1) {
               context.go("/jobcarddetails", extra: widget.jobId);
@@ -133,86 +137,227 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                           ),
                         ),
                         SizedBox(height: 12),
-                        Column(
-                          children: controller.groupedItems.entries
-                              .toList()
-                              .asMap()
-                              .entries
-                              .map((mapEntry) {
-                                // final index = mapEntry.key;
-                                final entry = mapEntry.value;
-
-                                return Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 5),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: ColorConstants.whiteColor,
-                                      border: Border.all(
-                                        color: ColorConstants.activecolor,
+                        Builder(
+                          builder: (context) {
+                             final allItems = controller.groupedItems.values.expand((list) => list).toList();
+                             final reInspectionItems = allItems.where((item) => item.viReInspection).toList();
+                             reInspectionItems.sort((a, b) {
+                               int getWeight(InspectionStatus status) {
+                                 if (status == InspectionStatus.replace) return 0;
+                                 if (status == InspectionStatus.repair) return 1;
+                                 if (status == InspectionStatus.poor) return 2;
+                                 return 3;
+                               }
+                               return getWeight(a.status).compareTo(getWeight(b.status));
+                             });
+                             if (reInspectionItems.isEmpty) return const SizedBox.shrink();
+                            return Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade50,
+                                border: Border.all(color: Colors.amber.shade400),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.info_outline, color: Colors.amber, size: 18),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        "RE-INSPECTION ITEMS REQUESTED",
+                                        style: ApptextstyleConstants.mediumText(
+                                          color: Colors.amber.shade900,
+                                          fontSize: 13,
+                                        ),
                                       ),
-                                      borderRadius: BorderRadius.circular(10),
-                                      boxShadow:
-                                          ColorConstants.dashboardboxShadow,
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 12,
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Table(
+                                    columnWidths: const {
+                                      0: FlexColumnWidth(3),
+                                      1: FlexColumnWidth(1.2),
+                                    },
+                                    border: TableBorder.all(color: Colors.amber.shade200, width: 1),
+                                    children: [
+                                      TableRow(
+                                        decoration: BoxDecoration(color: Colors.amber.shade100),
+                                        children: const [
+                                          Padding(
+                                            padding: EdgeInsets.all(6.0),
+                                            child: Text("Component", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                          ),
+                                          Padding(
+                                            padding: EdgeInsets.all(6.0),
+                                            child: Text("Status", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                          ),
+                                        ],
                                       ),
-                                      child: ExpansionTile(
-                                        initiallyExpanded: true,
-                                        iconColor: ColorConstants.blackColor,
-                                        collapsedIconColor: Colors.black54,
-                                        title: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-
+                                      ...reInspectionItems.map((item) {
+                                        return TableRow(
                                           children: [
-                                            Text(
-                                              entry.key,
-                                              style:
-                                                  ApptextstyleConstants.regularText(
-                                                    fontSize: 14,
-                                                    color: ColorConstants
-                                                        .blackColor,
-                                                  ),
-                                            ),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 2,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: ColorConstants
-                                                    .activecolor
-                                                    .withOpacity(0.1),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
+                                            Padding(
+                                              padding: const EdgeInsets.all(6.0),
                                               child: Text(
-                                                "${entry.value.length}",
-                                                style:
-                                                    ApptextstyleConstants.thinText(
-                                                      fontSize: 14,
-                                                      color: ColorConstants
-                                                          .activecolor,
-                                                    ),
+                                                item.category.isNotEmpty
+                                                    ? "${item.title} (${item.category})"
+                                                    : item.title,
+                                                style: const TextStyle(fontSize: 11),
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.all(6.0),
+                                              child: Text(
+                                                item.status.name.toUpperCase(),
+                                                style: TextStyle(
+                                                  color: item.status == InspectionStatus.replace
+                                                      ? Colors.red
+                                                      : item.status == InspectionStatus.repair
+                                                          ? Colors.orange
+                                                          : Colors.grey,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ),
                                           ],
-                                        ),
-                                        children: entry.value
-                                            .map(
-                                              (item) =>
-                                                  _buildInspectionItem(item),
-                                            )
-                                            .toList(),
-                                      ),
-                                    ),
+                                        );
+                                      }).toList(),
+                                    ],
                                   ),
-                                );
-                              })
-                              .toList(),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        if (controller.technicianComment.isNotEmpty) ...[
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              border: Border.all(color: Colors.blue.shade300),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "TECHNICIAN COMMENTS",
+                                  style: ApptextstyleConstants.mediumText(
+                                    color: Colors.blue.shade900,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  controller.technicianComment,
+                                  style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        Builder(
+                          builder: (context) {
+                            final entries = controller.groupedItems.entries.map((entry) {
+                              final filteredList = entry.value.where((item) {
+                                if (widget.flag == 2) {
+                                  return item.viReInspection;
+                                }
+                                return true;
+                              }).toList();
+                              return MapEntry(entry.key, filteredList);
+                            }).where((entry) => entry.value.isNotEmpty).toList();
+
+                            return Column(
+                              children: entries
+                                  .asMap()
+                                  .entries
+                                  .map((mapEntry) {
+                                    final entry = mapEntry.value;
+
+                                    return Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 5),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: ColorConstants.whiteColor,
+                                          border: Border.all(
+                                            color: ColorConstants.activecolor,
+                                          ),
+                                          borderRadius: BorderRadius.circular(10),
+                                          boxShadow:
+                                              ColorConstants.dashboardboxShadow,
+                                        ),
+                                        child: Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                          ),
+                                          child: ExpansionTile(
+                                            initiallyExpanded: true,
+                                            iconColor: ColorConstants.blackColor,
+                                            collapsedIconColor: Colors.black54,
+                                            title: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceBetween,
+
+                                              children: [
+                                                Text(
+                                                  entry.key,
+                                                  style:
+                                                      ApptextstyleConstants.regularText(
+                                                        fontSize: 14,
+                                                        color: ColorConstants
+                                                            .blackColor,
+                                                      ),
+                                                ),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: ColorConstants
+                                                        .activecolor
+                                                        .withOpacity(0.1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                  ),
+                                                  child: Text(
+                                                    "${entry.value.length}",
+                                                    style:
+                                                        ApptextstyleConstants.thinText(
+                                                          fontSize: 14,
+                                                          color: ColorConstants
+                                                              .activecolor,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            children: entry.value
+                                                .map(
+                                                  (item) =>
+                                                      _buildInspectionItem(item),
+                                                )
+                                                .toList(),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  })
+                                  .toList(),
+                            );
+                          }
                         ),
                         SizedBox(height: 20),
                         Padding(

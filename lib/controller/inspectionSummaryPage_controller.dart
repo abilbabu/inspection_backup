@@ -15,6 +15,9 @@ class InspectionsummarypageController extends ChangeNotifier {
   bool isInspectionAssigned = false;
   bool isPredefinedInspectionAssigned = false;
   bool isCustomInspectionAssigned = false;
+  String technicianComment = "";
+  String supervisorComment = "";
+  String saComment = "";
 
   Future<ApiResponse> getInspectionSummary(int jobId) async {
     isLoading = true;
@@ -31,7 +34,19 @@ class InspectionsummarypageController extends ChangeNotifier {
         body: jsonEncode({"jobId": jobId}),
       );
       final result = jsonDecode(response.body);
-      final inspections = result["data"]["inspections"] as List? ?? [];
+      final inspections = List.from(result["data"]["inspections"] as List? ?? []);
+      debugPrint("🔍 getInspectionSummary inspections count: ${inspections.length}");
+      for (int i = 0; i < inspections.length; i++) {
+        final insp = inspections[i];
+        final master = insp["master"] ?? {};
+        final tasks = insp["inspectionTasks"] as List? ?? [];
+        debugPrint("   👉 Inspection $i: masterId=${master["vimId"]}, type=${master["vimInspectionType"]}, tasksCount=${tasks.length}");
+      }
+      inspections.sort((a, b) {
+        final aId = a["master"]?["vimId"] as num? ?? 0;
+        final bId = b["master"]?["vimId"] as num? ?? 0;
+        return aId.compareTo(bId);
+      });
       final attachments =
           result["data"]["jobCard"]["attachments"] as List? ?? [];
       final Map<int, List<String>> imageMap = {};
@@ -51,6 +66,9 @@ class InspectionsummarypageController extends ChangeNotifier {
       isInspectionAssigned = false;
       isPredefinedInspectionAssigned = false;
       isCustomInspectionAssigned = false;
+      technicianComment = "";
+      supervisorComment = "";
+      saComment = "";
       if (inspections.length > 1) {
         isInspectionAssigned = true;
         final assignedInspection = inspections[1];
@@ -63,6 +81,7 @@ class InspectionsummarypageController extends ChangeNotifier {
           isInspectionAssigned = true;
         }
       }
+      final Map<String, Map<String, InspectionItem>> categoryTaskMap = {};
       for (final inspection in inspections) {
         final master = inspection["master"];
         if (master == null) continue;
@@ -72,6 +91,17 @@ class InspectionsummarypageController extends ChangeNotifier {
         vimInspectionTypeId = inspType;
         vimIfMasterId = ifMasterId;
         if (ifMasterId != null && ifMasterId == 0) continue;
+        final String techComm = master["vimAdditionalComments"]?.toString() ?? "";
+        final String supComm = master["vimSupervisorComment"]?.toString() ?? "";
+        final String serviceComm = master["vimSaComment"]?.toString() ?? "";
+
+        technicianComment = techComm;
+        if (supComm.trim().isNotEmpty) {
+          supervisorComment = supComm;
+        }
+        if (serviceComm.trim().isNotEmpty) {
+          saComment = serviceComm;
+        }
         if (inspType == 1) {
           inspectionFormName = master["formName"]?.toString() ?? "";
         } else if (inspType == 2 || ifMasterId == null) {
@@ -82,31 +112,57 @@ class InspectionsummarypageController extends ChangeNotifier {
           final name = category["taskCategoryName"]?.toString() ?? "General";
           final categoryTasks = category["tasks"] as List? ?? [];
           if (categoryTasks.isEmpty) continue;
-          groupedItems
-              .putIfAbsent(name, () => [])
-              .addAll(
-                categoryTasks.map<InspectionItem>((task) {
-                  final taskId = task["viTaskId"];
-                  final flags = task["inspectionTaskFlags"] ?? {};
-                  return InspectionItem(
-                    title: task["taskName"] ?? "",
-                    category: name,
-                    status: _mapStatus(task),
-                    allowGood: flags["good"] == true,
-                    allowRepair: flags["repair"] == true,
-                    allowPoor: flags["poor"] == true,
-                    allowReplace: flags["replace"] == true,
-                    allowNA: flags["notApplicable"] == true,
-                    imageUrls: imageMap[taskId] ?? [],
-                    videoUrl: videoMap[taskId],
-                    audioUrl: audioMap[taskId],
-                    note: (task["viNote"] ?? "").toString(),
-                    initialNote: (task["viDescription"] ?? "").toString(),
-                  );
-                }).toList(),
-              );
+          
+          final categoryMap = categoryTaskMap.putIfAbsent(name, () => {});
+          for (final task in categoryTasks) {
+            final taskId = task["viTaskId"];
+            final taskKey = taskId?.toString() ?? task["taskName"]?.toString() ?? "";
+            if (taskKey.isEmpty) continue;
+            final flags = task["inspectionTaskFlags"] ?? {};
+            
+            final existing = categoryMap[taskKey];
+            final wasReInspection = existing?.viReInspection ?? false;
+            final double reTime = double.tryParse(task["viReInspectionTime"]?.toString() ?? "") ?? 0.0;
+            final isReInspection = task["viReInspection"] == true ||
+                task["viReInspection"] == 1 ||
+                task["viReInspection"]?.toString() == "true" ||
+                reTime > 0.0 ||
+                inspType == 2;
+            
+            final String note = (task["viNote"] ?? "").toString();
+            final String initialNote = (task["viDescription"] ?? "").toString();
+            
+            final String finalNote = note.trim().isNotEmpty ? note : (existing?.note ?? "");
+            final String finalInitialNote = initialNote.trim().isNotEmpty ? initialNote : (existing?.initialNote ?? "");
+            
+            final List<String> images = imageMap[taskId] ?? [];
+            final List<String> finalImages = images.isNotEmpty ? images : (existing?.imageUrls ?? []);
+            final String? finalVideo = videoMap[taskId] ?? existing?.videoUrl;
+            final String? finalAudio = audioMap[taskId] ?? existing?.audioUrl;
+
+            categoryMap[taskKey] = InspectionItem(
+              title: task["taskName"] ?? "",
+              category: name,
+              taskId: taskId is num ? taskId.toInt() : int.tryParse(taskId?.toString() ?? ""),
+              status: _mapStatus(task),
+              allowGood: flags["good"] == true,
+              allowRepair: flags["repair"] == true,
+              allowPoor: flags["poor"] == true,
+              allowReplace: flags["replace"] == true,
+              allowNA: flags["notApplicable"] == true,
+              imageUrls: finalImages,
+              videoUrl: finalVideo,
+              audioUrl: finalAudio,
+              note: finalNote,
+              initialNote: finalInitialNote,
+              viReInspection: isReInspection || wasReInspection,
+            );
+          }
         }
       }
+      categoryTaskMap.forEach((categoryName, tasksMap) {
+        groupedItems[categoryName] = tasksMap.values.toList();
+      });
       return ApiResponse(
         success: result["statusCode"] == 200,
         statusCode: result['statusCode'],
@@ -121,10 +177,14 @@ class InspectionsummarypageController extends ChangeNotifier {
   }
 
   InspectionStatus _mapStatus(Map task) {
-    if (task["viReplace"] == true) return InspectionStatus.replace;
-    if (task["viRepair"] == true) return InspectionStatus.repair;
-    if (task["viPoor"] == true) return InspectionStatus.poor;
-    if (task["viGood"] == true) return InspectionStatus.good;
+    final replace = task["viReplace"] == true || task["viReplace"] == 1 || task["viReplace"]?.toString() == "true";
+    final repair = task["viRepair"] == true || task["viRepair"] == 1 || task["viRepair"]?.toString() == "true";
+    final poor = task["viPoor"] == true || task["viPoor"] == 1 || task["viPoor"]?.toString() == "true";
+    final good = task["viGood"] == true || task["viGood"] == 1 || task["viGood"]?.toString() == "true";
+    if (replace) return InspectionStatus.replace;
+    if (repair) return InspectionStatus.repair;
+    if (poor) return InspectionStatus.poor;
+    if (good) return InspectionStatus.good;
     return InspectionStatus.na;
   }
 }

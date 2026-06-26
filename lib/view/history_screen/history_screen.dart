@@ -59,10 +59,10 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
           item["plateNo"]?.toString().toLowerCase().contains(searchText) ==
               true ||
           item["vinNo"]?.toString().toLowerCase().contains(searchText) == true;
-      if (userDepartment == 2 || userDepartment == 4) {
-        return status == 6 && searchMatch;
+      if (userDepartment == 2 || userDepartment == 4 || userDepartment == 5) {
+        return (status == 6 || status == 12) && searchMatch;
       }
-      return [6, 7, 8, 9].contains(status) && searchMatch;
+      return [6, 7, 8, 9, 12].contains(status) && searchMatch;
     }).toList();
     setState(() {
       historyList = filteredList.reversed.toList();
@@ -143,7 +143,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
         final int jobId = rawJobId is int
             ? rawJobId
             : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
-        if ([6, 7, 8, 9].contains(jobStatus)) {
+        if ([6, 7, 8, 9, 12].contains(jobStatus)) {
           context.go("/jobcarddetails", extra: jobId);
         }
       },

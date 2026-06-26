@@ -25,6 +25,12 @@ class HomescreenController with ChangeNotifier {
         return "Technician Report Waiting For Approval";
       case "9":
         return "Quotation Requested";
+      case "10":
+        return "Re-Inspection Approved";
+      case "11":
+        return "Re-Inspection In Progress";
+      case "12":
+        return "Re-Inspection Completed";
       default:
         return "Unknown Status";
     }
@@ -52,6 +58,12 @@ class HomescreenController with ChangeNotifier {
         return ColorConstants.greenColor;
       case "9":
         return ColorConstants.greenColor;
+      case "10":
+        return ColorConstants.warningcolor;
+      case "11":
+        return ColorConstants.orangecolor;
+      case "12":
+        return Colors.teal;
       default:
         return ColorConstants.holdorangeColor;
     }

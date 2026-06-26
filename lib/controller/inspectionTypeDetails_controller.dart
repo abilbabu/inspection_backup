@@ -263,7 +263,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     }
   }
 
-  Future<bool> changeStatus({required int jobId}) async {
+  Future<bool> changeStatus({required int jobId, int status = 6}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("userToken");
@@ -275,7 +275,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         },
         body: jsonEncode({
           "jobId": jobId,
-          "status": 6,
+          "status": status,
           "vimIfMasterId": "",
           "assigneeId": "",
         }),
@@ -327,6 +327,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
                   savedTask["viNotApplicable"] ?? false;
               components["viNote"] = savedTask["viNote"];
               components["viDescription"] = savedTask["viDescription"];
+              components["viReInspection"] = savedTask["viReInspection"] ?? false;
               components["attachments"] = attachments;
               formController.updateTask(
                 InspectionTaskData(

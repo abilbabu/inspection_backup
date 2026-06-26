@@ -30,6 +30,16 @@ class InspectionTypeDetailspage extends StatefulWidget {
 }
 
 class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
+  final TextEditingController _commentController = TextEditingController();
+  final Set<int> _reInspectionTaskIds = {};
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +74,21 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
             inspectionResponse.data as Map<String, dynamic>,
             formController,
           );
+
+          final data = inspectionResponse.data as Map<String, dynamic>;
+          final inspections = data["inspections"] ?? [];
+          if (inspections.isNotEmpty) {
+            final master = inspections[0]["master"];
+            if (master != null && master["vimAdditionalComments"] != null) {
+              _commentController.text = master["vimAdditionalComments"].toString();
+            }
+            final completedTasks = inspections[0]["completedTasks"] ?? [];
+            for (final savedTask in completedTasks) {
+              if (savedTask["viReInspection"] == true) {
+                _reInspectionTaskIds.add(savedTask["viTaskId"]);
+              }
+            }
+          }
         }
 
         final totalTasks = detailsController.groupedTasks.values
@@ -444,8 +469,11 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                             child: ListView.separated(
                               separatorBuilder: (_, __) =>
                                   const SizedBox(height: 6),
-                              itemCount: validEntries.length,
+                              itemCount: validEntries.length + 1,
                               itemBuilder: (context, index) {
+                                if (index == validEntries.length) {
+                                  return _buildBottomSection(context, formController, controller);
+                                }
                                 final entry = validEntries[index];
                                 final categoryId = entry.key;
                                 final rawTasks = entry.value;
@@ -945,6 +973,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                             components["repairGroupDesc"] ?? "",
                                         inspectionTypeid:
                                             widget.inspectionTypeId,
+                                        isInBottomSheet: true,
                                       ),
                                     );
                                   }).toList(),
@@ -995,6 +1024,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                     repairGroupDesc:
                                         components["repairGroupDesc"] ?? "",
                                     inspectionTypeid: widget.inspectionTypeId,
+                                    isInBottomSheet: true,
                                   ),
                                 );
                               }),
@@ -1009,6 +1039,241 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
         );
       },
     );
+  }
+
+  Widget _buildBottomSection(
+    BuildContext context,
+    InspectionFormController formController,
+    InspectionTypeDetailsController controller,
+  ) {
+    final reInspectionItems = formController.orderedTasks.where((task) {
+      return formController.isTaskSaved(task.taskId) &&
+          (task.condition == "Replace" || task.condition == "Repair" || task.condition == "Poor");
+    }).toList();
+
+    reInspectionItems.sort((a, b) {
+      int getWeight(String? cond) {
+        if (cond == "Replace") return 0;
+        if (cond == "Repair") return 1;
+        if (cond == "Poor") return 2;
+        return 3;
+      }
+      return getWeight(a.condition).compareTo(getWeight(b.condition));
+    });
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Card(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Colors.black12),
+        ),
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Technician Comments",
+                style: ApptextstyleConstants.mediumText(
+                  color: ColorConstants.textBlueColor,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _commentController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: "Enter inspection comments...",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+              if (reInspectionItems.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  "Needs Re-Inspection Checklist",
+                  style: ApptextstyleConstants.mediumText(
+                    color: ColorConstants.textBlueColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Table(
+                  columnWidths: const {
+                    0: FlexColumnWidth(3),
+                    1: FlexColumnWidth(1.2),
+                    2: FlexColumnWidth(1.2),
+                  },
+                  border: TableBorder.all(
+                    color: Colors.grey.shade300,
+                    width: 1,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: Colors.grey.shade100),
+                      children: const [
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text("Component", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text("Status", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text("Re-Insp", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                    ...reInspectionItems.map((task) {
+                      final componentName = _getComponentName(task.taskId, controller);
+                      final isChecked = _reInspectionTaskIds.contains(task.taskId);
+                      return TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(componentName, style: const TextStyle(fontSize: 12)),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              task.condition ?? "",
+                              style: TextStyle(
+                                color: task.condition == "Replace"
+                                    ? Colors.red
+                                    : task.condition == "Repair"
+                                        ? Colors.orange
+                                        : Colors.grey,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Checkbox(
+                            value: isChecked,
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _reInspectionTaskIds.add(task.taskId);
+                                } else {
+                                  _reInspectionTaskIds.remove(task.taskId);
+                                }
+                              });
+                            },
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 20),
+              _isSubmitting
+                  ? const Center(child: CircularProgressIndicator())
+                  : CustomButtonWidget(
+                      text: "SUBMIT INSPECTION REPORT",
+                      textSize: 16,
+                      isDisabled: formController.savedTasks == 0,
+                      onPressed: () async {
+                        setState(() {
+                          _isSubmitting = true;
+                        });
+                        try {
+                          final itemsToSave = reInspectionItems.isNotEmpty
+                              ? reInspectionItems
+                              : (formController.orderedTasks.isNotEmpty ? [formController.orderedTasks.first] : []);
+                          
+                          for (final task in itemsToSave) {
+                            final isChecked = _reInspectionTaskIds.contains(task.taskId);
+                            final tempCardController = InspectioncardController();
+                            tempCardController.setSelectedOption(task.condition ?? "Good");
+                            tempCardController.noteController.text = task.note;
+                            tempCardController.descriptionController.text = task.description;
+                            if (task.imageFiles != null && task.imageFiles!.isNotEmpty) {
+                              for (int i = 0; i < task.imageFiles!.length && i < tempCardController.capturedImages.length; i++) {
+                                tempCardController.capturedImages[i] = task.imageFiles![i];
+                              }
+                            }
+                            await tempCardController.saveSingleInspectionTask(
+                              status: 5,
+                              jobId: widget.jobId,
+                              taskId: task.taskId,
+                              formId: widget.inspectionFormId,
+                              viReInspection: isChecked,
+                              vimAdditionalComments: _commentController.text,
+                            );
+                          }
+
+                          final success = await controller.changeStatus(jobId: widget.jobId);
+                          if (!mounted) return;
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                backgroundColor: ColorConstants.greenColor,
+                                content: Text("Inspection report submitted successfully", style: TextStyle(color: Colors.white)),
+                              ),
+                            );
+                            context.go(
+                              "/inspectionsummarypage",
+                              extra: {
+                                "jobId": widget.jobId,
+                                "flag": 0,
+                              },
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                backgroundColor: ColorConstants.errorcolor,
+                                content: Text("Failed to submit inspection report", style: TextStyle(color: Colors.white)),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: ColorConstants.errorcolor,
+                              content: Text("Unexpected error: $e", style: const TextStyle(color: Colors.white)),
+                            ),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setState(() {
+                              _isSubmitting = false;
+                            });
+                          }
+                        }
+                      },
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getComponentName(int taskId, InspectionTypeDetailsController controller) {
+    for (final categoryTasks in controller.groupedTasks.values) {
+      for (final task in categoryTasks) {
+        final comp = task["components"];
+        if (comp != null && comp["itcId"] == taskId) {
+          final compName = comp["itcName"] ?? "Unknown";
+          final categoryName = task["categoryName"] ?? "";
+          if (categoryName.isNotEmpty) {
+            return "$compName ($categoryName)";
+          }
+          return compName;
+        }
+      }
+    }
+    return "Task $taskId";
   }
 
   Widget _inspectionShimmer() {

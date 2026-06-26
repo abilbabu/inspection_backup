@@ -33,6 +33,8 @@ class InspectionCard extends StatefulWidget {
   final String? assemblyCodeDesc;
   final String? repairGroupName;
   final String? repairGroupDesc;
+  final bool isReInspection;
+  final bool isInBottomSheet;
 
   const InspectionCard({
     super.key,
@@ -59,6 +61,8 @@ class InspectionCard extends StatefulWidget {
     this.assemblyCodeDesc,
     this.repairGroupName,
     this.repairGroupDesc,
+    this.isReInspection = false,
+    this.isInBottomSheet = false,
   });
 
   @override
@@ -86,6 +90,7 @@ class _InspectionCardState extends State<InspectionCard> {
       cardController.loadExistingTask(
         formController: formController,
         taskId: widget.taskid,
+        isReInspection: widget.isReInspection,
       );
       formController.setActiveCard(widget.taskid, cardController);
     });
@@ -406,7 +411,7 @@ class _InspectionCardState extends State<InspectionCard> {
                                         cardController.isAudioDownloading
                                     ? "Please Wait..."
                                     : cardController.isSuccess
-                                    ? "UPLOADED"
+                                    ? (widget.isReInspection ? "SAVED" : "UPLOADED")
                                     : "SAVE",
                                 textSize: 12,
                                 isDisabled:
@@ -419,7 +424,7 @@ class _InspectionCardState extends State<InspectionCard> {
                                     cardController.isVideoLoading ||
                                     cardController.isAudioDownloading,
                                 onPressed: () async {
-                                  if (widget.formid == 0) {
+                                  if (widget.formid == 0 || widget.categoryId == null || widget.categoryId == 0) {
                                     final formController = context
                                         .read<InspectionFormController>();
                                     final isCompleted = await cardController
@@ -434,7 +439,7 @@ class _InspectionCardState extends State<InspectionCard> {
                                           taskId: widget.taskid,
                                           formId: widget.formid,
                                           inspectionTypeId:
-                                              widget.inspectionTypeid!,
+                                              widget.inspectionTypeid ?? (widget.isReInspection ? 2 : 1),
                                         );
                                     if (isCompleted) {
                                       context.go(
@@ -444,6 +449,9 @@ class _InspectionCardState extends State<InspectionCard> {
                                           "flag": 0,
                                         },
                                       );
+                                    }
+                                    if (widget.isInBottomSheet && cardController.isSuccess) {
+                                      Navigator.pop(context);
                                     }
                                   } else {
                                     final formController = context
@@ -459,7 +467,8 @@ class _InspectionCardState extends State<InspectionCard> {
                                           jobId: widget.jobid,
                                           taskId: widget.taskid,
                                           formId: widget.formid,
-                                          categoryId: widget.categoryId!,
+                                          categoryId: widget.categoryId ?? 0,
+                                          inspectionTypeId: widget.inspectionTypeid,
                                         );
                                     if (isCompleted) {
                                       context.go(
@@ -469,6 +478,9 @@ class _InspectionCardState extends State<InspectionCard> {
                                           "flag": 0,
                                         },
                                       );
+                                    }
+                                    if (widget.isInBottomSheet && cardController.isSuccess) {
+                                      Navigator.pop(context);
                                     }
                                   }
                                 },
@@ -610,7 +622,7 @@ class _InspectionCardState extends State<InspectionCard> {
         );
         if (!allowed) return;
         final rootContext = Navigator.of(context, rootNavigator: true).context;
-        if (image == null) {
+        if (image == null || !controller.isSuccess) {
           await controller.handleImageTap(
             rootContext,
             imageIndex: index,
@@ -661,22 +673,79 @@ class _InspectionCardState extends State<InspectionCard> {
                   controller,
                 );
                 if (!allowed) return;
-                controller.handleImageTap(
+                await controller.handleImageTap(
                   rootContext,
                   imageIndex: 0,
                   mediaType: MediaType.video,
                 );
                 controller.markChanged();
               } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => InspectionFullScreenVideo(
-                      videoUrl: controller.capturedVideo!.path,
-                      label: "Video",
+                if (!controller.isSuccess) {
+                  final action = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text("Video Options"),
+                      content: const Text("Would you like to play the video or recapture/delete it?"),
+                      actions: [
+                        TextButton(
+                          child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                          onPressed: () => Navigator.pop(context, "delete"),
+                        ),
+                        TextButton(
+                          child: const Text("Play"),
+                          onPressed: () => Navigator.pop(context, "play"),
+                        ),
+                        TextButton(
+                          child: const Text("Recapture"),
+                          onPressed: () => Navigator.pop(context, "recapture"),
+                        ),
+                        TextButton(
+                          child: const Text("Cancel"),
+                          onPressed: () => Navigator.pop(context, "cancel"),
+                        ),
+                      ],
                     ),
-                  ),
-                );
+                  );
+                  if (action == "play") {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => InspectionFullScreenVideo(
+                          videoUrl: controller.capturedVideo!.path,
+                          label: "Video",
+                        ),
+                      ),
+                    );
+                  } else if (action == "recapture") {
+                    final formController = context.read<InspectionFormController>();
+                    final allowed = await formController.checkUnsavedBeforeEditing(
+                      context,
+                      widget.taskid,
+                      controller,
+                    );
+                    if (!allowed) return;
+                    await controller.deleteVideo();
+                    await controller.handleImageTap(
+                      rootContext,
+                      imageIndex: 0,
+                      mediaType: MediaType.video,
+                    );
+                    controller.markChanged();
+                  } else if (action == "delete") {
+                    await controller.deleteVideo();
+                    controller.markChanged();
+                  }
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => InspectionFullScreenVideo(
+                        videoUrl: controller.capturedVideo!.path,
+                        label: "Video",
+                      ),
+                    ),
+                  );
+                }
               }
             },
       child: _mediaBox(

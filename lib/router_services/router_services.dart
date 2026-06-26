@@ -21,6 +21,7 @@ import 'package:inspection/view/home_screen/widget/vehicleDetails.dart';
 import 'package:inspection/view/inspection_screen/inspection_type_details.dart';
 import 'package:inspection/view/inspection_screen/inspection_summary_page.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
+import 'package:inspection/view/inspection_screen/reassigned_details_page.dart';
 import 'package:inspection/view/jobcard/component_list.dart';
 import 'package:inspection/view/quotation_screen/quotation_details.dart';
 import 'package:inspection/view/quotation_screen/quotation_screen.dart';
@@ -264,6 +265,18 @@ final GoRouter router = GoRouter(
         final inspectionList = state.extra as List;
 
         return Allpendinginspection(inspectionList: inspectionList);
+      },
+    ),
+
+    GoRoute(
+      path: '/reassigneddetails',
+      name: 'Reassigned Details',
+      builder: (BuildContext context, GoRouterState state) {
+        final jobId = state.extra as int;
+        return ChangeNotifierProvider(
+          create: (_) => InspectionFormController(),
+          child: ReassignedDetailsPage(jobId: jobId),
+        );
       },
     ),
   ],

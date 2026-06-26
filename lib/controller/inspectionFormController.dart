@@ -77,6 +77,12 @@ class InspectionFormController extends ChangeNotifier {
     return _savedTaskIds.contains(taskId);
   }
 
+  void makeTaskEditable(int taskId) {
+    _savedTaskIds.remove(taskId);
+    _readOnlyTaskIds.remove(taskId);
+    notifyListeners();
+  }
+
   void reset() {
     _tasks.clear();
     _savedTaskIds.clear();

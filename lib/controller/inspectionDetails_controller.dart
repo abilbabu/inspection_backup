@@ -114,16 +114,17 @@ class InspectionDetailsController extends ChangeNotifier {
     required int supervisorId,
     required String technicianName,
     int? formMasterId,
+    int status = 4,
   }) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
       Map<String, dynamic> payload = {
         "jobId": jobId,
-        "status": 4,
+        "status": status,
         "assignedBy": assigneeId,
         "vimIfMasterId": formMasterId,
-        "vimInspectionType": formMasterId != null ? 1 : 2,
+        "vimInspectionType": (status == 10 || status == 11 || status == 12) ? 2 : ((formMasterId != null && formMasterId != 0) ? 1 : 2),
       };
       final response = await http.post(
         Uri.parse(ApiServices.assignTechnician),
