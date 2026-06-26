@@ -1407,12 +1407,26 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                               itemCount: options.length,
                               itemBuilder: (context, index) {
                                 final plate = options.elementAt(index);
+                                if (plate == "No Data Found") {
+                                  return ListTile(
+                                    title: Text(
+                                      "No Data Found",
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                if (plate == "Loading...") {
+                                  return const SizedBox.shrink();
+                                }
                                 return ListTile(
                                   leading: const Icon(
                                     Icons.directions_car,
                                     color: ColorConstants.borderGreyColor,
                                   ),
-                                  title: _highlightText(plate, query),
+                                  title: _highlightText(context, plate, query),
                                   onTap: () {
                                     onSelected(plate);
                                   },
@@ -1518,45 +1532,89 @@ class _VehicleDetailsState extends State<VehicleDetails> {
     );
   }
 
-  Widget _highlightText(String text, String query) {
-    if (query.isEmpty) {
-      return Text(text);
+  Widget _highlightText(BuildContext context, String text, String query) {
+    if (query.trim().isEmpty) {
+      return Text(
+        text,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: ColorConstants.blackColor,
+            ) ??
+            const TextStyle(color: Colors.black),
+      );
     }
+
+    String normalize(String val) {
+      return val.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+    }
+
     final lowerText = text.toLowerCase();
-    final lowerQuery = query.toLowerCase();
-    final spans = <TextSpan>[];
-    int start = 0;
-    while (true) {
-      final index = lowerText.indexOf(lowerQuery, start);
-      if (index == -1) {
-        spans.add(
-          TextSpan(
-            text: text.substring(start),
-            style: const TextStyle(color: Colors.black),
-          ),
-        );
-        break;
+    final normQuery = normalize(query);
+    if (normQuery.isEmpty) {
+      return Text(
+        text,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: ColorConstants.blackColor,
+            ) ??
+            const TextStyle(color: Colors.black),
+      );
+    }
+
+    final List<int> originalIndices = [];
+    final List<String> normChars = [];
+    for (int i = 0; i < text.length; i++) {
+      final char = text[i];
+      if (RegExp(r'[a-zA-Z0-9]').hasMatch(char)) {
+        originalIndices.add(i);
+        normChars.add(char.toLowerCase());
       }
-      if (index > start) {
-        spans.add(
-          TextSpan(
-            text: text.substring(start, index),
-            style: const TextStyle(color: Colors.black),
-          ),
-        );
+    }
+    final normText = normChars.join();
+
+    final matchIndex = normText.indexOf(normQuery);
+    final defaultStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: ColorConstants.blackColor,
+        ) ??
+        const TextStyle(color: Colors.black);
+
+    if (matchIndex == -1) {
+      final rawMatchIndex = lowerText.indexOf(query.toLowerCase());
+      if (rawMatchIndex == -1) {
+        return Text(text, style: defaultStyle);
       }
-      spans.add(
-        TextSpan(
-          text: text.substring(index, index + query.length),
-          style: const TextStyle(
-            color: Colors.blue,
-            fontWeight: FontWeight.bold,
-          ),
+      return RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(text: text.substring(0, rawMatchIndex), style: defaultStyle),
+            TextSpan(
+              text: text.substring(rawMatchIndex, rawMatchIndex + query.length),
+              style: defaultStyle.copyWith(color: Colors.blue, fontWeight: FontWeight.bold),
+            ),
+            TextSpan(text: text.substring(rawMatchIndex + query.length), style: defaultStyle),
+          ],
         ),
       );
-      start = index + query.length;
     }
-    return RichText(text: TextSpan(children: spans));
+
+    final startNormIndex = matchIndex;
+    final endNormIndex = matchIndex + normQuery.length - 1;
+
+    final startOrigIndex = originalIndices[startNormIndex];
+    final endOrigIndex = originalIndices[endNormIndex] + 1;
+
+    return RichText(
+      text: TextSpan(
+        children: [
+          if (startOrigIndex > 0)
+            TextSpan(text: text.substring(0, startOrigIndex), style: defaultStyle),
+          TextSpan(
+            text: text.substring(startOrigIndex, endOrigIndex),
+            style: defaultStyle.copyWith(color: Colors.blue, fontWeight: FontWeight.bold),
+          ),
+          if (endOrigIndex < text.length)
+            TextSpan(text: text.substring(endOrigIndex), style: defaultStyle),
+        ],
+      ),
+    );
   }
 
   InputDecoration _inputDecoration(String label) {

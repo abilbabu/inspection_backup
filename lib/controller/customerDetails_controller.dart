@@ -14,6 +14,7 @@ enum SearchSource { mobile, plate, none }
 class CustomerDetailsController extends ChangeNotifier {
   VoidCallback? onVehicleSelected;
   List<Map<String, dynamic>> filteredVehicles = [];
+  List<Map<String, dynamic>> allCustomerVehicles = [];
   String? selectedVehicle;
   final DummyDB dummyDB = DummyDB();
   bool isAlreadyPresent = false;
@@ -57,40 +58,77 @@ class CustomerDetailsController extends ChangeNotifier {
   final Map<String, List<String>> _cache = {};
   bool isSearching = false;
   List<String> filterPlateSuggestions(String query) {
-    if (query.length < 2) {
+    if (query.trim().length < 2) {
       return [];
     }
 
-    final q = query.toLowerCase().trim();
-
-    final matches = regNoSuggestions.where((plate) {
-      return plate.toLowerCase().contains(q);
-    }).toList();
-
-    int rank(String value) {
-      final text = value.toLowerCase();
-
-      if (text == q) return 1; // Exact Match
-
-      if (text.startsWith(q)) return 2; // Starts With
-
-      if (text.endsWith(q)) return 3; // Ends With
-
-      if (text.contains(q)) return 4; // Middle Match
-
-      return 5;
+    String normalize(String val) {
+      return val.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
     }
 
-    matches.sort((a, b) {
-      final rankA = rank(a);
-      final rankB = rank(b);
+    final q = query.toLowerCase().trim();
+    final normalizedQ = normalize(q);
 
-      if (rankA != rankB) {
-        return rankA.compareTo(rankB);
+    final matches = regNoSuggestions.where((plate) {
+      return normalize(plate).contains(normalizedQ);
+    }).toList();
+
+    String getNumericPart(String plate) {
+      return plate.replaceAll(RegExp(r'\D'), '');
+    }
+
+    final isQueryNumeric = RegExp(r'^\d+$').hasMatch(normalizedQ);
+
+    matches.sort((a, b) {
+      final aLower = a.toLowerCase();
+      final bLower = b.toLowerCase();
+
+      if (isQueryNumeric) {
+        final numPartA = getNumericPart(aLower);
+        final numPartB = getNumericPart(bLower);
+
+        final idxA = numPartA.indexOf(normalizedQ);
+        final idxB = numPartB.indexOf(normalizedQ);
+
+        final effectiveIdxA = idxA == -1 ? 999 : idxA;
+        final effectiveIdxB = idxB == -1 ? 999 : idxB;
+
+        if (effectiveIdxA != effectiveIdxB) {
+          return effectiveIdxA.compareTo(effectiveIdxB);
+        }
+
+        if (numPartA.length != numPartB.length) {
+          return numPartA.length.compareTo(numPartB.length);
+        }
+      } else {
+        final normA = normalize(aLower);
+        final normB = normalize(bLower);
+
+        final idxA = normA.indexOf(normalizedQ);
+        final idxB = normB.indexOf(normalizedQ);
+
+        final effectiveIdxA = idxA == -1 ? 999 : idxA;
+        final effectiveIdxB = idxB == -1 ? 999 : idxB;
+
+        if (effectiveIdxA != effectiveIdxB) {
+          return effectiveIdxA.compareTo(effectiveIdxB);
+        }
+
+        if (normA.length != normB.length) {
+          return normA.length.compareTo(normB.length);
+        }
       }
 
-      return a.length.compareTo(b.length);
+      return aLower.compareTo(bLower);
     });
+
+    if (matches.isEmpty) {
+      if (isSearching) {
+        return ["Loading..."];
+      } else {
+        return ["No Data Found"];
+      }
+    }
 
     return matches;
   }
@@ -160,15 +198,17 @@ class CustomerDetailsController extends ChangeNotifier {
             .toList();
         if (currentRequest != _activeRequest) return;
         _cache[data] = results;
-        regNoSuggestions = (res['data'] as List)
-            .map((e) => e.toString())
-            .toList();
+        regNoSuggestions = results;
         notifyListeners();
+        // Trigger RawAutocomplete to rebuild options by notifying text editing controller
+        _forceRebuildSuggestions();
       } else {
         regNoSuggestions.clear();
+        notifyListeners();
       }
     } catch (e) {
       regNoSuggestions.clear();
+      notifyListeners();
     } finally {
       isSearching = false;
       notifyListeners();
@@ -447,7 +487,7 @@ class CustomerDetailsController extends ChangeNotifier {
       if (text == _lastPlateQuery) return;
       _lastPlateQuery = text;
 
-      // Don't search for empty or single character
+      // Don't search for empty or single character query
       if (text.length < 2) {
         regNoSuggestions.clear();
         notifyListeners();
@@ -458,12 +498,28 @@ class CustomerDetailsController extends ChangeNotifier {
       if (_cache.containsKey(text)) {
         regNoSuggestions = _cache[text]!;
         notifyListeners();
+        // Trigger RawAutocomplete update
+        _forceRebuildSuggestions();
         return;
       }
 
       _activeRequest = text;
       postVehicleRegNoList(text);
     });
+  }
+
+  void _forceRebuildSuggestions() {
+    final text = vehiclePlateController.text;
+    if (text.isEmpty) return;
+
+    final originalValue = vehiclePlateController.value;
+    final tempOffset = originalValue.selection.baseOffset > 0 ? 0 : 1;
+    if (tempOffset <= text.length) {
+      vehiclePlateController.value = originalValue.copyWith(
+        selection: TextSelection.collapsed(offset: tempOffset),
+      );
+    }
+    vehiclePlateController.value = originalValue;
   }
 
   CustomerDetailsController() {
@@ -473,16 +529,30 @@ class CustomerDetailsController extends ChangeNotifier {
   void _onPlateChanged() {
     final text = vehiclePlateController.text.trim();
     if (text.isEmpty) {
-      filteredVehicles.clear();
-      selectedVehicle = null;
+      filteredVehicles = List.from(allCustomerVehicles);
+      if (filteredVehicles.isNotEmpty) {
+        selectedVehicle = filteredVehicles.first["vId"].toString();
+      } else {
+        selectedVehicle = null;
+      }
       notifyListeners();
       return;
     }
-    final lower = text.toLowerCase();
-    filteredVehicles = filteredVehicles.where((vehicle) {
-      final reg = vehicle["vRegNo"].toString().toLowerCase();
-      return reg.contains(lower);
+
+    String normalize(String val) {
+      return val.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+    }
+
+    final normalizedText = normalize(text);
+    filteredVehicles = allCustomerVehicles.where((vehicle) {
+      final reg = normalize(vehicle["vRegNo"].toString());
+      return reg.contains(normalizedText);
     }).toList();
+    if (filteredVehicles.isNotEmpty) {
+      selectedVehicle = filteredVehicles.first["vId"].toString();
+    } else {
+      selectedVehicle = null;
+    }
     notifyListeners();
   }
 
@@ -490,6 +560,7 @@ class CustomerDetailsController extends ChangeNotifier {
     customerStatusLabel = "New Customer";
     resetForNewCustomer();
     filteredVehicles.clear();
+    allCustomerVehicles.clear();
     selectedVehicle = null;
     isAlreadyPresent = false;
     _resetLoading();
@@ -517,11 +588,12 @@ class CustomerDetailsController extends ChangeNotifier {
     vehicleCtrl.selectedLanguages = cust["custLanguage"] ?? "";
     customerId = cust["custId"];
     filteredVehicles.clear();
+    allCustomerVehicles.clear();
     regNoSuggestions.clear();
     if (cust["vehicles"] is List) {
       for (var v in cust["vehicles"]) {
         final regNo = v["regNo"] ?? "";
-        filteredVehicles.add({
+        final vehicleData = {
           "vId": v["vehicleId"],
           "vRegNo": regNo,
           "vMake": v["make"],
@@ -532,7 +604,9 @@ class CustomerDetailsController extends ChangeNotifier {
           "vOdometer": v["odometer"],
           "vRegNoImg": v["vRegNoImg"],
           "vVinImg": v["vVinImg"],
-        });
+        };
+        filteredVehicles.add(vehicleData);
+        allCustomerVehicles.add(vehicleData);
         regNoSuggestions.add(regNo);
       }
     }
@@ -632,6 +706,7 @@ class CustomerDetailsController extends ChangeNotifier {
     selectedTransmissionId = null;
     selectedServiceTypeId = "";
     filteredVehicles = [];
+    allCustomerVehicles = [];
     selectedVehicle = null;
     customerId = null;
     isAlreadyPresent = false;
@@ -646,6 +721,7 @@ class CustomerDetailsController extends ChangeNotifier {
     customerCtrl.setCountryCode('+971');
     customerCtrl.selectedVehicle = null;
     customerCtrl.filteredVehicles.clear();
+    customerCtrl.allCustomerVehicles.clear();
     customerCtrl.customerStatusLabel = "";
     customerCtrl.resetForNewCustomer();
     vehicleCtrl.clearAll(context);

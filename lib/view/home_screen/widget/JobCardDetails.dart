@@ -5,6 +5,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
+import 'package:inspection/controller/authentication_%20controller.dart';
 import 'package:inspection/controller/customerDetails_controller.dart';
 import 'package:inspection/controller/inspectionReportshare_controller.dart';
 import 'package:inspection/controller/inspectionSummaryPage_controller.dart';
@@ -29,6 +30,22 @@ class JobCardDetails extends StatefulWidget {
 }
 
 class _JobCardDetailsState extends State<JobCardDetails> {
+  void _goBack() {
+    final authCtrl = context.read<AuthenticationController>();
+    final int userDepartment = authCtrl.userDepartment;
+    final bool isJobCardDepartment =
+        userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
+    final List<String> routes = isJobCardDepartment
+        ? ['/home', '/history', '/settings']
+        : ['/home', '/quotation', '/history', '/settings'];
+    final int index = authCtrl.currentIndex;
+    if (index >= 0 && index < routes.length) {
+      context.go(routes[index]);
+    } else {
+      context.go('/home');
+    }
+  }
+
   @override
   void initState() {
     //  debugPrint('Job ID: ${widget.jobId}');
@@ -95,13 +112,13 @@ class _JobCardDetailsState extends State<JobCardDetails> {
         PopScope(
           canPop: false,
           onPopInvoked: (didPop) {
-            context.go('/home');
+            _goBack();
           },
           child: Scaffold(
             appBar: CustomAppBar(
               title: "Job Card Details",
               onBackPress: () {
-                context.go('/home');
+                _goBack();
               },
             ),
             body: Padding(

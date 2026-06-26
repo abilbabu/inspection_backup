@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -89,20 +90,85 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            SizedBox(
-              height: 45,
-              child: TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  hintText: "Search Job Card No",
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
-                  ),
+            Container(
+              height: 60,
+
+              decoration: BoxDecoration(
+                boxShadow: ColorConstants.dashboardboxShadow,
+
+                color: ColorConstants.whiteColor,
+
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 45,
+                        child: TextField(
+                          controller: searchController,
+                          decoration: InputDecoration(
+                            hintText: "Search Job Card No",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+
+                              borderSide: BorderSide(
+                                color: ColorConstants.activecolor,
+                              ),
+                            ),
+
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+
+                              borderSide: BorderSide(
+                                color: ColorConstants.activecolor,
+                              ),
+                            ),
+
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+
+                    InkWell(
+                      onTap: () {
+                        searchController.clear();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: SvgPicture.asset(
+                          'assets/svg/repeat.svg',
+                          width: 20,
+                          height: 20,
+
+                          colorFilter: ColorFilter.mode(
+                            ColorConstants.blackColor,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -111,7 +177,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : historyList.isEmpty
-                  ? noJobCardCard()
+                  ? Center(child: noJobCardCard())
                   : RefreshIndicator(
                       onRefresh: getHistoryList,
                       child: ListView.separated(
