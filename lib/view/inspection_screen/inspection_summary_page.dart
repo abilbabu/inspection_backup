@@ -150,7 +150,8 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                                }
                                return getWeight(a.status).compareTo(getWeight(b.status));
                              });
-                             if (reInspectionItems.isEmpty) return const SizedBox.shrink();
+                             final bool isCustom = controller.isCustomInspectionAssigned || controller.vimIfMasterId == null || controller.vimIfMasterId == 0;
+                             if (isCustom || reInspectionItems.isEmpty) return const SizedBox.shrink();
                             return Container(
                               width: double.infinity,
                               margin: const EdgeInsets.only(bottom: 12),
