@@ -1183,6 +1183,15 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                       textSize: 16,
                       isDisabled: formController.savedTasks == 0,
                       onPressed: () async {
+                        if (_reInspectionTaskIds.isNotEmpty && _commentController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: ColorConstants.errorcolor,
+                              content: Text("Technician Comments are mandatory", style: TextStyle(color: Colors.white)),
+                            ),
+                          );
+                          return;
+                        }
                         setState(() {
                           _isSubmitting = true;
                         });

@@ -538,6 +538,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     InspectionFormController formController,
     InspectionsummarypageController summaryController,
   ) async {
+    if (_commentController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: ColorConstants.errorcolor,
+          content: Text("Technician Comments are mandatory", style: TextStyle(color: Colors.white)),
+        ),
+      );
+      return;
+    }
     setState(() {
       _isSubmitting = true;
     });
