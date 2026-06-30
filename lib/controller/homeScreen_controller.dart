@@ -6,23 +6,23 @@ class HomescreenController with ChangeNotifier {
   String getJobStatusText(String? status) {
     switch (status) {
       case "0":
-        return "Bookingsheet Initialized";
+        return "Booking Sheet Initialised";
       case "1":
-        return "Bookingsheet Created";
+        return "Booking Sheet Created";
       case "2":
         return "Basic Inspection In Progress";
       case "3":
         return "Jobcard Open";
       case "4":
-        return "Inspection Started";
+        return "Inspection Assigned";
       case "5":
         return "Inspection In Progress";
       case "6":
         return "Inspection Completed";
       case "7":
-        return "Technician Report In Progress";
+        return "Inspection Report Verification In-Progress";
       case "8":
-        return "Technician Report Waiting For Approval";
+        return "Inspection Report Waiting For Approval";
       case "9":
         return "Quotation Requested";
       case "10":
@@ -31,6 +31,18 @@ class HomescreenController with ChangeNotifier {
         return "Re-Inspection In Progress";
       case "12":
         return "Re-Inspection Completed";
+      case "14":
+        return "Re-Inspection Requested";
+      case "15":
+        return "Re-Inspection Verification";
+      case "16":
+        return "Re-Inspection Waiting for Approval";
+      case "17":
+        return "Re-Inspection Rejected";
+      case "18":
+        return "Re-Inspection Assigned";
+      case "19":
+        return "Quotation Verification In Progress";
       default:
         return "Unknown Status";
     }
@@ -64,6 +76,18 @@ class HomescreenController with ChangeNotifier {
         return ColorConstants.orangecolor;
       case "12":
         return Colors.teal;
+      case "14":
+        return ColorConstants.warningcolor;
+      case "15":
+        return ColorConstants.textBlueColor;
+      case "16":
+        return ColorConstants.holdorangeColor;
+      case "17":
+        return Colors.red;
+      case "18":
+        return Colors.purple;
+      case "19":
+        return ColorConstants.orangecolor;
       default:
         return ColorConstants.holdorangeColor;
     }

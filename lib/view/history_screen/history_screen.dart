@@ -63,7 +63,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
       if (userDepartment == 2 || userDepartment == 4 || userDepartment == 5) {
         return (status == 6 || status == 12) && searchMatch;
       }
-      return [6, 7, 8, 9, 12].contains(status) && searchMatch;
+      return [6, 7, 8, 9, 12, 14, 15, 16, 17, 18, 19].contains(status) && searchMatch;
     }).toList();
     setState(() {
       historyList = filteredList.reversed.toList();
