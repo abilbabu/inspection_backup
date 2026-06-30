@@ -147,7 +147,6 @@ class InspectionscreenimageController extends ChangeNotifier {
       isSuccess = true;
       return compressed;
     } catch (e) {
-      debugPrint('Save image error: $e');
       return null;
     } finally {
       isLoading = false;

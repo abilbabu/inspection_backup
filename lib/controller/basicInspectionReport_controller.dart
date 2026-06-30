@@ -111,7 +111,6 @@ class BasicInspectionReportController with ChangeNotifier {
     if (_loadedJobId == jobId) return;
     _loadedJobId = jobId;
     try {
-      debugPrint("Loading inspection for JobId : $jobId");
       externalVideoController?.dispose();
       internalVideoController?.dispose();
       externalVideoController = null;
@@ -136,7 +135,6 @@ class BasicInspectionReportController with ChangeNotifier {
         },
         body: jsonEncode({"jobId": jobId}),
       );
-      debugPrint("Response : ${response.body}");
       final result = jsonDecode(response.body);
       final data = result["data"];
       vimDocType = data["vimDocType"];

@@ -494,8 +494,6 @@ class BasicinspController extends ChangeNotifier {
 
   List<Map<String, dynamic>> buildFlowSteps() {
     List<Map<String, dynamic>> steps = [];
-
-    // 1. Internal Images
     if (internalImageList.isNotEmpty) {
       final section = internalImageList.first;
       final images = List.from(section['images'] ?? []);
@@ -508,8 +506,6 @@ class BasicinspController extends ChangeNotifier {
           'isMandatory': images[i]['imageMandatory'] ?? false,
         });
       }
-
-      // 2. Internal 360 Video
       steps.add({
         'stage': InspectionStage.internal360,
         'index': null,
@@ -517,8 +513,6 @@ class BasicinspController extends ChangeNotifier {
         'isMandatory': false,
       });
     }
-
-    // 3. External Images
     if (externalImageList.isNotEmpty) {
       final section = externalImageList.first;
       final images = List.from(section['images'] ?? []);
@@ -531,8 +525,6 @@ class BasicinspController extends ChangeNotifier {
           'isMandatory': images[i]['imageMandatory'] ?? false,
         });
       }
-
-      // 4. External 360 Video
       steps.add({
         'stage': InspectionStage.external360,
         'index': null,
@@ -540,23 +532,18 @@ class BasicinspController extends ChangeNotifier {
         'isMandatory': true,
       });
     }
-
-    // 5. Diagram
     steps.add({
       'stage': InspectionStage.diagram,
       'index': null,
       'id': -30,
       'isMandatory': true,
     });
-
-    // 6. Signature
     steps.add({
       'stage': InspectionStage.signature,
       'index': null,
       'id': -40,
       'isMandatory': true,
     });
-
     return steps;
   }
 
@@ -567,49 +554,35 @@ class BasicinspController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-
-    debugPrint("CalculateResumeStep: lastcompleteId=$lastcompleteId, completedImageIds=$completedImageIds, firstExternalImageId=$firstExternalImageId, firstInternalImageId=$firstInternalImageId");
-
     int lastProcessedIndex = -1;
     for (int i = 0; i < steps.length; i++) {
       final step = steps[i];
       final id = step['id'];
-
       bool isCompleted = false;
-
-      // Check completedImageIds
       if (completedImageIds.contains(id)) {
         isCompleted = true;
       }
-
-      // Check lastcompleteId
       if (lastcompleteId != null) {
         if (id == lastcompleteId) {
           isCompleted = true;
         } else if (id == -20 && lastcompleteId == 2) {
-          // Internal 360 (section ID: 2)
           isCompleted = true;
         } else if (id == -10 && lastcompleteId == 1) {
-          // External 360 (section ID: 1)
           isCompleted = true;
         }
       }
-
       if (isCompleted) {
         lastProcessedIndex = i;
       }
     }
-
     final resumeIndex = lastProcessedIndex + 1;
     if (resumeIndex < steps.length) {
       final resumeStep = steps[resumeIndex];
       currentStage = resumeStep['stage'];
-
       if (currentStage != InspectionStage.diagram &&
           currentStage != InspectionStage.signature) {
         hasOpenedResumeStage = true;
       }
-
       if (currentStage == InspectionStage.internalImages) {
         currentSectionData = internalImageList.first;
         currentImages = List.from(currentSectionData!['images'] ?? []);
@@ -645,7 +618,6 @@ class BasicinspController extends ChangeNotifier {
       currentImages = [];
       hasOpenedResumeStage = true;
     }
-
     isResumeLoaded = true;
     notifyListeners();
   }
@@ -674,7 +646,6 @@ class BasicinspController extends ChangeNotifier {
   bool get is360Stage =>
       currentStage == InspectionStage.external360 ||
       currentStage == InspectionStage.internal360;
-
   bool get isCurrentStageCompleted {
     if (currentStage == InspectionStage.external360) {
       return completedImageIds.contains(-10);
@@ -700,17 +671,12 @@ class BasicinspController extends ChangeNotifier {
         currentStage == InspectionStage.signature) {
       return false;
     }
-
-    // External 360 Video is mandatory
     if (currentStage == InspectionStage.external360) {
       return false;
     }
-
-    // Internal 360 Video can be skipped
     if (currentStage == InspectionStage.internal360) {
       return true;
     }
-
     return !isCurrentMandatory;
   }
 
@@ -793,15 +759,12 @@ class BasicinspController extends ChangeNotifier {
   }
 
   void _moveToNextStage(BuildContext context) {
-    // ✅ AFTER INTERNAL IMAGES → INTERNAL 360
     if (currentStage == InspectionStage.internalImages) {
       currentStage = InspectionStage.internal360;
       _capturedVideo = null;
       notifyListeners();
       return;
     }
-
-    // ✅ AFTER INTERNAL 360 → EXTERNAL IMAGES
     if (currentStage == InspectionStage.internal360) {
       if (externalImageList.isNotEmpty) {
         currentStage = InspectionStage.externalImages;
@@ -814,36 +777,29 @@ class BasicinspController extends ChangeNotifier {
         notifyListeners();
         return;
       }
-
       currentStage = InspectionStage.diagram;
       notifyListeners();
       openCarDiagram(context);
       return;
     }
-
-    // ✅ AFTER EXTERNAL IMAGES → EXTERNAL 360
     if (currentStage == InspectionStage.externalImages) {
       currentStage = InspectionStage.external360;
       _capturedVideo = null;
       notifyListeners();
       return;
     }
-
-    // ✅ AFTER EXTERNAL 360 → DIAGRAM
     if (currentStage == InspectionStage.external360) {
       currentStage = InspectionStage.diagram;
       notifyListeners();
       openCarDiagram(context);
       return;
     }
-
     if (currentStage == InspectionStage.diagram) {
       currentStage = InspectionStage.signature;
       notifyListeners();
       openSignature(context);
       return;
     }
-
     if (currentStage == InspectionStage.signature) {
       currentStage = InspectionStage.completed;
       notifyListeners();
@@ -869,8 +825,6 @@ class BasicinspController extends ChangeNotifier {
   }
 
   Future<void> skipStep(BuildContext context) async {
-    // final success = await proceedStep(jobId: jobId, status: 2);
-    // if (!success) return;
     if (currentItem != null) {
       completedImageIds.add(currentItem!['id']);
     }
@@ -928,15 +882,12 @@ class BasicinspController extends ChangeNotifier {
     String additionalComment = "",
   }) async {
     final item = currentItem;
-    
     final bool hasNewMedia = is360Stage 
         ? (_capturedVideo != null) 
         : (_capturedImages.any((img) => img != null) || _capturedVideo != null);
-    
     if (isCurrentStageCompleted && !hasNewMedia) {
       return true;
     }
-
     if (item == null &&
         currentStage != InspectionStage.diagram &&
         currentStage != InspectionStage.signature &&
@@ -995,13 +946,6 @@ class BasicinspController extends ChangeNotifier {
         MapEntry("additionalComment", additionalComment),
         MapEntry("attachType", currentAttachType.toString()),
       ]);
-      debugPrint("--- UPLOADING MEDIA ---");
-      for (var f in formData.fields) {
-        debugPrint("Field: ${f.key} = ${f.value}");
-      }
-      for (var f in formData.files) {
-        debugPrint("File: ${f.key} = ${f.value.filename}");
-      }
       int mediaIndex = 0;
       if (is360Stage) {
         if (_capturedVideo != null && await _capturedVideo!.exists()) {
@@ -1060,21 +1004,12 @@ class BasicinspController extends ChangeNotifier {
         ApiServices.basicInspection,
         data: formData,
       );
-      
-      debugPrint(
-        "-----------------------------🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉-----------------------------",
-      );
-      debugPrint("SAVE RESPONSE => ${response.data}");
-      debugPrint(
-        "-----------------------------🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉-----------------------------",
-      );
       if (response.statusCode == 200) {
         final resData = response.data;
         if (resData is Map) {
           final bodyStatusCode = resData['statusCode'];
           final bodyStatus = resData['status'];
           if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
-            debugPrint("API business logic failure: ${resData['data']}");
             return false;
           }
         }
@@ -1098,10 +1033,8 @@ class BasicinspController extends ChangeNotifier {
       notifyListeners();
       return false;
     } on DioException catch (dioErr) {
-      debugPrint("Dio error: ${dioErr.message}, response: ${dioErr.response?.data}");
       return false;
     } catch (e) {
-      debugPrint("Generic error in proceedStep: $e");
       return false;
     } finally {
       isUploading = false;
@@ -1124,7 +1057,6 @@ class BasicinspController extends ChangeNotifier {
       final result = jsonDecode(response.body);
       final data = result["data"];
       if (data == null) return;
-
       if (data["lastcompleteId"] != null) {
         lastcompleteId = int.tryParse(data["lastcompleteId"].toString());
       } else if (data["lastCompletedId"] != null) {
@@ -1132,10 +1064,8 @@ class BasicinspController extends ChangeNotifier {
       } else {
         lastcompleteId = null;
       }
-
       final grouped = data["basicinspectionattachments"];
       if (grouped == null) return;
-      debugPrint("BASIC INSPECTION ATTACHMENTS => ${jsonEncode(grouped)}");
       completedImageIds.clear();
       List allAttachments = [];
       List externalImages = grouped["externalImages"] ?? [];
@@ -1172,7 +1102,6 @@ class BasicinspController extends ChangeNotifier {
       if (grouped["signature"] != null) {
         completedImageIds.add(-40);
       }
-      debugPrint("RESUME IDS => $completedImageIds");
       isResumeLoaded = true;
     } catch (e) {
       debugPrint("Resume error: $e");
@@ -1189,7 +1118,6 @@ class VideoPreviewWidget extends StatefulWidget {
 
 class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
   late VideoPlayerController _controller;
-
   @override
   void initState() {
     super.initState();

@@ -35,12 +35,10 @@ class InspectionsummarypageController extends ChangeNotifier {
       );
       final result = jsonDecode(response.body);
       final inspections = List.from(result["data"]["inspections"] as List? ?? []);
-      debugPrint("🔍 getInspectionSummary inspections count: ${inspections.length}");
       for (int i = 0; i < inspections.length; i++) {
         final insp = inspections[i];
         final master = insp["master"] ?? {};
         final tasks = insp["inspectionTasks"] as List? ?? [];
-        debugPrint("   👉 Inspection $i: masterId=${master["vimId"]}, type=${master["vimInspectionType"]}, tasksCount=${tasks.length}");
       }
       inspections.sort((a, b) {
         final aId = a["master"]?["vimId"] as num? ?? 0;
@@ -140,11 +138,14 @@ class InspectionsummarypageController extends ChangeNotifier {
             final String? finalVideo = videoMap[taskId] ?? existing?.videoUrl;
             final String? finalAudio = audioMap[taskId] ?? existing?.audioUrl;
 
+            final InspectionStatus? finalOriginalStatus = existing != null ? (existing.originalStatus ?? existing.status) : null;
+
             categoryMap[taskKey] = InspectionItem(
               title: task["taskName"] ?? "",
               category: name,
               taskId: taskId is num ? taskId.toInt() : int.tryParse(taskId?.toString() ?? ""),
               status: _mapStatus(task),
+              originalStatus: finalOriginalStatus,
               allowGood: flags["good"] == true,
               allowRepair: flags["repair"] == true,
               allowPoor: flags["poor"] == true,

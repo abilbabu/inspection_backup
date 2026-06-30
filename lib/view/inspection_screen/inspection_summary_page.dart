@@ -17,6 +17,7 @@ enum InspectionStatus { good, repair, poor, replace, na }
 class InspectionItem {
   final String title;
   final InspectionStatus status;
+  final InspectionStatus? originalStatus;
   final String category;
   final int? taskId;
 
@@ -37,6 +38,7 @@ class InspectionItem {
   InspectionItem({
     required this.title,
     required this.status,
+    this.originalStatus,
     required this.category,
     this.taskId,
     required this.note,
@@ -148,7 +150,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                                  if (status == InspectionStatus.poor) return 2;
                                  return 3;
                                }
-                               return getWeight(a.status).compareTo(getWeight(b.status));
+                               return getWeight(a.originalStatus ?? a.status).compareTo(getWeight(b.originalStatus ?? b.status));
                              });
                              final bool isCustom = controller.isCustomInspectionAssigned || controller.vimIfMasterId == null || controller.vimIfMasterId == 0;
                              if (isCustom || reInspectionItems.isEmpty) return const SizedBox.shrink();
@@ -199,35 +201,36 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                                         ],
                                       ),
                                       ...reInspectionItems.map((item) {
-                                        return TableRow(
-                                          children: [
-                                            Padding(
-                                              padding: const EdgeInsets.all(6.0),
-                                              child: Text(
-                                                item.category.isNotEmpty
-                                                    ? "${item.title} (${item.category})"
-                                                    : item.title,
-                                                style: const TextStyle(fontSize: 11),
-                                              ),
-                                            ),
-                                            Padding(
-                                              padding: const EdgeInsets.all(6.0),
-                                              child: Text(
-                                                item.status.name.toUpperCase(),
-                                                style: TextStyle(
-                                                  color: item.status == InspectionStatus.replace
-                                                      ? Colors.red
-                                                      : item.status == InspectionStatus.repair
-                                                          ? Colors.orange
-                                                          : Colors.grey,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      }).toList(),
+                                         final originalStatus = item.originalStatus ?? item.status;
+                                         return TableRow(
+                                           children: [
+                                             Padding(
+                                               padding: const EdgeInsets.all(6.0),
+                                               child: Text(
+                                                 item.category.isNotEmpty
+                                                     ? "${item.title} (${item.category})"
+                                                     : item.title,
+                                                 style: const TextStyle(fontSize: 11),
+                                               ),
+                                             ),
+                                             Padding(
+                                               padding: const EdgeInsets.all(6.0),
+                                               child: Text(
+                                                 originalStatus.name.toUpperCase(),
+                                                 style: TextStyle(
+                                                   color: originalStatus == InspectionStatus.replace
+                                                       ? Colors.red
+                                                       : originalStatus == InspectionStatus.repair
+                                                           ? Colors.orange
+                                                           : Colors.grey,
+                                                   fontSize: 10,
+                                                   fontWeight: FontWeight.bold,
+                                                 ),
+                                               ),
+                                             ),
+                                           ],
+                                         );
+                                       }).toList(),
                                     ],
                                   ),
                                 ],

@@ -511,6 +511,7 @@ class InspectioncardController extends ChangeNotifier {
     required int formId,
     required int categoryId,
     int? inspectionTypeId,
+    bool isReInspection = false,
   }) async {
     validationError = null;
     validationType = ValidationType.none;
@@ -554,14 +555,15 @@ class InspectioncardController extends ChangeNotifier {
     notifyListeners();
     final willCompleteAll =
         (formController.savedTasks + 1) == formController.totalTasks;
-    final int status = 5;
+    final int status = isReInspection ? 11 : 5;
     final ApiResponse response = await saveSingleInspectionTask(
       status: status,
       jobId: jobId,
       taskId: taskId,
       formId: formId,
       inspectionTypeId: inspectionTypeId,
-      viReInspection: (inspectionTypeId == 2),
+      viReInspection: isReInspection || (inspectionTypeId == 2),
+      vimInspectionType: isReInspection ? 2 : (inspectionTypeId ?? 1),
     );
     if (response.success != true) {
       isLoading = false;
@@ -598,6 +600,7 @@ class InspectioncardController extends ChangeNotifier {
     int? inspectionTypeId,
     bool? viReInspection,
     String? vimAdditionalComments,
+    int? vimInspectionType,
   }) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -639,9 +642,7 @@ class InspectioncardController extends ChangeNotifier {
       }
       Map<String, dynamic> payload = {
         "vimJobId": jobId,
-        "vimIfMasterId": (inspectionTypeId == 2 || inspectionTypeId == 0)
-            ? null
-            : formId,
+        "vimIfMasterId": (formId == 0) ? null : formId,
         "viTaskId": taskId,
         "viGood": isGood,
         "viRepair": isRepair,
@@ -658,6 +659,9 @@ class InspectioncardController extends ChangeNotifier {
       }
       if (vimAdditionalComments != null) {
         payload["vimAdditionalComments"] = vimAdditionalComments;
+      }
+      if (vimInspectionType != null) {
+        payload["vimInspectionType"] = vimInspectionType;
       }
       MultipartFile dataPart = MultipartFile.fromString(
         jsonEncode(payload),
@@ -767,6 +771,7 @@ class InspectioncardController extends ChangeNotifier {
     required int taskId,
     required int formId,
     int? inspectionTypeId,
+    bool isReInspection = false,
   }) async {
     validationError = null;
     validationType = ValidationType.none;
@@ -805,12 +810,13 @@ class InspectioncardController extends ChangeNotifier {
       formId: formId,
     );
     final ApiResponse response = await saveSingleInspectionTask(
-      status: 5,
+      status: isReInspection ? 11 : 5,
       jobId: jobId,
       taskId: taskId,
       formId: formId,
       inspectionTypeId: inspectionTypeId,
-      viReInspection: (inspectionTypeId == 2),
+      viReInspection: isReInspection || (inspectionTypeId == 2),
+      vimInspectionType: isReInspection ? 2 : (inspectionTypeId ?? 2),
     );
     if (response.success != true) {
       isLoading = false;

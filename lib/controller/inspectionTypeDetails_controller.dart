@@ -235,9 +235,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       );
       final result = jsonDecode(response.body);
       final data = result["data"];
-      debugPrint(
-        "📦 getComponentList → statusCode: ${result["statusCode"]}, count: ${data?.length}",
-      );
       if (data == null) {
         return ApiResponse(
           success: false,
@@ -256,7 +253,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         data: data,
       );
     } catch (e) {
-      debugPrint("❌ getComponentList error: $e");
       return ApiResponse(success: false, status: "Unexpected Error");
     } finally {
       notifyListeners();
@@ -497,30 +493,23 @@ class InspectionTypeDetailsController extends ChangeNotifier {
   }) async {
     isLoading = true;
     notifyListeners();
-
     try {
       final inspectionResponse = await getInspectionDetailsById(jobId);
-
       await postInspectionTypeDetails(inspectionFormId);
       await getComponentList();
-
       if (inspectionResponse.success == true &&
           inspectionResponse.data != null) {
         applySavedInspection(
           inspectionResponse.data as Map<String, dynamic>,
           formController,
         );
-
         applySavedCustomInspection(
           inspectionResponse.data as Map<String, dynamic>,
           formController,
         );
       }
-
       final totalTasks = groupedTasks.values.expand((e) => e).length;
-
       formController.setTotalTasks(totalTasks);
-
       return inspectionResponse;
     } catch (e) {
       debugPrint("Load Page Error: $e");

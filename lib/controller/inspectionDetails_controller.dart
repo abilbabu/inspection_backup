@@ -71,7 +71,6 @@ class InspectionDetailsController extends ChangeNotifier {
         inspectiontypesList = [];
       }
     } catch (e) {
-      print("Brand list error: $e");
       inspectiontypesList = [];
     }
     isLoading = false;
@@ -101,7 +100,6 @@ class InspectionDetailsController extends ChangeNotifier {
         inspectiontypesList = [];
       }
     } catch (e) {
-      print("Search error: $e");
       inspectiontypesList = [];
     }
     isLoading = false;

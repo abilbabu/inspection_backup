@@ -12,7 +12,6 @@ class InspectionFullscreenVideoController extends ChangeNotifier {
     try {
       final file = File(videoPath);
       if (!await file.exists()) {
-        debugPrint("Video file not found");
         return null;
       }
       await Future.delayed(const Duration(seconds: 2));

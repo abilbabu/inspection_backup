@@ -76,7 +76,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     try {
       await _controller.setFlashMode(_flashMode);
     } on CameraException catch (e) {
-      debugPrint("Flash not supported: ${e.description}");
       _flashMode = FlashMode.off;
     }
     if (!mounted) return;
@@ -95,7 +94,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     try {
       await _controller.setFlashMode(_flashMode);
     } on CameraException catch (e) {
-      debugPrint("Flash not supported: ${e.description}");
       _flashMode = FlashMode.off;
     }
   }
@@ -178,7 +176,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       });
       Navigator.pop(context, File(file.path));
     } catch (e) {
-      debugPrint("Stop recording error: $e");
       if (mounted) {
         setState(() => _isStopping = false);
       }

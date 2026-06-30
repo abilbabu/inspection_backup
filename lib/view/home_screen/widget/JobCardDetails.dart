@@ -191,9 +191,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                     Map<String, dynamic> decoded = jsonDecode(
                                       response.body,
                                     );
-                                    decoded.forEach((key, value) {
-                                      print("   $key : $value");
-                                    });
                                     if (response.statusCode == 200) {
                                       context.push(
                                         "/inspectiondetails",

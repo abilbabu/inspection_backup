@@ -134,11 +134,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
 
   @override
   Widget build(BuildContext context) {
-    print("++++++++++++++++++++++++++++");
-    print(widget.inspectionFormId);
-    print(widget.jobId);
-    print(widget.inspectionTypeId);
-    print("=============================");
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
@@ -330,10 +325,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                 CustomButtonTwo(
                                   text: "+ CUSTOM INSPECTIONS",
                                   onPressed: () {
-                                    print("Hellllllllllllo");
-                                    print(widget.inspectionTypeId);
-                                    print(widget.inspectionFormId);
-                                    print('+=====================');
                                     _showGeneralInspectionBottomSheet(
                                       context,
                                       controller,
@@ -1209,6 +1200,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                               formId: widget.inspectionFormId,
                               viReInspection: isChecked,
                               vimAdditionalComments: _commentController.text,
+                              vimInspectionType: 1,
                             );
                           }
 

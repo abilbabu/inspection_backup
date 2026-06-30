@@ -440,6 +440,7 @@ class _InspectionCardState extends State<InspectionCard> {
                                           formId: widget.formid,
                                           inspectionTypeId:
                                               widget.inspectionTypeid ?? (widget.isReInspection ? 2 : 1),
+                                          isReInspection: widget.isReInspection,
                                         );
                                     if (isCompleted) {
                                       context.go(
@@ -469,6 +470,7 @@ class _InspectionCardState extends State<InspectionCard> {
                                           formId: widget.formid,
                                           categoryId: widget.categoryId ?? 0,
                                           inspectionTypeId: widget.inspectionTypeid,
+                                          isReInspection: widget.isReInspection,
                                         );
                                     if (isCompleted) {
                                       context.go(

@@ -84,6 +84,14 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         );
 
         final data = inspectionResponse.data as Map<String, dynamic>;
+        final jobCard = data["jobCard"];
+        if (jobCard != null) {
+          final jobStatus = int.tryParse(jobCard["jobStatus"]?.toString() ?? "0") ?? 0;
+          if (jobStatus == 10) {
+            await detailsCtrl.changeStatus(jobId: widget.jobId, status: 11);
+            if (!mounted) return;
+          }
+        }
         final inspections = data["inspections"] ?? [];
         _reInspectionTaskIds.clear();
         _initialCompletedTaskIds.clear();
@@ -95,8 +103,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
             }
           }
         }
-        debugPrint("🔍 reassigned_details_page: summaryCtrl items populated. _reInspectionTaskIds count = ${_reInspectionTaskIds.length}, items = $_reInspectionTaskIds");
-
         for (final inspection in inspections) {
           final master = inspection["master"] ?? {};
           final int vimInspectionType = master["vimInspectionType"] ?? 0;
@@ -114,9 +120,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
             }
           }
         }
-        debugPrint("🔍 reassigned_details_page: after completedTasks loop. _reInspectionTaskIds count = ${_reInspectionTaskIds.length}, items = $_reInspectionTaskIds");
-        debugPrint("🔍 reassigned_details_page: _initialCompletedTaskIds count = ${_initialCompletedTaskIds.length}, items = $_initialCompletedTaskIds");
-
         final Set<int> reinspectedTaskIds = {};
         for (final inspection in inspections) {
           final master = inspection["master"] ?? {};
@@ -185,11 +188,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         textSize: 16,
                         onPressed: () => showTechnicianBottomSheet(context, detailsCtrl2),
                       ),
-                    //   const SizedBox(height: 12),
-                    //   CustomButtonTwo(
-                    //     text: " + ADD CUSTOM INSPECTION",
-                    //     onPressed: () => showTechnicianBottomSheet(context, detailsCtrl2),
-                    //   ),
                     ] else if (userDepartment == 4) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 20),
@@ -300,7 +298,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         if (status == InspectionStatus.poor) return 2;
         return 3;
       }
-      return getWeight(a.status).compareTo(getWeight(b.status));
+      return getWeight(a.originalStatus ?? a.status).compareTo(getWeight(b.originalStatus ?? b.status));
     });
 
     if (reInspectionItems.isEmpty) {
@@ -344,6 +342,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
               ],
             ),
             ...reInspectionItems.map((item) {
+              final originalStatus = item.originalStatus ?? item.status;
               return TableRow(
                 children: [
                   Padding(
@@ -358,11 +357,11 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                   Padding(
                     padding: const EdgeInsets.all(10.0),
                     child: Text(
-                      item.status.name.toUpperCase(),
+                      originalStatus.name.toUpperCase(),
                       style: TextStyle(
-                        color: item.status == InspectionStatus.replace
+                        color: originalStatus == InspectionStatus.replace
                             ? Colors.red
-                            : item.status == InspectionStatus.repair
+                            : originalStatus == InspectionStatus.repair
                                 ? Colors.orange
                                 : Colors.grey,
                         fontSize: 12,
@@ -582,12 +581,13 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         final tempCardController = InspectioncardController();
         
         await tempCardController.saveSingleInspectionTask(
-          status: 5,
+          status: 11,
           jobId: widget.jobId,
           taskId: taskToSaveId,
           formId: formId,
           viReInspection: true,
           vimAdditionalComments: _commentController.text,
+          vimInspectionType: 2,
         );
       }
 
