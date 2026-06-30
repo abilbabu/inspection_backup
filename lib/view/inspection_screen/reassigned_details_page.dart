@@ -731,6 +731,12 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
       if (taskToSaveId > 0) {
         final tempCardController = InspectioncardController();
+        final existing = formController.getTaskById(taskToSaveId);
+        if (existing != null) {
+          tempCardController.selectedOption = existing.condition;
+          tempCardController.noteController.text = existing.note;
+          tempCardController.descriptionController.text = existing.description;
+        }
 
         await tempCardController.saveSingleInspectionTask(
           status: 11,
