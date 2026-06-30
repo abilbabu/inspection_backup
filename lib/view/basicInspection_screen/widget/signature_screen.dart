@@ -5,6 +5,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/controller/customerDetails_controller.dart';
 import 'package:inspection/controller/jobCardDetails_controller.dart';
+import 'package:inspection/controller/signatureSpeech_controller%20.dart' show SignatureSpeechController;
 import 'package:inspection/controller/vehicleDetails_controller.dart';
 import 'package:inspection/controller/vehicleEssential_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
@@ -112,26 +113,61 @@ class _SignatureScreenState extends State<SignatureScreen> {
                     boxShadow: ColorConstants.dashboardboxShadow,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: TextField(
-                    textCapitalization: TextCapitalization.sentences,
-                    controller: _additionalCommentController,
-                    maxLines: 4,
-                    textInputAction: TextInputAction.newline,
-                    style: ApptextstyleConstants.lightText(
-                      color: ColorConstants.blackColor,
-                      fontSize: 14,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: "Enter additional comments from customer",
-                      hintStyle: ApptextstyleConstants.lightText(
-                        color: ColorConstants.greyColor,
-                        fontSize: 13,
-                      ),
-                      contentPadding: const EdgeInsets.all(12),
-                      border: InputBorder.none,
-                      filled: true,
-                      fillColor: ColorConstants.whiteColor,
-                    ),
+
+                  child: Consumer<SignatureSpeechController>(
+                    builder: (context, controller, child) {
+                      return Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          TextField(
+                            textCapitalization: TextCapitalization.sentences,
+                            controller: _additionalCommentController,
+                            maxLines: 4,
+                            textInputAction: TextInputAction.newline,
+                            style: ApptextstyleConstants.lightText(
+                              color: ColorConstants.blackColor,
+                              fontSize: 14,
+                            ),
+                            decoration: InputDecoration(
+                              hintText:
+                                  "Enter additional comments from customer",
+                              hintStyle: ApptextstyleConstants.lightText(
+                                color: ColorConstants.greyColor,
+                                fontSize: 13,
+                              ),
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                12,
+                                12,
+                                50, // Space for mic button
+                                12,
+                              ),
+                              border: InputBorder.none,
+                              filled: true,
+                              fillColor: ColorConstants.whiteColor,
+                            ),
+                          ),
+
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: controller.isListening
+                                ? _buildSmallWaveMic(controller)
+                                : IconButton(
+                                    icon: const Icon(
+                                      Icons.mic_none,
+                                      color: Colors.green,
+                                    ),
+                                    onPressed: () async {
+                                      await controller.startListening(
+                                        controller:
+                                            _additionalCommentController,
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -267,6 +303,52 @@ class _SignatureScreenState extends State<SignatureScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSmallWaveMic(SignatureSpeechController controller) {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 30,
+            height: 20,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                3,
+                (index) => TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 4, end: 12),
+                  duration: Duration(milliseconds: 300 + (index * 100)),
+                  builder: (_, value, __) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 3,
+                      height: controller.isListening ? value : 4,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: controller.stopListening,
+            child: const Icon(Icons.close, size: 14, color: Colors.red),
+          ),
+        ],
       ),
     );
   }

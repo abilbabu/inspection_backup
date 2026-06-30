@@ -12,6 +12,7 @@ import 'package:inspection/controller/inspectionTypeDetails_controller.dart';
 import 'package:inspection/controller/inspectionDetails_controller.dart';
 import 'package:inspection/controller/basicInspectionReport_controller.dart';
 import 'package:inspection/controller/jobCardDetails_controller.dart';
+import 'package:inspection/controller/signatureSpeech_controller%20.dart';
 import 'package:inspection/controller/vehicleDetails_controller.dart';
 import 'package:inspection/controller/vehicleEssential_controller.dart';
 import 'package:inspection/main.dart';
@@ -24,7 +25,9 @@ class MultiProviderAccess extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => AuthenticationController()..loadUserDepartment()),
+        ChangeNotifierProvider(
+          create: (context) => AuthenticationController()..loadUserDepartment(),
+        ),
         ChangeNotifierProvider(create: (context) => VehicleDetailsController()),
         ChangeNotifierProvider(
           create: (context) => CustomerDetailsController(),
@@ -56,6 +59,9 @@ class MultiProviderAccess extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (context) => InspectionFullscreenVideoController(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => SignatureSpeechController(),
         ),
       ],
       child: const MyApp(),

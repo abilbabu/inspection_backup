@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,8 @@ import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/model/apiResponsModel.dart';
 import 'package:inspection/view/inspection_screen/inspection_summary_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 class InspectionsummarypageController extends ChangeNotifier {
   bool isLoading = false;
@@ -18,6 +21,101 @@ class InspectionsummarypageController extends ChangeNotifier {
   String technicianComment = "";
   String supervisorComment = "";
   String saComment = "";
+
+  final SpeechToText _speechToText = SpeechToText();
+
+  bool speechEnabled = false;
+  bool isListening = false;
+  Timer? silenceTimer;
+
+  String _baseText = "";
+  String _currentSpeech = "";
+
+  TextEditingController? _speechController;
+
+  Future<void> initSpeech() async {
+    speechEnabled = await _speechToText.initialize();
+    notifyListeners();
+  }
+
+  void startSilenceTimer() {
+    silenceTimer?.cancel();
+
+    silenceTimer = Timer(const Duration(seconds: 2), () async {
+      if (isListening) {
+        await stopListening();
+      }
+    });
+  }
+
+  Future<void> startListening({
+    required TextEditingController controller,
+  }) async {
+    if (!speechEnabled) {
+      speechEnabled = await _speechToText.initialize();
+    }
+
+    if (!speechEnabled) return;
+
+    _speechController = controller;
+
+    // Save existing note
+    _baseText = controller.text.trim();
+
+    _currentSpeech = "";
+
+    isListening = true;
+    notifyListeners();
+
+    await _speechToText.listen(
+      listenMode: ListenMode.dictation,
+      partialResults: true,
+      cancelOnError: true,
+      onResult: onSpeechResult,
+    );
+  }
+
+  void onSpeechResult(SpeechRecognitionResult result) {
+    if (_speechController == null) return;
+
+    _currentSpeech = result.recognizedWords.trim();
+
+    // Show live text while speaking
+    if (_baseText.isEmpty) {
+      _speechController!.text = _currentSpeech;
+    } else {
+      _speechController!.text = "$_baseText $_currentSpeech";
+    }
+
+    _speechController!.selection = TextSelection.fromPosition(
+      TextPosition(offset: _speechController!.text.length),
+    );
+
+    // Stop when speech is finished
+    if (result.finalResult) {
+      stopListening();
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> stopListening() async {
+    await _speechToText.stop();
+
+    isListening = false;
+
+    // Save the final text so the next recording appends after it
+    _baseText = _speechController?.text.trim() ?? "";
+
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    silenceTimer?.cancel();
+    _speechToText.stop();
+    super.dispose();
+  }
 
   Future<ApiResponse> getInspectionSummary(int jobId) async {
     isLoading = true;
@@ -34,11 +132,13 @@ class InspectionsummarypageController extends ChangeNotifier {
         body: jsonEncode({"jobId": jobId}),
       );
       final result = jsonDecode(response.body);
-      final inspections = List.from(result["data"]["inspections"] as List? ?? []);
+      final inspections = List.from(
+        result["data"]["inspections"] as List? ?? [],
+      );
       for (int i = 0; i < inspections.length; i++) {
         final insp = inspections[i];
-        final master = insp["master"] ?? {};
-        final tasks = insp["inspectionTasks"] as List? ?? [];
+        final _ = insp["master"] ?? {};
+        final _ = insp["inspectionTasks"] as List? ?? [];
       }
       inspections.sort((a, b) {
         final aId = a["master"]?["vimId"] as num? ?? 0;
@@ -89,7 +189,8 @@ class InspectionsummarypageController extends ChangeNotifier {
         vimInspectionTypeId = inspType;
         vimIfMasterId = ifMasterId;
         if (ifMasterId != null && ifMasterId == 0) continue;
-        final String techComm = master["vimAdditionalComments"]?.toString() ?? "";
+        final String techComm =
+            master["vimAdditionalComments"]?.toString() ?? "";
         final String supComm = master["vimSupervisorComment"]?.toString() ?? "";
         final String serviceComm = master["vimSaComment"]?.toString() ?? "";
 
@@ -110,40 +211,54 @@ class InspectionsummarypageController extends ChangeNotifier {
           final name = category["taskCategoryName"]?.toString() ?? "General";
           final categoryTasks = category["tasks"] as List? ?? [];
           if (categoryTasks.isEmpty) continue;
-          
+
           final categoryMap = categoryTaskMap.putIfAbsent(name, () => {});
           for (final task in categoryTasks) {
             final taskId = task["viTaskId"];
-            final taskKey = taskId?.toString() ?? task["taskName"]?.toString() ?? "";
+            final taskKey =
+                taskId?.toString() ?? task["taskName"]?.toString() ?? "";
             if (taskKey.isEmpty) continue;
             final flags = task["inspectionTaskFlags"] ?? {};
-            
+
             final existing = categoryMap[taskKey];
             final wasReInspection = existing?.viReInspection ?? false;
-            final double reTime = double.tryParse(task["viReInspectionTime"]?.toString() ?? "") ?? 0.0;
-            final isReInspection = task["viReInspection"] == true ||
+            final double reTime =
+                double.tryParse(task["viReInspectionTime"]?.toString() ?? "") ??
+                0.0;
+            final isReInspection =
+                task["viReInspection"] == true ||
                 task["viReInspection"] == 1 ||
                 task["viReInspection"]?.toString() == "true" ||
                 reTime > 0.0 ||
                 inspType == 2;
-            
+
             final String note = (task["viNote"] ?? "").toString();
             final String initialNote = (task["viDescription"] ?? "").toString();
-            
-            final String finalNote = note.trim().isNotEmpty ? note : (existing?.note ?? "");
-            final String finalInitialNote = initialNote.trim().isNotEmpty ? initialNote : (existing?.initialNote ?? "");
-            
+
+            final String finalNote = note.trim().isNotEmpty
+                ? note
+                : (existing?.note ?? "");
+            final String finalInitialNote = initialNote.trim().isNotEmpty
+                ? initialNote
+                : (existing?.initialNote ?? "");
+
             final List<String> images = imageMap[taskId] ?? [];
-            final List<String> finalImages = images.isNotEmpty ? images : (existing?.imageUrls ?? []);
+            final List<String> finalImages = images.isNotEmpty
+                ? images
+                : (existing?.imageUrls ?? []);
             final String? finalVideo = videoMap[taskId] ?? existing?.videoUrl;
             final String? finalAudio = audioMap[taskId] ?? existing?.audioUrl;
 
-            final InspectionStatus? finalOriginalStatus = existing != null ? (existing.originalStatus ?? existing.status) : null;
+            final InspectionStatus? finalOriginalStatus = existing != null
+                ? (existing.originalStatus ?? existing.status)
+                : null;
 
             categoryMap[taskKey] = InspectionItem(
               title: task["taskName"] ?? "",
               category: name,
-              taskId: taskId is num ? taskId.toInt() : int.tryParse(taskId?.toString() ?? ""),
+              taskId: taskId is num
+                  ? taskId.toInt()
+                  : int.tryParse(taskId?.toString() ?? ""),
               status: _mapStatus(task),
               originalStatus: finalOriginalStatus,
               allowGood: flags["good"] == true,
@@ -178,10 +293,22 @@ class InspectionsummarypageController extends ChangeNotifier {
   }
 
   InspectionStatus _mapStatus(Map task) {
-    final replace = task["viReplace"] == true || task["viReplace"] == 1 || task["viReplace"]?.toString() == "true";
-    final repair = task["viRepair"] == true || task["viRepair"] == 1 || task["viRepair"]?.toString() == "true";
-    final poor = task["viPoor"] == true || task["viPoor"] == 1 || task["viPoor"]?.toString() == "true";
-    final good = task["viGood"] == true || task["viGood"] == 1 || task["viGood"]?.toString() == "true";
+    final replace =
+        task["viReplace"] == true ||
+        task["viReplace"] == 1 ||
+        task["viReplace"]?.toString() == "true";
+    final repair =
+        task["viRepair"] == true ||
+        task["viRepair"] == 1 ||
+        task["viRepair"]?.toString() == "true";
+    final poor =
+        task["viPoor"] == true ||
+        task["viPoor"] == 1 ||
+        task["viPoor"]?.toString() == "true";
+    final good =
+        task["viGood"] == true ||
+        task["viGood"] == 1 ||
+        task["viGood"]?.toString() == "true";
     if (replace) return InspectionStatus.replace;
     if (repair) return InspectionStatus.repair;
     if (poor) return InspectionStatus.poor;
