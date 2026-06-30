@@ -777,7 +777,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 .toLowerCase()
                                                 .contains(searchText) ==
                                             true;
-                                    return (status == 10 || status == 11) && searchMatch;
+                                    return (status == 10 || status == 11 || status == 18) && searchMatch;
                                   }).toList();
                                   if (reAssignedList.isEmpty) {
                                     return Padding(
@@ -1052,7 +1052,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 .toLowerCase()
                                                 .contains(searchText) ==
                                             true;
-                                    return (status == 10 || status == 11) && searchMatch;
+                                    return (status == 10 || status == 11 || status == 18) && searchMatch;
                                   }).toList();
                                   if (reAssignedList.isEmpty) {
                                     return Padding(
@@ -1379,7 +1379,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final int jobId = rawJobId is int
             ? rawJobId
             : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
-        if (jobStatus == 10 || jobStatus == 11) {
+        if (jobStatus == 10 || jobStatus == 11 || jobStatus == 18) {
           context.go("/reassigneddetails", extra: jobId);
         } else {
           context.go("/jobcarddetails", extra: jobId);
@@ -1492,7 +1492,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
-        if (jobStatus == 10 || jobStatus == 11) {
+        if (jobStatus == 10 || jobStatus == 11 || jobStatus == 18) {
           context.go("/reassigneddetails", extra: jobId);
           return;
         }

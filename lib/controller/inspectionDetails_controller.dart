@@ -122,7 +122,7 @@ class InspectionDetailsController extends ChangeNotifier {
         "status": status,
         "assignedBy": assigneeId,
         "vimIfMasterId": formMasterId,
-        "vimInspectionType": (status == 10 || status == 11 || status == 12) ? 2 : ((formMasterId != null && formMasterId != 0) ? 1 : 2),
+        "vimInspectionType": (status == 10 || status == 11 || status == 12 || status == 14 || status == 15 || status == 16 || status == 17 || status == 18) ? 2 : ((formMasterId != null && formMasterId != 0) ? 1 : 2),
       };
       final response = await http.post(
         Uri.parse(ApiServices.assignTechnician),

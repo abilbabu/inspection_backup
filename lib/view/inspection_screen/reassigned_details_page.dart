@@ -87,7 +87,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         final jobCard = data["jobCard"];
         if (jobCard != null) {
           final jobStatus = int.tryParse(jobCard["jobStatus"]?.toString() ?? "0") ?? 0;
-          if (jobStatus == 10) {
+          if (jobStatus == 10 || jobStatus == 18) {
             await detailsCtrl.changeStatus(jobId: widget.jobId, status: 11);
             if (!mounted) return;
           }
@@ -751,7 +751,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                                 supervisorId: controller.loginTechnicianId ?? 0,
                                 technicianName: technician["userName"].toString(),
                                 formMasterId: parentContext.read<InspectionsummarypageController>().vimIfMasterId,
-                                status: 11,
+                                status: 18,
                               );
                               if (success) {
                                 ScaffoldMessenger.of(parentContext).showSnackBar(
