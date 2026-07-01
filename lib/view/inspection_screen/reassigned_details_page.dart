@@ -191,7 +191,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     VehicleSummaryWidget(jobId: widget.jobId),
                     const SizedBox(height: 16),
                     _buildCommentsSummaryCard(summaryCtrl),
-                    if (userDepartment == 2 || userDepartment == 5) ...[
+                    if (userDepartment == 0 || userDepartment == 1||userDepartment == 2 || userDepartment == 5) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 24),
                       CustomButtonWidget(
@@ -200,7 +200,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         onPressed: () =>
                             showTechnicianBottomSheet(context, detailsCtrl2),
                       ),
-                    ] else if (userDepartment == 4) ...[
+                    ] else if (userDepartment == 0 || userDepartment == 1|| userDepartment == 4) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 20),
                       Text(
@@ -673,18 +673,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     InspectionFormController formController,
     InspectionsummarypageController summaryController,
   ) async {
-    if (_commentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: ColorConstants.errorcolor,
-          content: Text(
-            "Technician Comments are mandatory",
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      );
-      return;
-    }
     setState(() {
       _isSubmitting = true;
     });

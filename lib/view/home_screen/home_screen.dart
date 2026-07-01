@@ -478,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final status =
               int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
 
-          return status == 3 || status == 4 || status == 5;
+          return status >= 1 && status <= 11 &&  status != 6;
         })
         .take(5)
         .toList();
@@ -1290,6 +1290,8 @@ class _HomeScreenState extends State<HomeScreen> {
           context.go("/jobcarddetails", extra: jobId);
         } else if (jobStatus == 5) {
           context.go("/jobcarddetails", extra: jobId);
+        } else if (jobStatus == 11) {
+          context.go("/reassigneddetails", extra: jobId);
         }
       },
       child: Padding(
