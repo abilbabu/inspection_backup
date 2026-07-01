@@ -391,8 +391,8 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
               height: height ?? boxHeight,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: ColorConstants.whiteColor,
-                border: Border.all(color: Colors.grey, width: 1),
+                // color: ColorConstants.whiteColor,
+                border: Border.all(color: const Color(0xFFDADADA), width: 1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: file != null
@@ -467,7 +467,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
             Container(
               height: height ?? boxHeight,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
+                border:Border.all(color: const Color(0xFFDADADA), width: 1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: videoFile != null
