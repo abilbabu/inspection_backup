@@ -389,7 +389,9 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
           children: [
             Container(
               height: height ?? boxHeight,
+              width: double.infinity,
               decoration: BoxDecoration(
+                color: ColorConstants.whiteColor,
                 border: Border.all(color: Colors.grey, width: 1),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -398,8 +400,9 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                       borderRadius: BorderRadius.circular(12),
                       child: Image.file(
                         file,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         width: double.infinity,
+                        height: double.infinity,
                       ),
                     )
                   : const Center(child: Icon(Icons.camera_alt, size: 30)),

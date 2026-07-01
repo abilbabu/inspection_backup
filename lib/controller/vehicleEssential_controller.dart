@@ -227,6 +227,8 @@ class VehicleessentialController extends ChangeNotifier {
           targetPath,
           quality: 60,
           format: CompressFormat.jpeg,
+          minWidth: 1080,
+          minHeight: 1080,
         );
     if (compressedXFile == null) return file;
     return File(compressedXFile.path);

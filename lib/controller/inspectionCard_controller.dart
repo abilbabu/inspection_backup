@@ -375,6 +375,8 @@ class InspectioncardController extends ChangeNotifier {
           targetPath,
           quality: 60,
           format: CompressFormat.jpeg,
+          minWidth: 1080,
+          minHeight: 1080,
         );
     if (compressedXFile == null) return file;
     final compressedFile = File(compressedXFile.path);

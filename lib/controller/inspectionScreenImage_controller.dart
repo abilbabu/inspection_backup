@@ -165,13 +165,15 @@ class InspectionscreenimageController extends ChangeNotifier {
     final dir = await getTemporaryDirectory();
     final targetPath =
         '${dir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    await FlutterImageCompress.compressAndGetFile(
+    final XFile? result = await FlutterImageCompress.compressAndGetFile(
       file.absolute.path,
       targetPath,
       quality: 70,
       format: CompressFormat.jpeg,
+      minWidth: 1080,
+      minHeight: 1080,
     );
-    return file;
+    return result != null ? File(result.path) : file;
   }
 
   Future<void> rotateImage() async {

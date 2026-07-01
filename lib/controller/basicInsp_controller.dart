@@ -346,6 +346,8 @@ class BasicinspController extends ChangeNotifier {
           targetPath,
           quality: 60,
           format: CompressFormat.jpeg,
+          minWidth: 1080,
+          minHeight: 1080,
         );
     if (compressedXFile == null) return file;
     final compressedFile = File(compressedXFile.path);
@@ -912,9 +914,13 @@ class BasicinspController extends ChangeNotifier {
     isUploading = true;
     notifyListeners();
     try {
+      debugPrint("--- proceedStep Start ---");
+      debugPrint("jobId: $jobId, status: $status, currentStage: $currentStage");
+      debugPrint("currentAttachType: $currentAttachType");
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('userToken');
       if (token == null || token.isEmpty) {
+        debugPrint("Token is null or empty");
         return false;
       }
       Dio dio = Dio()
@@ -926,14 +932,10 @@ class BasicinspController extends ChangeNotifier {
       int imageIdVal = 0;
       if (item != null) {
         imageIdVal = item['id'];
-      } else {
-        if (currentStage == InspectionStage.internal360) {
-          imageIdVal = firstInternalImageId;
-        } else if (currentStage == InspectionStage.external360) {
-          imageIdVal = firstExternalImageId;
-        } else {
-          imageIdVal = firstExternalImageId != 0 ? firstExternalImageId : firstInternalImageId;
-        }
+      } else if (currentStage == InspectionStage.internal360) {
+        imageIdVal = firstInternalImageId;
+      } else if (currentStage == InspectionStage.external360) {
+        imageIdVal = firstExternalImageId;
       }
       final String imageId = imageIdVal != 0 ? imageIdVal.toString() : "";
       formData.fields.addAll([
@@ -1000,16 +1002,22 @@ class BasicinspController extends ChangeNotifier {
           mediaIndex++;
         }
       }
+      debugPrint("Sending request to: ${ApiServices.basicInspection}");
+      debugPrint("Fields: ${formData.fields.map((e) => "${e.key}: ${e.value}").toList()}");
+      debugPrint("Files: ${formData.files.map((e) => "${e.key}: ${e.value.filename}").toList()}");
       final response = await dio.post(
         ApiServices.basicInspection,
         data: formData,
       );
+      debugPrint("Response status: ${response.statusCode}");
+      debugPrint("Response data: ${response.data}");
       if (response.statusCode == 200) {
         final resData = response.data;
         if (resData is Map) {
           final bodyStatusCode = resData['statusCode'];
           final bodyStatus = resData['status'];
           if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
+            debugPrint("Failed due to statusCode 400 or status FAILED in body");
             return false;
           }
         }
@@ -1033,10 +1041,15 @@ class BasicinspController extends ChangeNotifier {
       notifyListeners();
       return false;
     } on DioException catch (dioErr) {
+      debugPrint("DioException in proceedStep: ${dioErr.message}");
+      debugPrint("DioException response: ${dioErr.response?.data}");
+      debugPrint("DioException statusCode: ${dioErr.response?.statusCode}");
       return false;
     } catch (e) {
+      debugPrint("Generic exception in proceedStep: $e");
       return false;
     } finally {
+      debugPrint("--- proceedStep End ---");
       isUploading = false;
       notifyListeners();
     }
