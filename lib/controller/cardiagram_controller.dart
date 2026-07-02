@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:inspection/view/basicInspection_screen/widget/carDiagram_screen.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -86,15 +87,43 @@ class CardiagramController extends ChangeNotifier {
     try {
       final boundary =
           imageKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-      final ui.Image image = await boundary.toImage(pixelRatio: 3);
+      // pixelRatio 2.0 provides plenty of resolution for diagram markings
+      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return null;
+      
       final directory = await getApplicationDocumentsDirectory();
-      final path =
-          '${directory.path}/car_diagram_${DateTime.now().millisecondsSinceEpoch}.png';
-      final file = File(path);
-      await file.writeAsBytes(byteData.buffer.asUint8List());
-      return path;
+      final tempPngPath =
+          '${directory.path}/temp_car_diagram_${DateTime.now().millisecondsSinceEpoch}.png';
+      final pngFile = File(tempPngPath);
+      await pngFile.writeAsBytes(byteData.buffer.asUint8List());
+
+      final jpgPath =
+          '${directory.path}/car_diagram_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final XFile? compressedXFile =
+          await FlutterImageCompress.compressAndGetFile(
+            tempPngPath,
+            jpgPath,
+            quality: 75,
+            format: CompressFormat.jpeg,
+            minWidth: 1080,
+            minHeight: 1080,
+          );
+
+      // Clean up the temporary PNG file
+      try {
+        if (await pngFile.exists()) {
+          await pngFile.delete();
+        }
+      } catch (e) {
+        debugPrint("Error deleting temporary PNG file: $e");
+      }
+
+      if (compressedXFile != null) {
+        return compressedXFile.path;
+      }
+      return tempPngPath; // Fallback to raw png if compression fails
     } catch (e) {
       debugPrint("Save error: $e");
       return null;
