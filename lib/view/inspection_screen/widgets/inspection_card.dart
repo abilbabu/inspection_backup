@@ -451,9 +451,6 @@ class _InspectionCardState extends State<InspectionCard> {
                                         },
                                       );
                                     }
-                                    if (widget.isInBottomSheet && cardController.isSuccess) {
-                                      Navigator.pop(context);
-                                    }
                                   } else {
                                     final formController = context
                                         .read<InspectionFormController>();
@@ -480,9 +477,6 @@ class _InspectionCardState extends State<InspectionCard> {
                                           "flag": 0,
                                         },
                                       );
-                                    }
-                                    if (widget.isInBottomSheet && cardController.isSuccess) {
-                                      Navigator.pop(context);
                                     }
                                   }
                                 },

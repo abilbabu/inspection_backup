@@ -46,61 +46,35 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final detailsController = context.read<InspectionTypeDetailsController>();
-
       final formController = context.read<InspectionFormController>();
 
-      detailsController.isLoading = true;
-      // ignore: invalid_use_of_protected_member
-      detailsController.notifyListeners();
+      final inspectionResponse = await detailsController.loadPage(
+        jobId: widget.jobId,
+        inspectionFormId: widget.inspectionFormId,
+        formController: formController,
+      );
 
-      try {
-        final ApiResponse inspectionResponse = await detailsController
-            .getInspectionDetailsById(widget.jobId);
-
-        await detailsController.postInspectionTypeDetails(
-          widget.inspectionFormId,
-        );
-
-        await detailsController.getComponentList();
-
-        if (inspectionResponse.success == true &&
-            inspectionResponse.data != null) {
-          detailsController.applySavedInspection(
-            inspectionResponse.data as Map<String, dynamic>,
-            formController,
-          );
-
-          detailsController.applySavedCustomInspection(
-            inspectionResponse.data as Map<String, dynamic>,
-            formController,
-          );
-
-          final data = inspectionResponse.data as Map<String, dynamic>;
-          final inspections = data["inspections"] ?? [];
-          if (inspections.isNotEmpty) {
-            final master = inspections[0]["master"];
-            if (master != null && master["vimAdditionalComments"] != null) {
-              _commentController.text = master["vimAdditionalComments"]
-                  .toString();
-            }
-            final completedTasks = inspections[0]["completedTasks"] ?? [];
+      if (inspectionResponse != null &&
+          inspectionResponse.success == true &&
+          inspectionResponse.data != null) {
+        final data = inspectionResponse.data as Map<String, dynamic>;
+        final inspections = data["inspections"] ?? [];
+        if (inspections.isNotEmpty) {
+          final master = inspections[0]["master"];
+          if (master != null && master["vimAdditionalComments"] != null) {
+            _commentController.text = master["vimAdditionalComments"]
+                .toString();
+          }
+          final completedTasks = inspections[0]["completedTasks"] ?? [];
+          setState(() {
+            _reInspectionTaskIds.clear();
             for (final savedTask in completedTasks) {
               if (savedTask["viReInspection"] == true) {
                 _reInspectionTaskIds.add(savedTask["viTaskId"]);
               }
             }
-          }
+          });
         }
-
-        final totalTasks = detailsController.groupedTasks.values
-            .expand((e) => e)
-            .length;
-
-        formController.setTotalTasks(totalTasks);
-      } finally {
-        detailsController.isLoading = false;
-        // ignore: invalid_use_of_protected_member
-        detailsController.notifyListeners();
       }
     });
   }
@@ -1074,12 +1048,21 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "Technician Comments",
-                style: ApptextstyleConstants.mediumText(
-                  color: ColorConstants.textBlueColor,
-                  fontSize: 14,
-                ),
+              Row(
+                children: [
+                  Text(
+                    "Technician Comments",
+                    style: ApptextstyleConstants.mediumText(
+                      color: ColorConstants.textBlueColor,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (_reInspectionTaskIds.isNotEmpty)
+                    const Text(
+                      " *",
+                      style: TextStyle(color: Colors.red, fontSize: 14),
+                    ),
+                ],
               ),
               const SizedBox(height: 8),
               Consumer<InspectionTypeDetailsController>(
@@ -1242,6 +1225,19 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                       textSize: 16,
                       isDisabled: formController.savedTasks == 0,
                       onPressed: () async {
+                        if (_reInspectionTaskIds.isNotEmpty &&
+                            _commentController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: ColorConstants.errorcolor,
+                              content: Text(
+                                "Technician Comments are mandatory when re-inspection items are selected.",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          );
+                          return;
+                        }
                         setState(() {
                           _isSubmitting = true;
                         });

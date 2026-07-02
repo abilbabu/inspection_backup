@@ -478,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final status =
               int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
 
-          return status >= 1 && status <= 11 &&  status != 6;
+          return status >= 1 && status <= 18 &&  status != 6 &&  status != 12;
         })
         .take(5)
         .toList();

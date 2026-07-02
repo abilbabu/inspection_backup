@@ -200,7 +200,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       },
                                       body: jsonEncode(output),
                                     );
-                                    Map<String, dynamic> decoded = jsonDecode(
+                                    Map<String, dynamic> _ = jsonDecode(
                                       response.body,
                                     );
                                     if (response.statusCode == 200) {

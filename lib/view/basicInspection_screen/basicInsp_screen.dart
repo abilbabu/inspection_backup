@@ -21,6 +21,14 @@ class BasicinspScreen extends StatefulWidget {
 }
 
 class _BasicinspScreenState extends State<BasicinspScreen> {
+  final FocusNode _notesFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _notesFocusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
@@ -189,7 +197,10 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                                   isDisabled:
                                       controller.isVideoLoading ||
                                       controller.isUploading,
-                                  onPressed: () => controller.skipStep(context),
+                                  onPressed: () {
+                                    _notesFocusNode.unfocus();
+                                    controller.skipStep(context);
+                                  },
                                 ),
                               ),
                             ],
@@ -205,6 +216,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                                         !controller.hasAnyMedia),
                                 showLoader: controller.isUploading,
                                 onPressed: () async {
+                                  _notesFocusNode.unfocus();
                                   final isValid = controller
                                       .validateMandatoryImage();
                                   if (!isValid) {
@@ -308,6 +320,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
         alignment: Alignment.centerRight,
         children: [
           TextField(
+            focusNode: _notesFocusNode,
             controller: controller.notesController,
             maxLines: 3,
             textCapitalization: TextCapitalization.sentences,
@@ -380,11 +393,14 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
     Widget imageBox(int index, {double? height}) {
       final file = controller.imageAt(index);
       return GestureDetector(
-        onTap: () => controller.handleImageTap(
-          context,
-          imageIndex: index,
-          mediaType: MediaType.image,
-        ),
+        onTap: () {
+          _notesFocusNode.unfocus();
+          controller.handleImageTap(
+            context,
+            imageIndex: index,
+            mediaType: MediaType.image,
+          );
+        },
         child: Stack(
           children: [
             Container(
@@ -413,6 +429,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                 right: 12,
                 child: GestureDetector(
                   onTap: () {
+                    _notesFocusNode.unfocus();
                     controller.handleImageTap(
                       context,
                       imageIndex: index,
@@ -451,6 +468,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
         onTap: controller.isVideoLoading
             ? null
             : () {
+                _notesFocusNode.unfocus();
                 final rootContext = Navigator.of(
                   context,
                   rootNavigator: true,
@@ -516,6 +534,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                 right: 12,
                 child: GestureDetector(
                   onTap: () {
+                    _notesFocusNode.unfocus();
                     final rootContext = Navigator.of(
                       context,
                       rootNavigator: true,

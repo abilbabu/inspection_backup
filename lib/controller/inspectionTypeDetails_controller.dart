@@ -314,6 +314,14 @@ class InspectionTypeDetailsController extends ChangeNotifier {
   }
 
   Future<ApiResponse> getComponentList() async {
+    if (allTaskComponents.isNotEmpty) {
+      return ApiResponse(
+        success: true,
+        statusCode: 200,
+        status: "Success",
+        data: allTaskComponents,
+      );
+    }
     notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -458,9 +466,11 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<ApiResponse> postInspectionTypeDetails(int inspectionFormId) async {
-    isLoading = true;
-    notifyListeners();
+  Future<ApiResponse> postInspectionTypeDetails(int inspectionFormId, {bool updateLoading = true}) async {
+    if (updateLoading) {
+      isLoading = true;
+      notifyListeners();
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("userToken");
@@ -511,12 +521,16 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         }
         groupedTasks[categoryId] = mergedTasks;
       }
-      isLoading = false;
-      notifyListeners();
+      if (updateLoading) {
+        isLoading = false;
+        notifyListeners();
+      }
       return ApiResponse(success: true, status: "Success");
     } catch (e) {
-      isLoading = false;
-      notifyListeners();
+      if (updateLoading) {
+        isLoading = false;
+        notifyListeners();
+      }
       return ApiResponse(success: false, status: e.toString());
     }
   }
@@ -591,9 +605,12 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      final inspectionResponse = await getInspectionDetailsById(jobId);
-      await postInspectionTypeDetails(inspectionFormId);
-      await getComponentList();
+      final results = await Future.wait([
+        getInspectionDetailsById(jobId),
+        postInspectionTypeDetails(inspectionFormId, updateLoading: false),
+        getComponentList(),
+      ]);
+      final inspectionResponse = results[0];
       if (inspectionResponse.success == true &&
           inspectionResponse.data != null) {
         applySavedInspection(
