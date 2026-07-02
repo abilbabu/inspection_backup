@@ -147,17 +147,26 @@ class InspectionsummarypageController extends ChangeNotifier {
       });
       final attachments =
           result["data"]["jobCard"]["attachments"] as List? ?? [];
-      final Map<int, List<String>> imageMap = {};
-      final Map<int, String> videoMap = {};
-      final Map<int, String> audioMap = {};
+      final Map<int, Map<int, List<String>>> imageMap = {};
+      final Map<int, Map<int, String>> videoMap = {};
+      final Map<int, Map<int, String>> audioMap = {};
       for (final att in attachments) {
         final taskId = att["iaInspectionTaskId"];
-        if (taskId == null) continue;
+        final inspectionId = att["iaInspectionId"];
+        if (taskId == null || inspectionId == null) continue;
+        
+        final int taskInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+        final int inspInt = inspectionId is num ? inspectionId.toInt() : int.tryParse(inspectionId.toString()) ?? 0;
+        
         if (att["iaType"] == 0) {
-          imageMap.putIfAbsent(taskId, () => []).add(att["iaUrl"]);
+          imageMap.putIfAbsent(inspInt, () => {}).putIfAbsent(taskInt, () => []).add(att["iaUrl"]);
         }
-        if (att["iaType"] == 1) audioMap[taskId] = att["iaUrl"];
-        if (att["iaType"] == 2) videoMap[taskId] = att["iaUrl"];
+        if (att["iaType"] == 1) {
+          audioMap.putIfAbsent(inspInt, () => {})[taskInt] = att["iaUrl"];
+        }
+        if (att["iaType"] == 2) {
+          videoMap.putIfAbsent(inspInt, () => {})[taskInt] = att["iaUrl"];
+        }
       }
       groupedItems.clear();
       inspectionFormName = "";
@@ -183,6 +192,7 @@ class InspectionsummarypageController extends ChangeNotifier {
       for (final inspection in inspections) {
         final master = inspection["master"];
         if (master == null) continue;
+        final int vimId = master["vimId"] is num ? (master["vimId"] as num).toInt() : int.tryParse(master["vimId"].toString()) ?? 0;
         final int? inspType = master["vimInspectionType"];
         final int? ifMasterId = master["vimIfMasterId"];
         final tasks = inspection["inspectionTasks"] as List? ?? [];
@@ -242,12 +252,26 @@ class InspectionsummarypageController extends ChangeNotifier {
                 ? initialNote
                 : (existing?.initialNote ?? "");
 
-            final List<String> images = imageMap[taskId] ?? [];
-            final List<String> finalImages = images.isNotEmpty
-                ? images
-                : (existing?.imageUrls ?? []);
-            final String? finalVideo = videoMap[taskId] ?? existing?.videoUrl;
-            final String? finalAudio = audioMap[taskId] ?? existing?.audioUrl;
+            final int taskIntId = taskId is num ? taskId.toInt() : int.tryParse(taskId?.toString() ?? "") ?? 0;
+            final List<String> images = imageMap[vimId]?[taskIntId] ?? [];
+            final String? video = videoMap[vimId]?[taskIntId];
+            final String? audio = audioMap[vimId]?[taskIntId];
+
+            List<String> finalImages = [];
+            String? finalVideo;
+            String? finalAudio;
+
+            if (inspType == 2) {
+              // Re-inspection: do not fallback to previous run's media if no new media is taken
+              finalImages = images;
+              finalVideo = video;
+              finalAudio = audio;
+            } else {
+              // Initial or other run: fallback to previous existing media if not present in current run
+              finalImages = images.isNotEmpty ? images : (existing?.imageUrls ?? []);
+              finalVideo = video ?? existing?.videoUrl;
+              finalAudio = audio ?? existing?.audioUrl;
+            }
 
             final InspectionStatus? finalOriginalStatus = existing != null
                 ? (existing.originalStatus ?? existing.status)
