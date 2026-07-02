@@ -227,11 +227,14 @@ class _CardiagramScreenState extends State<CardiagramScreen> {
                           final basicController = context
                               .read<BasicinspController>();
                           controller.onNextPressed(context, (file) async {
+                            debugPrint("Uploading cardiagram image path: ${file.path}");
                             basicController.setDiagramFile(file);
-                            return await basicController.proceedStep(
+                            final result = await basicController.proceedStep(
                               jobId: basicController.jobId,
                               status: 2,
                             );
+                            debugPrint("Cardiagram upload result: $result");
+                            return result;
                           });
                         },
                 ),
