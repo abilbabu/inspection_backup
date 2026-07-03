@@ -254,6 +254,18 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   Widget _buildCommentsSummaryCard(
     InspectionsummarypageController summaryCtrl,
   ) {
+    final String techComm = summaryCtrl.previousTechnicianComment.trim().isEmpty
+        ? (summaryCtrl.technicianComment.trim().isEmpty ? "" : summaryCtrl.technicianComment)
+        : summaryCtrl.previousTechnicianComment;
+
+    final String supComm = summaryCtrl.previousSupervisorComment.trim().isEmpty
+        ? (summaryCtrl.supervisorComment.trim().isEmpty ? "" : summaryCtrl.supervisorComment)
+        : summaryCtrl.previousSupervisorComment;
+
+    final String saComm = summaryCtrl.previousSaComment.trim().isEmpty
+        ? (summaryCtrl.saComment.trim().isEmpty ? "" : summaryCtrl.saComment)
+        : summaryCtrl.previousSaComment;
+
     return Card(
       color: Colors.white,
       shape: RoundedRectangleBorder(
@@ -276,15 +288,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
             const Divider(height: 20),
             _buildCommentRow(
               "Technician Comment",
-              summaryCtrl.technicianComment,
+              techComm,
             ),
             const SizedBox(height: 12),
             _buildCommentRow(
               "Supervisor Comment",
-              summaryCtrl.supervisorComment,
+              supComm,
             ),
             const SizedBox(height: 12),
-            _buildCommentRow("Service Advisor Comment", summaryCtrl.saComment),
+            _buildCommentRow("Service Advisor Comment", saComm),
           ],
         ),
       ),

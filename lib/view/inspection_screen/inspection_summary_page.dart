@@ -746,50 +746,13 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
       ),
     );
   }
-  Widget _buildCommentCard({
-    required String title,
-    required String content,
-    required Color color,
-    required Color borderColor,
-    required Color textColor,
-  }) {
-    final String displayContent = content.trim().isEmpty ? "No comments" : content;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color,
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: ApptextstyleConstants.mediumText(
-              color: textColor,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            displayContent,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildPredefinedCommentsCard(InspectionsummarypageController controller) {
-    final String saComm = controller.saComment.trim().isEmpty ? "No comments" : controller.saComment;
-    final String supComm = controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment;
-    final String techComm = controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment;
+    final String saComm = controller.previousSaComment.trim().isEmpty ? (controller.saComment.trim().isEmpty ? "No comments" : controller.saComment) : controller.previousSaComment;
+    final String supComm = controller.previousSupervisorComment.trim().isEmpty ? (controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment) : controller.previousSupervisorComment;
+    final String techComm = controller.previousTechnicianComment.trim().isEmpty ? (controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment) : controller.previousTechnicianComment;
+
+    final bool showSaAndSup = (controller.jobStatus >= 10);
 
     return Container(
       width: double.infinity,
@@ -812,10 +775,12 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
             ),
           ),
           const Divider(height: 16, thickness: 1.2),
-          _buildSingleCommentRow("Service Advisor", saComm),
-          const SizedBox(height: 10),
-          _buildSingleCommentRow("Supervisor", supComm),
-          const SizedBox(height: 10),
+          if (showSaAndSup) ...[
+            _buildSingleCommentRow("Service Advisor", saComm),
+            const SizedBox(height: 10),
+            _buildSingleCommentRow("Supervisor", supComm),
+            const SizedBox(height: 10),
+          ],
           _buildSingleCommentRow("Technician", techComm),
         ],
       ),
@@ -826,6 +791,8 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     final String saComm = controller.saComment.trim().isEmpty ? "No comments" : controller.saComment;
     final String supComm = controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment;
     final String techComm = controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment;
+
+    final bool showSaAndSupRe = (controller.jobStatus == 9 || controller.jobStatus == 17 || controller.jobStatus == 19);
 
     return Container(
       width: double.infinity,
@@ -848,10 +815,12 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
             ),
           ),
           const Divider(height: 16, thickness: 1.2),
-          _buildSingleCommentRow("Service Advisor", saComm),
-          const SizedBox(height: 10),
-          _buildSingleCommentRow("Supervisor", supComm),
-          const SizedBox(height: 10),
+          if (showSaAndSupRe) ...[
+            _buildSingleCommentRow("Service Advisor", saComm),
+            const SizedBox(height: 10),
+            _buildSingleCommentRow("Supervisor", supComm),
+            const SizedBox(height: 10),
+          ],
           _buildSingleCommentRow("Technician", techComm),
         ],
       ),
