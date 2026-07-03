@@ -119,6 +119,14 @@ class _JobCardDetailsState extends State<JobCardDetails> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<InspectionsummarypageController>();
+    final authCtrl = context.watch<AuthenticationController>();
+    final int userDept = authCtrl.userDepartment;
+    final bool isJobCardDept =
+        userDept == 2 || userDept == 4 || userDept == 5;
+    final bool isHistoryTab = isJobCardDept
+        ? (authCtrl.currentIndex == 1)
+        : (authCtrl.currentIndex == 2);
+
     return Stack(
       children: [
         PopScope(
@@ -217,7 +225,8 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                               ),
                             ),
                           if (jobController.isTechnicianAssigned &&
-                              userDepartment != 3) ...[
+                              userDepartment != 3 &&
+                              !isHistoryTab) ...[
                             SizedBox(height: 16),
                             Container(
                               width: double.infinity,
@@ -267,10 +276,14 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                             ),
                           ],
                           SizedBox(height: 12),
-                          if (userDepartment != 2 &&
-                              userDepartment != 4 &&
-                              userDepartment != 5) ...[
-                            _shareOptions(context),
+                          if (isHistoryTab ||
+                              (userDepartment != 2 &&
+                                  userDepartment != 4 &&
+                                  userDepartment != 5)) ...[
+                            if (userDepartment != 2 &&
+                                userDepartment != 4 &&
+                                userDepartment != 5)
+                              _shareOptions(context),
                             _customerDetilas(
                               customer,
                               jobController,
@@ -324,8 +337,13 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 );
                               },
                             ),
-                          if ([6, 7, 8, 9].contains(jobStatus))
+                          if ([6, 7, 8, 9, 12, 14, 15, 16, 17, 18, 19].contains(jobStatus)) ...[
                             _inspectionsummarypage(context, controller),
+                            if (controller.hasReinspection) ...[
+                              SizedBox(height: 5),
+                              _reinspectionsummarypage(context, controller),
+                            ],
+                          ],
                         ],
                       ),
                     ],
@@ -464,7 +482,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                 Expanded(
                   child: Center(
                     child: Text(
-                      "${controller.vimInspectionTypeId == 2 ? 'Custom Inspection' : controller.inspectionFormName} - In Progress",
+                      "${controller.inspectionFormName} - In Progress",
                       textAlign: TextAlign.center,
                       style: ApptextstyleConstants.thinText(
                         fontSize: 16,
@@ -524,9 +542,69 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          controller.vimInspectionTypeId == 2
-                              ? "Custom Inspection"
-                              : controller.inspectionFormName,
+                          controller.inspectionFormName,
+                          textAlign: TextAlign.center,
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 16,
+                            color: ColorConstants.textcolor2,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _reinspectionsummarypage(
+    BuildContext context,
+    InspectionsummarypageController controller,
+  ) {
+    return InkWell(
+      onTap: () {
+        context.go(
+          "/inspectionsummarypage",
+          extra: {"jobId": widget.jobId, "flag": 2},
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        margin: EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: ColorConstants.whiteColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: ColorConstants.dashboardboxShadow,
+        ),
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(width: 15),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    "assets/image/Car_logo.png",
+                    height: 50,
+                    width: 50,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Re-Inspection Summary",
                           textAlign: TextAlign.center,
                           style: ApptextstyleConstants.thinText(
                             fontSize: 16,

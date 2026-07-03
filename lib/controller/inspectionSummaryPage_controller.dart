@@ -19,8 +19,13 @@ class InspectionsummarypageController extends ChangeNotifier {
   bool isPredefinedInspectionAssigned = false;
   bool isCustomInspectionAssigned = false;
   String technicianComment = "";
+  String previousTechnicianComment = "";
   String supervisorComment = "";
+  String previousSupervisorComment = "";
   String saComment = "";
+  String previousSaComment = "";
+  bool hasReinspection = false;
+  int jobStatus = 0;
 
   final SpeechToText _speechToText = SpeechToText();
 
@@ -135,6 +140,9 @@ class InspectionsummarypageController extends ChangeNotifier {
       final inspections = List.from(
         result["data"]["inspections"] as List? ?? [],
       );
+      hasReinspection = inspections.any((insp) =>
+          insp["master"]?["vimInspectionType"] == 2 ||
+          insp["master"]?["vimInspectionType"]?.toString() == "2");
       for (int i = 0; i < inspections.length; i++) {
         final insp = inspections[i];
         final _ = insp["master"] ?? {};
@@ -145,8 +153,10 @@ class InspectionsummarypageController extends ChangeNotifier {
         final bId = b["master"]?["vimId"] as num? ?? 0;
         return aId.compareTo(bId);
       });
+      final jobCard = result["data"]["jobCard"] ?? {};
+      jobStatus = int.tryParse(jobCard["jobStatus"]?.toString() ?? "") ?? 0;
       final attachments =
-          result["data"]["jobCard"]["attachments"] as List? ?? [];
+          jobCard["attachments"] as List? ?? [];
       final Map<int, Map<int, List<String>>> imageMap = {};
       final Map<int, Map<int, String>> videoMap = {};
       final Map<int, Map<int, String>> audioMap = {};
@@ -159,7 +169,20 @@ class InspectionsummarypageController extends ChangeNotifier {
         final int inspInt = inspectionId is num ? inspectionId.toInt() : int.tryParse(inspectionId.toString()) ?? 0;
         
         if (att["iaType"] == 0) {
-          imageMap.putIfAbsent(inspInt, () => {}).putIfAbsent(taskInt, () => []).add(att["iaUrl"]);
+          final list = imageMap
+              .putIfAbsent(inspInt, () => {})
+              .putIfAbsent(taskInt, () => []);
+          final String currentUrl = att["iaUrl"]?.toString() ?? "";
+          if (currentUrl.isNotEmpty) {
+            final String currentFilename = currentUrl.split('/').last.split('?').first;
+            final bool alreadyExists = list.any((url) {
+              final String existingFilename = url.split('/').last.split('?').first;
+              return existingFilename == currentFilename;
+            });
+            if (!alreadyExists) {
+              list.add(currentUrl);
+            }
+          }
         }
         if (att["iaType"] == 1) {
           audioMap.putIfAbsent(inspInt, () => {})[taskInt] = att["iaUrl"];
@@ -174,8 +197,12 @@ class InspectionsummarypageController extends ChangeNotifier {
       isPredefinedInspectionAssigned = false;
       isCustomInspectionAssigned = false;
       technicianComment = "";
+      previousTechnicianComment = "";
       supervisorComment = "";
+      previousSupervisorComment = "";
       saComment = "";
+      previousSaComment = "";
+      jobStatus = 0;
       if (inspections.length > 1) {
         isInspectionAssigned = true;
         final assignedInspection = inspections[1];
@@ -204,17 +231,31 @@ class InspectionsummarypageController extends ChangeNotifier {
         final String supComm = master["vimSupervisorComment"]?.toString() ?? "";
         final String serviceComm = master["vimSaComment"]?.toString() ?? "";
 
-        technicianComment = techComm;
-        if (supComm.trim().isNotEmpty) {
+        if (inspType == 2) {
+          technicianComment = techComm;
           supervisorComment = supComm;
-        }
-        if (serviceComm.trim().isNotEmpty) {
           saComment = serviceComm;
+        } else {
+          previousTechnicianComment = techComm;
+          if (technicianComment.isEmpty) {
+            technicianComment = techComm;
+          }
+          previousSupervisorComment = supComm;
+          if (supervisorComment.isEmpty) {
+            supervisorComment = supComm;
+          }
+          previousSaComment = serviceComm;
+          if (saComment.isEmpty) {
+            saComment = serviceComm;
+          }
         }
-        if (inspType == 1) {
-          inspectionFormName = master["formName"]?.toString() ?? "";
-        } else if (inspType == 2 || ifMasterId == null) {
+        if (master["formName"] != null &&
+            master["formName"].toString().trim().isNotEmpty) {
+          inspectionFormName = master["formName"].toString();
+        } else if (ifMasterId == null || ifMasterId == 0) {
           inspectionFormName = "Custom Inspection";
+        } else {
+          inspectionFormName = "Inspection Report";
         }
         if (tasks.isEmpty) continue;
         for (final category in tasks) {
@@ -245,12 +286,6 @@ class InspectionsummarypageController extends ChangeNotifier {
             final String note = (task["viNote"] ?? "").toString();
             final String initialNote = (task["viDescription"] ?? "").toString();
 
-            final String finalNote = note.trim().isNotEmpty
-                ? note
-                : (existing?.note ?? "");
-            final String finalInitialNote = initialNote.trim().isNotEmpty
-                ? initialNote
-                : (existing?.initialNote ?? "");
 
             final int taskIntId = taskId is num ? taskId.toInt() : int.tryParse(taskId?.toString() ?? "") ?? 0;
             final List<String> images = imageMap[vimId]?[taskIntId] ?? [];
@@ -260,17 +295,34 @@ class InspectionsummarypageController extends ChangeNotifier {
             List<String> finalImages = [];
             String? finalVideo;
             String? finalAudio;
+            String finalNote = "";
+            String finalInitialNote = "";
+
+            List<String> reImages = const [];
+            String? reVideo;
+            String? reAudio;
+            String? reNote;
 
             if (inspType == 2) {
-              // Re-inspection: do not fallback to previous run's media if no new media is taken
+              // Re-inspection: Keep the initial run's media from 'existing'
+              finalImages = existing?.imageUrls ?? [];
+              finalVideo = existing?.videoUrl;
+              finalAudio = existing?.audioUrl;
+              finalNote = existing?.note ?? "";
+              finalInitialNote = existing?.initialNote ?? "";
+
+              // Re-inspection media goes to separate fields
+              reImages = images;
+              reVideo = video;
+              reAudio = audio;
+              reNote = note;
+            } else {
+              // Initial or other run: media goes to the main fields
               finalImages = images;
               finalVideo = video;
               finalAudio = audio;
-            } else {
-              // Initial or other run: fallback to previous existing media if not present in current run
-              finalImages = images.isNotEmpty ? images : (existing?.imageUrls ?? []);
-              finalVideo = video ?? existing?.videoUrl;
-              finalAudio = audio ?? existing?.audioUrl;
+              finalNote = note;
+              finalInitialNote = initialNote;
             }
 
             final InspectionStatus? finalOriginalStatus = existing != null
@@ -296,6 +348,10 @@ class InspectionsummarypageController extends ChangeNotifier {
               note: finalNote,
               initialNote: finalInitialNote,
               viReInspection: isReInspection || wasReInspection,
+              reInspectionImageUrls: reImages,
+              reInspectionVideoUrl: reVideo,
+              reInspectionAudioUrl: reAudio,
+              reInspectionNote: reNote,
             );
           }
         }

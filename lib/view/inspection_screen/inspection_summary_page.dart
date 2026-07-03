@@ -35,6 +35,11 @@ class InspectionItem {
   final String initialNote;
   final bool viReInspection;
 
+  final List<String> reInspectionImageUrls;
+  final String? reInspectionVideoUrl;
+  final String? reInspectionAudioUrl;
+  final String? reInspectionNote;
+
   InspectionItem({
     required this.title,
     required this.status,
@@ -52,6 +57,10 @@ class InspectionItem {
     required this.imageUrls,
     this.videoUrl,
     this.viReInspection = false,
+    this.reInspectionImageUrls = const [],
+    this.reInspectionVideoUrl,
+    this.reInspectionAudioUrl,
+    this.reInspectionNote,
   });
 }
 
@@ -153,7 +162,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                                return getWeight(a.originalStatus ?? a.status).compareTo(getWeight(b.originalStatus ?? b.status));
                              });
                              final bool isCustom = controller.isCustomInspectionAssigned || controller.vimIfMasterId == null || controller.vimIfMasterId == 0;
-                             if (isCustom || reInspectionItems.isEmpty) return const SizedBox.shrink();
+                             if (isCustom || reInspectionItems.isEmpty || widget.flag == 2) return const SizedBox.shrink();
                             return Container(
                               width: double.infinity,
                               margin: const EdgeInsets.only(bottom: 12),
@@ -238,37 +247,10 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                             );
                           },
                         ),
-                        if (controller.technicianComment.isNotEmpty) ...[
-                          Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              border: Border.all(color: Colors.blue.shade300),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "TECHNICIAN COMMENTS",
-                                  style: ApptextstyleConstants.mediumText(
-                                    color: Colors.blue.shade900,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  controller.technicianComment,
-                                  style: const TextStyle(
-                                    color: Colors.black87,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        if (widget.flag == 2) ...[
+                          _buildReinspectionCommentsCard(controller),
+                        ] else ...[
+                          _buildPredefinedCommentsCard(controller),
                         ],
                         Builder(
                           builder: (context) {
@@ -412,9 +394,9 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
   Widget _summaryRadio(
     String label,
     InspectionStatus status,
-    InspectionItem item,
+    InspectionStatus displayStatus,
   ) {
-    final bool isSelected = item.status == status;
+    final bool isSelected = displayStatus == status;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -448,21 +430,27 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
   }
 
   Widget _buildInspectionItem(InspectionItem item) {
+    final displayStatus = (widget.flag == 1) ? (item.originalStatus ?? item.status) : item.status;
+    final List<String> displayImages = (widget.flag == 2) ? item.reInspectionImageUrls : item.imageUrls;
+    final String? displayVideo = (widget.flag == 2) ? item.reInspectionVideoUrl : item.videoUrl;
+    final String? displayAudio = (widget.flag == 2) ? item.reInspectionAudioUrl : item.audioUrl;
+    final String displayNote = (widget.flag == 2) ? (item.reInspectionNote ?? "") : item.note;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Card(
         elevation: 3,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: _borderColor(item.status), width: 2),
+          side: BorderSide(color: _borderColor(displayStatus), width: 2),
         ),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             gradient: LinearGradient(
               colors: [
-                _borderColor(item.status).withOpacity(0.08),
-                _borderColor(item.status).withOpacity(0.04),
+                _borderColor(displayStatus).withOpacity(0.08),
+                _borderColor(displayStatus).withOpacity(0.04),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -485,74 +473,46 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     if (item.allowGood)
-                      _summaryRadio("Good", InspectionStatus.good, item),
+                      _summaryRadio("Good", InspectionStatus.good, displayStatus),
 
                     if (item.allowRepair)
-                      _summaryRadio("Repair", InspectionStatus.repair, item),
+                      _summaryRadio("Repair", InspectionStatus.repair, displayStatus),
 
                     if (item.allowPoor)
-                      _summaryRadio("Poor", InspectionStatus.poor, item),
+                      _summaryRadio("Poor", InspectionStatus.poor, displayStatus),
 
                     if (item.allowReplace)
-                      _summaryRadio("Replace", InspectionStatus.replace, item),
+                      _summaryRadio("Replace", InspectionStatus.replace, displayStatus),
 
                     if (item.allowNA)
-                      _summaryRadio("N/A", InspectionStatus.na, item),
+                      _summaryRadio("N/A", InspectionStatus.na, displayStatus),
                   ],
                 ),
 
                 SizedBox(height: 8),
 
-                if (item.imageUrls.isNotEmpty || item.videoUrl != null) ...[
+                if (displayImages.isNotEmpty || displayVideo != null) ...[
                   SizedBox(height: 8),
-                  _buildMediaWithNote(item, context),
+                  _buildMediaWithNote(
+                    title: item.title,
+                    imageUrls: displayImages,
+                    videoUrl: displayVideo,
+                    note: displayNote,
+                    context: context,
+                  ),
                 ],
 
-                SizedBox(height: 8),
-                if (item.audioUrl != null)
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: ColorConstants.blackColor),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: SizedBox(
-                      height: 45,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.audio_file,
-                                size: 20,
-                                color: ColorConstants.greenColor,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                "Recorded Audio",
-                                style: ApptextstyleConstants.thinText(
-                                  fontSize: 12,
-                                  color: ColorConstants.lightblackColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              (_currentlyPlayingUrl == item.audioUrl &&
-                                      _isPlaying)
-                                  ? Icons.pause
-                                  : Icons.play_arrow,
-                              size: 22,
-                              color: ColorConstants.greenColor,
-                            ),
-                            onPressed: () => _toggleAudio(item.audioUrl!),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                if (displayAudio != null) ...[
+                  SizedBox(height: 8),
+                  _audioPlayerWidget(displayAudio, context),
+                ],
+
+                Builder(
+                  builder: (context) {
+                    return const SizedBox.shrink();
+                  }
+                ),
+
                 if (item.initialNote.trim().isNotEmpty) ...[
                   SizedBox(height: 8),
                   Container(
@@ -581,12 +541,18 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     );
   }
 
-  Widget _buildMediaWithNote(InspectionItem item, BuildContext context) {
-    final images = item.imageUrls.take(3).toList();
+  Widget _buildMediaWithNote({
+    required String title,
+    required List<String> imageUrls,
+    required String? videoUrl,
+    required String note,
+    required BuildContext context,
+  }) {
+    final images = imageUrls.take(3).toList();
     final int imageCount = images.length;
-    final bool hasVideo = item.videoUrl != null;
+    final bool hasVideo = videoUrl != null;
     Widget noteWidget() {
-      if (item.note.trim().isEmpty) return const SizedBox.shrink();
+      if (note.trim().isEmpty) return const SizedBox.shrink();
       return Container(
         height: 50,
         width: double.infinity,
@@ -598,7 +564,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            item.note,
+            note,
             style: ApptextstyleConstants.thinText(fontSize: 14),
           ),
         ),
@@ -608,7 +574,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _mediaImage(images[0], item.title, context),
+          _mediaImage(images[0], title, context),
           const SizedBox(width: 12),
           Expanded(child: noteWidget()),
         ],
@@ -618,7 +584,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _mediaVideo(item.videoUrl!, item.title, context),
+          _mediaVideo(videoUrl, title, context),
           const SizedBox(width: 12),
           Expanded(child: noteWidget()),
         ],
@@ -630,9 +596,9 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         children: [
           Row(
             children: [
-              _mediaImage(images[0], item.title, context),
+              _mediaImage(images[0], title, context),
               const SizedBox(width: 10),
-              _mediaVideo(item.videoUrl!, item.title, context),
+              _mediaVideo(videoUrl, title, context),
             ],
           ),
           const SizedBox(height: 10),
@@ -650,10 +616,10 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
               ...images.map(
                 (img) => Padding(
                   padding: const EdgeInsets.only(right: 10),
-                  child: _mediaImage(img, item.title, context),
+                  child: _mediaImage(img, title, context),
                 ),
               ),
-              _mediaVideo(item.videoUrl!, item.title, context),
+              _mediaVideo(videoUrl, title, context),
             ],
           ),
           const SizedBox(height: 10),
@@ -672,7 +638,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                 : MainAxisAlignment.start, // ✅ 2 images
             children: [
               for (int i = 0; i < imageCount; i++) ...[
-                _mediaImage(images[i], item.title, context),
+                _mediaImage(images[i], title, context),
                 if (imageCount == 2 && i == 0) const SizedBox(width: 10),
               ],
             ],
@@ -733,6 +699,183 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
           size: 32,
         ),
       ),
+    );
+  }
+
+  Widget _audioPlayerWidget(String audioUrl, BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: ColorConstants.blackColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: SizedBox(
+        height: 45,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.audio_file,
+                  size: 20,
+                  color: ColorConstants.greenColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  "Recorded Audio",
+                  style: ApptextstyleConstants.thinText(
+                    fontSize: 12,
+                    color: ColorConstants.lightblackColor,
+                  ),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: Icon(
+                (_currentlyPlayingUrl == audioUrl && _isPlaying)
+                    ? Icons.pause
+                    : Icons.play_arrow,
+                size: 22,
+                color: ColorConstants.greenColor,
+              ),
+              onPressed: () => _toggleAudio(audioUrl),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  Widget _buildCommentCard({
+    required String title,
+    required String content,
+    required Color color,
+    required Color borderColor,
+    required Color textColor,
+  }) {
+    final String displayContent = content.trim().isEmpty ? "No comments" : content;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color,
+        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: ApptextstyleConstants.mediumText(
+              color: textColor,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            displayContent,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPredefinedCommentsCard(InspectionsummarypageController controller) {
+    final String saComm = controller.saComment.trim().isEmpty ? "No comments" : controller.saComment;
+    final String supComm = controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment;
+    final String techComm = controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.shade50,
+        border: Border.all(color: Colors.blueGrey.shade300),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "INSPECTION COMMENTS",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: ColorConstants.textBlueColor,
+            ),
+          ),
+          const Divider(height: 16, thickness: 1.2),
+          _buildSingleCommentRow("Service Advisor", saComm),
+          const SizedBox(height: 10),
+          _buildSingleCommentRow("Supervisor", supComm),
+          const SizedBox(height: 10),
+          _buildSingleCommentRow("Technician", techComm),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReinspectionCommentsCard(InspectionsummarypageController controller) {
+    final String saComm = controller.saComment.trim().isEmpty ? "No comments" : controller.saComment;
+    final String supComm = controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment;
+    final String techComm = controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.shade50,
+        border: Border.all(color: Colors.blueGrey.shade300),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "RE-INSPECTION COMMENTS",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: ColorConstants.textBlueColor,
+            ),
+          ),
+          const Divider(height: 16, thickness: 1.2),
+          _buildSingleCommentRow("Service Advisor", saComm),
+          const SizedBox(height: 10),
+          _buildSingleCommentRow("Supervisor", supComm),
+          const SizedBox(height: 10),
+          _buildSingleCommentRow("Technician", techComm),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSingleCommentRow(String label, String content) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          content,
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+      ],
     );
   }
 }

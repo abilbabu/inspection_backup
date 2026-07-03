@@ -61,7 +61,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
               true ||
           item["vinNo"]?.toString().toLowerCase().contains(searchText) == true;
       if (userDepartment == 2 || userDepartment == 4 || userDepartment == 5) {
-        return (status == 6 || status == 12) && searchMatch;
+        return (status == 6 || status == 12 || status == 9 || status == 14) && searchMatch;
       }
       return [6, 7, 8, 9, 12, 14, 15, 16, 17, 18, 19].contains(status) && searchMatch;
     }).toList();
@@ -81,7 +81,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: "History JobCard List",
+        title: "JobCard List History",
         onBackPress: () {
           context.go('/history');
         },
@@ -209,7 +209,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
         final int jobId = rawJobId is int
             ? rawJobId
             : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
-        if ([6, 7, 8, 9, 12].contains(jobStatus)) {
+        if ([6, 7, 8, 9, 12, 14, 15, 16, 17, 18, 19].contains(jobStatus)) {
           context.go("/jobcarddetails", extra: jobId);
         }
       },
