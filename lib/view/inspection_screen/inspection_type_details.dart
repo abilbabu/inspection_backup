@@ -1260,21 +1260,6 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                             tempCardController.noteController.text = task.note;
                             tempCardController.descriptionController.text =
                                 task.description;
-                            if (task.imageFiles != null &&
-                                task.imageFiles!.isNotEmpty) {
-                              for (
-                                int i = 0;
-                                i < task.imageFiles!.length &&
-                                    i <
-                                        tempCardController
-                                            .capturedImages
-                                            .length;
-                                i++
-                              ) {
-                                tempCardController.capturedImages[i] =
-                                    task.imageFiles![i];
-                              }
-                            }
                             await tempCardController.saveSingleInspectionTask(
                               status: 5,
                               jobId: widget.jobId,
