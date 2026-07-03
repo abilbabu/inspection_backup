@@ -7,6 +7,7 @@ import 'package:inspection/controller/inspectionFormController.dart';
 import 'package:inspection/controller/inspectionTypeDetails_controller.dart';
 import 'package:inspection/controller/inspectionDetails_controller.dart';
 import 'package:inspection/controller/inspectionSummaryPage_controller.dart';
+import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
@@ -64,6 +65,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       final detailsCtrl = context.read<InspectionTypeDetailsController>();
       final formCtrl = context.read<InspectionFormController>();
       final detailsCtrl2 = context.read<InspectionDetailsController>();
+      final jobCardCtrl = context.read<JobcarddetailsController>();
 
       await summaryCtrl.getInspectionSummary(widget.jobId);
 
@@ -75,6 +77,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       await detailsCtrl.postInspectionTypeDetails(inspectionFormId);
       await detailsCtrl.getComponentList();
       await detailsCtrl2.loadLoginTechnicianId();
+      await jobCardCtrl.postJobCardDetails(widget.jobId);
 
       if (inspectionResponse.success == true &&
           inspectionResponse.data != null) {
@@ -163,6 +166,16 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     final detailsCtrl = context.watch<InspectionTypeDetailsController>();
     final formCtrl = context.watch<InspectionFormController>();
     final detailsCtrl2 = context.watch<InspectionDetailsController>();
+    final jobCardCtrl = context.watch<JobcarddetailsController>();
+
+    final int jobStatus = summaryCtrl.jobStatus;
+    final bool showEditable = (userDepartment == 4) ||
+        ((userDepartment == 0 || userDepartment == 1) &&
+            (jobStatus == 18 || jobStatus == 11));
+
+    final bool showAssignment = (userDepartment == 2 || userDepartment == 5) ||
+        ((userDepartment == 0 || userDepartment == 1) &&
+            (jobStatus != 18 && jobStatus != 11));
 
     return PopScope(
       canPop: false,
@@ -191,7 +204,31 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     VehicleSummaryWidget(jobId: widget.jobId),
                     const SizedBox(height: 16),
                     _buildCommentsSummaryCard(summaryCtrl),
-                    if (userDepartment == 0 || userDepartment == 1||userDepartment == 2 || userDepartment == 5) ...[
+                    if (jobCardCtrl.isTechnicianAssigned == true &&
+                        jobCardCtrl.assignedTechnicianName != null &&
+                        jobCardCtrl.assignedTechnicianName!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: ColorConstants.greenColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: ColorConstants.greenColor),
+                        ),
+                        child: Center(
+                          child: Text(
+                            "Assigned Technician : ${jobCardCtrl.assignedTechnicianName?.split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ')}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: ColorConstants.greenColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    if (showAssignment) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 24),
                       CustomButtonWidget(
@@ -200,7 +237,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         onPressed: () =>
                             showTechnicianBottomSheet(context, detailsCtrl2),
                       ),
-                    ] else if (userDepartment == 0 || userDepartment == 1|| userDepartment == 4) ...[
+                    ] else if (showEditable) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 20),
                       Text(

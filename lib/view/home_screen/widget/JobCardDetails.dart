@@ -319,7 +319,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                             ),
                           if ((userDepartment == 0 || userDepartment == 1) &&
                               jobController.isTechnicianAssigned &&
-                              ![5, 6, 7, 8, 9, 10].contains(jobStatus))
+                              ![5, 6, 7, 8, 9, 10,11,12,13,14,15,16,17,18,19].contains(jobStatus))
                             Builder(
                               builder: (context) {
                                 final item = jobController.jobcardList
