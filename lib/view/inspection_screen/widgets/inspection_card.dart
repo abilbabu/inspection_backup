@@ -98,17 +98,17 @@ class _InspectionCardState extends State<InspectionCard> {
 
   @override
   Widget build(BuildContext context) {
-    final assemblyCode =
-        ((widget.assemblyCodeName?.trim().isNotEmpty ?? false) &&
-            (widget.assemblyCodeDesc?.trim().isNotEmpty ?? false))
-        ? "${widget.assemblyCodeName}-${widget.assemblyCodeDesc}"
-        : "####";
+    // final assemblyCode =
+    //     ((widget.assemblyCodeName?.trim().isNotEmpty ?? false) &&
+    //         (widget.assemblyCodeDesc?.trim().isNotEmpty ?? false))
+    //     ? "${widget.assemblyCodeName}-${widget.assemblyCodeDesc}"
+    //     : "####";
 
-    final groupName =
-        ((widget.repairGroupName?.trim().isNotEmpty ?? false) &&
-            (widget.repairGroupDesc?.trim().isNotEmpty ?? false))
-        ? "${widget.repairGroupName}-${widget.repairGroupDesc}"
-        : "####";
+    // final groupName =
+    //     ((widget.repairGroupName?.trim().isNotEmpty ?? false) &&
+    //         (widget.repairGroupDesc?.trim().isNotEmpty ?? false))
+    //     ? "${widget.repairGroupName}-${widget.repairGroupDesc}"
+    //     : "####";
 
     double fieldHeight = MediaQuery.of(context).size.width > 600 ? 45 : 40;
     return Consumer<InspectioncardController>(
@@ -133,50 +133,50 @@ class _InspectionCardState extends State<InspectionCard> {
                     fontSize: 14,
                   ),
                 ),
-                SizedBox(height: 5),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: ColorConstants.holdorangeColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: ColorConstants.holdorangeColor,
-                        ),
-                      ),
-                      child: Text(
-                        "Assembly Code : $assemblyCode",
-                        style: const TextStyle(
-                          color: ColorConstants.holdorangeColor,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.deepPurple.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.deepPurple),
-                      ),
-                      child: Text(
-                        "Group Name : $groupName",
-                        style: const TextStyle(
-                          color: Colors.deepPurple,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                // SizedBox(height: 5),
+                // Row(
+                //   children: [
+                //     Container(
+                //       padding: const EdgeInsets.symmetric(
+                //         horizontal: 5,
+                //         vertical: 2,
+                //       ),
+                //       decoration: BoxDecoration(
+                //         color: ColorConstants.holdorangeColor.withOpacity(0.12),
+                //         borderRadius: BorderRadius.circular(20),
+                //         border: Border.all(
+                //           color: ColorConstants.holdorangeColor,
+                //         ),
+                //       ),
+                //       child: Text(
+                //         "Assembly Code : $assemblyCode",
+                //         style: const TextStyle(
+                //           color: ColorConstants.holdorangeColor,
+                //           fontSize: 10,
+                //         ),
+                //       ),
+                //     ),
+                //     SizedBox(width: 5),
+                //     Container(
+                //       padding: const EdgeInsets.symmetric(
+                //         horizontal: 5,
+                //         vertical: 2,
+                //       ),
+                //       decoration: BoxDecoration(
+                //         color: Colors.deepPurple.withOpacity(0.12),
+                //         borderRadius: BorderRadius.circular(20),
+                //         border: Border.all(color: Colors.deepPurple),
+                //       ),
+                //       child: Text(
+                //         "Group Name : $groupName",
+                //         style: const TextStyle(
+                //           color: Colors.deepPurple,
+                //           fontSize: 10,
+                //         ),
+                //       ),
+                //     ),
+                //   ],
+                // ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
