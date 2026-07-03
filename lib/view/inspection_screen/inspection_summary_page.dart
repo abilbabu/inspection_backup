@@ -107,7 +107,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
-        if (widget.flag == 1) {
+        if (widget.flag == 1 || widget.flag == 2) {
           context.go("/jobcarddetails", extra: widget.jobId);
         } else {
           context.go("/home", extra: widget.jobId);
@@ -118,7 +118,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         appBar: CustomAppBar(
           title: widget.flag == 2 ? 'Re-Inspection Summary' : 'Inspection Summary',
           onBackPress: () {
-            if (widget.flag == 1) {
+            if (widget.flag == 1 || widget.flag == 2) {
               context.go("/jobcarddetails", extra: widget.jobId);
             } else {
               context.go("/home", extra: widget.jobId);
@@ -231,7 +231,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                                                        ? Colors.red
                                                        : originalStatus == InspectionStatus.repair
                                                            ? Colors.orange
-                                                           : Colors.grey,
+                                                           : Colors.blue,
                                                    fontSize: 10,
                                                    fontWeight: FontWeight.bold,
                                                  ),
@@ -248,7 +248,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                           },
                         ),
                         if (widget.flag == 2) ...[
-                          _buildReinspectionCommentsCard(controller),
+                         _buildPredefinedCommentsCard(controller),
                         ] else ...[
                           _buildPredefinedCommentsCard(controller),
                         ],
@@ -355,7 +355,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                               textColor: ColorConstants.whiteColor,
                               textSize: 16,
                               onPressed: () {
-                                if (widget.flag == 1) {
+                                if (widget.flag == 1 || widget.flag == 2) {
                                   context.go(
                                     "/jobcarddetails",
                                     extra: widget.jobId,
@@ -752,7 +752,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     final String supComm = controller.previousSupervisorComment.trim().isEmpty ? (controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment) : controller.previousSupervisorComment;
     final String techComm = controller.previousTechnicianComment.trim().isEmpty ? (controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment) : controller.previousTechnicianComment;
 
-    final bool showSaAndSup = (controller.jobStatus >= 10);
+    final bool showSaAndSup = (controller.jobStatus >= 10 || controller.jobStatus == 9 || controller.jobStatus == 17 || controller.jobStatus == 19 || widget.flag == 2);
 
     return Container(
       width: double.infinity,
@@ -787,45 +787,45 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     );
   }
 
-  Widget _buildReinspectionCommentsCard(InspectionsummarypageController controller) {
-    final String saComm = controller.saComment.trim().isEmpty ? "No comments" : controller.saComment;
-    final String supComm = controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment;
-    final String techComm = controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment;
+  // Widget _buildReinspectionCommentsCard(InspectionsummarypageController controller) {
+  //   final String saComm = controller.saComment.trim().isEmpty ? "No comments" : controller.saComment;
+  //   final String supComm = controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment;
+  //   final String techComm = controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment;
 
-    final bool showSaAndSupRe = (controller.jobStatus == 9 || controller.jobStatus == 17 || controller.jobStatus == 19);
+  //   final bool showSaAndSupRe = (controller.jobStatus == 9 || controller.jobStatus == 17 || controller.jobStatus == 19);
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.blueGrey.shade50,
-        border: Border.all(color: Colors.blueGrey.shade300),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "RE-INSPECTION COMMENTS",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: ColorConstants.textBlueColor,
-            ),
-          ),
-          const Divider(height: 16, thickness: 1.2),
-          if (showSaAndSupRe) ...[
-            _buildSingleCommentRow("Service Advisor", saComm),
-            const SizedBox(height: 10),
-            _buildSingleCommentRow("Supervisor", supComm),
-            const SizedBox(height: 10),
-          ],
-          _buildSingleCommentRow("Technician", techComm),
-        ],
-      ),
-    );
-  }
+  //   return Container(
+  //     width: double.infinity,
+  //     margin: const EdgeInsets.only(bottom: 12),
+  //     padding: const EdgeInsets.all(14),
+  //     decoration: BoxDecoration(
+  //       color: Colors.blueGrey.shade50,
+  //       border: Border.all(color: Colors.blueGrey.shade300),
+  //       borderRadius: BorderRadius.circular(10),
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         const Text(
+  //           "RE-INSPECTION COMMENTS",
+  //           style: TextStyle(
+  //             fontWeight: FontWeight.bold,
+  //             fontSize: 14,
+  //             color: ColorConstants.textBlueColor,
+  //           ),
+  //         ),
+  //         const Divider(height: 16, thickness: 1.2),
+  //         if (showSaAndSupRe) ...[
+  //           _buildSingleCommentRow("Service Advisor", saComm),
+  //           const SizedBox(height: 10),
+  //           _buildSingleCommentRow("Supervisor", supComm),
+  //           const SizedBox(height: 10),
+  //         ],
+  //         _buildSingleCommentRow("Technician", techComm),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildSingleCommentRow(String label, String content) {
     return Column(

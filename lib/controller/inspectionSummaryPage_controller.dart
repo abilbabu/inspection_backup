@@ -137,6 +137,18 @@ class InspectionsummarypageController extends ChangeNotifier {
         body: jsonEncode({"jobId": jobId}),
       );
       final result = jsonDecode(response.body);
+      groupedItems.clear();
+      inspectionFormName = "";
+      isInspectionAssigned = false;
+      isPredefinedInspectionAssigned = false;
+      isCustomInspectionAssigned = false;
+      technicianComment = "";
+      previousTechnicianComment = "";
+      supervisorComment = "";
+      previousSupervisorComment = "";
+      saComment = "";
+      previousSaComment = "";
+      jobStatus = 0;
       final inspections = List.from(
         result["data"]["inspections"] as List? ?? [],
       );
@@ -191,18 +203,6 @@ class InspectionsummarypageController extends ChangeNotifier {
           videoMap.putIfAbsent(inspInt, () => {})[taskInt] = att["iaUrl"];
         }
       }
-      groupedItems.clear();
-      inspectionFormName = "";
-      isInspectionAssigned = false;
-      isPredefinedInspectionAssigned = false;
-      isCustomInspectionAssigned = false;
-      technicianComment = "";
-      previousTechnicianComment = "";
-      supervisorComment = "";
-      previousSupervisorComment = "";
-      saComment = "";
-      previousSaComment = "";
-      jobStatus = 0;
       if (inspections.length > 1) {
         isInspectionAssigned = true;
         final assignedInspection = inspections[1];
