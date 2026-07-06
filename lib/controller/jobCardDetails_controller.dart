@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 class JobcarddetailsController extends ChangeNotifier {
   bool isLoading = false;
   bool hasLoaded = false;
+  int? loadedJobId;
 
   Map<String, dynamic>? jobCardData;
   Map<String, dynamic>? technicianData;
@@ -37,8 +38,12 @@ class JobcarddetailsController extends ChangeNotifier {
   bool isDownloading = false;
 
   Future<ApiResponse> postJobCardDetails(int jobId) async {
-    if (hasLoaded && jobCardData != null) {
+    if (hasLoaded && jobCardData != null && loadedJobId == jobId) {
       return ApiResponse(success: true, data: jobCardData);
+    }
+    if (loadedJobId != jobId) {
+      jobCardData = null;
+      loadedJobId = jobId;
     }
     hasLoaded = true;
     isLoading = true;
@@ -48,6 +53,8 @@ class JobcarddetailsController extends ChangeNotifier {
       String? userToken = prefs.getString('userToken');
       if (userToken == null || userToken.isEmpty) {
         isLoading = false;
+        hasLoaded = false;
+        loadedJobId = null;
         notifyListeners();
         return ApiResponse(success: false, status: "No Token Found");
       }
@@ -64,6 +71,7 @@ class JobcarddetailsController extends ChangeNotifier {
       final decoded = jsonDecode(response.body);
       if (response.statusCode == 200) {
         jobCardData = decoded['data'];
+        loadedJobId = jobId;
         isLoading = false;
         final jobcard = jobCardData!["jobcard"];
         technicianData = jobcard["jobTechnicianId"];
@@ -92,10 +100,16 @@ class JobcarddetailsController extends ChangeNotifier {
           statusCode: decoded['statusCode'],
         );
       }
+      jobCardData = null;
+      loadedJobId = null;
+      hasLoaded = false;
       isLoading = false;
       notifyListeners();
       return ApiResponse(success: false, status: decoded['status']);
     } catch (e) {
+      jobCardData = null;
+      loadedJobId = null;
+      hasLoaded = false;
       isLoading = false;
       notifyListeners();
       return ApiResponse(success: false, status: "Unexpected Error");
@@ -143,6 +157,7 @@ class JobcarddetailsController extends ChangeNotifier {
 
   void reset() {
     jobCardData = null;
+    loadedJobId = null;
     fuelTypeName = "";
     transmissionTypeName = "";
     customerTypeName = "";

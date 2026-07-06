@@ -80,7 +80,10 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 20),
-                    VehicleSummaryWidget(jobId: widget.jobId),
+                    VehicleSummaryWidget(
+                      jobId: widget.jobId,
+                      fetchBasicInspection: false,
+                    ),
                     SizedBox(height: 12),
                     _registrationCardSection(controller),
                     SizedBox(height: 15),

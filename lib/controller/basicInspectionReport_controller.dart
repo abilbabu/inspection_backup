@@ -27,7 +27,9 @@ class BasicInspectionReportController with ChangeNotifier {
   VideoPlayerController? externalVideoController;
   VideoPlayerController? internalVideoController;
   bool isVideoPlaying = false;
-  bool isLoading = false;
+  bool isBasicInspectionLoading = false;
+  bool isEssentialsLoading = false;
+  bool get isLoading => isBasicInspectionLoading || isEssentialsLoading;
   int? get loadedJobId => _loadedJobId;
   bool isExternalVideoInitialized = false;
   bool isInternalVideoInitialized = false;
@@ -138,15 +140,21 @@ class BasicInspectionReportController with ChangeNotifier {
 
   void clearLoadedJobId() {
     _loadedJobId = null;
+    isBasicInspectionLoading = true;
+    isEssentialsLoading = true;
   }
 
   Future<void> getBasicInspection(int jobId, {bool forceRefresh = false}) async {
     if (forceRefresh) {
       _loadedJobId = null;
     }
-    if (_loadedJobId == jobId) return;
+    if (_loadedJobId == jobId) {
+      isBasicInspectionLoading = false;
+      notifyListeners();
+      return;
+    }
     _loadedJobId = jobId;
-    isLoading = true;
+    isBasicInspectionLoading = true;
     notifyListeners();
     try {
       externalVideoController?.dispose();
@@ -280,7 +288,7 @@ class BasicInspectionReportController with ChangeNotifier {
     } catch (e) {
       debugPrint("Error : $e");
     } finally {
-      isLoading = false;
+      isBasicInspectionLoading = false;
       notifyListeners();
     }
   }
@@ -299,7 +307,7 @@ class BasicInspectionReportController with ChangeNotifier {
   }
 
   Future<void> getVehicleEssentialList({String? defaultValue}) async {
-    isLoading = true;
+    isEssentialsLoading = true;
     notifyListeners();
     try {
       final url = Uri.parse(ApiServices.getvehicleEssentialList);
@@ -324,15 +332,12 @@ class BasicInspectionReportController with ChangeNotifier {
           checkBoxType[id] = name;
           selectedCheckBox[id] = false;
         }
-        isLoading = false;
-        notifyListeners();
-      } else {
-        return;
       }
     } catch (e) {
-      isLoading = false;
+      debugPrint("Error: $e");
+    } finally {
+      isEssentialsLoading = false;
       notifyListeners();
-      return;
     }
   }
 
