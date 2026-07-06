@@ -1226,7 +1226,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                               formId: widget.inspectionFormId,
                               viReInspection: isChecked,
                               vimAdditionalComments: _commentController.text,
-                              vimInspectionType: 1,
+                              vimInspectionType: widget.inspectionTypeId ?? 1,
                             );
                           }
 
