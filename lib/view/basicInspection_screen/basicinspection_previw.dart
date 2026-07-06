@@ -23,6 +23,7 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
   @override
   void initState() {
     super.initState();
+    context.read<BasicInspectionReportController>().clearLoadedJobId();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final reportController = context.read<BasicInspectionReportController>();

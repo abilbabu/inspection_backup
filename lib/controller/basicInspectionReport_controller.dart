@@ -46,6 +46,7 @@ class BasicInspectionReportController with ChangeNotifier {
     await externalVideoController!.initialize();
     externalVideoDuration = externalVideoController!.value.duration;
     isExternalVideoInitialized = true;
+    isExternalVideoPlaying = false;
     externalVideoController!.addListener(_externalVideoListener);
     notifyListeners();
   }
@@ -56,6 +57,7 @@ class BasicInspectionReportController with ChangeNotifier {
     await internalVideoController!.initialize();
     internalVideoDuration = internalVideoController!.value.duration;
     isInternalVideoInitialized = true;
+    isInternalVideoPlaying = false;
     internalVideoController!.addListener(_internalVideoListener);
     notifyListeners();
   }
@@ -63,10 +65,20 @@ class BasicInspectionReportController with ChangeNotifier {
   void _externalVideoListener() {
     if (externalVideoController == null) return;
 
+    final isPlaying = externalVideoController!.value.isPlaying;
     final newPosition = externalVideoController!.value.position;
 
+    bool needsNotify = false;
+    if (isPlaying != isExternalVideoPlaying) {
+      isExternalVideoPlaying = isPlaying;
+      needsNotify = true;
+    }
     if (newPosition.inSeconds != externalVideoPosition.inSeconds) {
       externalVideoPosition = newPosition;
+      needsNotify = true;
+    }
+
+    if (needsNotify) {
       notifyListeners();
     }
   }
@@ -74,10 +86,20 @@ class BasicInspectionReportController with ChangeNotifier {
   void _internalVideoListener() {
     if (internalVideoController == null) return;
 
+    final isPlaying = internalVideoController!.value.isPlaying;
     final newPosition = internalVideoController!.value.position;
 
+    bool needsNotify = false;
+    if (isPlaying != isInternalVideoPlaying) {
+      isInternalVideoPlaying = isPlaying;
+      needsNotify = true;
+    }
     if (newPosition.inSeconds != internalVideoPosition.inSeconds) {
       internalVideoPosition = newPosition;
+      needsNotify = true;
+    }
+
+    if (needsNotify) {
       notifyListeners();
     }
   }
@@ -86,18 +108,24 @@ class BasicInspectionReportController with ChangeNotifier {
     if (externalVideoController == null) return;
     if (externalVideoController!.value.isPlaying) {
       externalVideoController!.pause();
+      isExternalVideoPlaying = false;
     } else {
       externalVideoController!.play();
+      isExternalVideoPlaying = true;
     }
+    notifyListeners();
   }
 
   void toggleInternalPlayPause() {
     if (internalVideoController == null) return;
     if (internalVideoController!.value.isPlaying) {
       internalVideoController!.pause();
+      isInternalVideoPlaying = false;
     } else {
       internalVideoController!.play();
+      isInternalVideoPlaying = true;
     }
+    notifyListeners();
   }
 
   void seekExternalVideo(Duration position) {
@@ -108,7 +136,14 @@ class BasicInspectionReportController with ChangeNotifier {
     internalVideoController?.seekTo(position);
   }
 
-  Future<void> getBasicInspection(int jobId) async {
+  void clearLoadedJobId() {
+    _loadedJobId = null;
+  }
+
+  Future<void> getBasicInspection(int jobId, {bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      _loadedJobId = null;
+    }
     if (_loadedJobId == jobId) return;
     _loadedJobId = jobId;
     isLoading = true;
@@ -120,6 +155,8 @@ class BasicInspectionReportController with ChangeNotifier {
       internalVideoController = null;
       isExternalVideoInitialized = false;
       isInternalVideoInitialized = false;
+      isExternalVideoPlaying = false;
+      isInternalVideoPlaying = false;
       external360Video = null;
       internal360Video = null;
       external360Comment = null;
