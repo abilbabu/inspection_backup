@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
+import 'package:inspection/controller/basicInspectionReport_controller.dart';
 import 'package:inspection/controller/customerDetails_controller.dart';
 import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/controller/signatureSpeech_controller%20.dart' show SignatureSpeechController;
@@ -13,6 +14,7 @@ import 'package:inspection/view/basicInspection_screen/basicinspection_previw.da
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
+import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
@@ -242,6 +244,8 @@ class _SignatureScreenState extends State<SignatureScreen> {
                   width: double.infinity,
                   child: Consumer<BasicinspController>(
                     builder: (context, controller, _) {
+                      final reportLoading =
+                          context.watch<BasicInspectionReportController>().isLoading;
                       return CustomButtonWidget(
                         text: controller.isUploading
                             ? "Please wait..."
@@ -251,10 +255,14 @@ class _SignatureScreenState extends State<SignatureScreen> {
                         textSize: 16,
                         textColor: Colors.white,
                         isDisabled:
-                            controller.isUploading || controller.isCompleted,
+                            controller.isUploading ||
+                            controller.isCompleted ||
+                            reportLoading,
                         showLoader: controller.isUploading,
                         onPressed:
-                            controller.isUploading || controller.isCompleted
+                            controller.isUploading ||
+                            controller.isCompleted ||
+                            reportLoading
                             ? null
                             : () async {
                                 final additionalComment =

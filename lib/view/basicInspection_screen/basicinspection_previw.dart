@@ -37,7 +37,7 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
     return Consumer<BasicInspectionReportController>(
       builder: (context, controller, child) {
         if (controller.isLoading) {
-          return SingleChildScrollView(
+          return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Column(
               children: [
@@ -50,27 +50,25 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
             ),
           );
         }
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: 20),
-                VehicleSummaryWidgetTwo(jobId: widget.jobId),
-                SizedBox(height: 12),
-                _registrationCardSection(controller),
-                SizedBox(height: 15),
-                _imageViewSection(context, controller),
-                SizedBox(height: 15),
-                // video playing section
-                _360VideoSection(),
-                SizedBox(height: 15),
-                _cardiagramSection(context, controller),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 20),
+              VehicleSummaryWidgetTwo(jobId: widget.jobId),
+              SizedBox(height: 12),
+              _registrationCardSection(controller),
+              SizedBox(height: 15),
+              _imageViewSection(context, controller),
+              SizedBox(height: 15),
+              // video playing section
+              _360VideoSection(),
+              SizedBox(height: 15),
+              _cardiagramSection(context, controller),
 
-                SizedBox(height: 30),
-              ],
-            ),
+              SizedBox(height: 30),
+            ],
           ),
         );
       },

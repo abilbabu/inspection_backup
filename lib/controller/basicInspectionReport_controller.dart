@@ -28,6 +28,7 @@ class BasicInspectionReportController with ChangeNotifier {
   VideoPlayerController? internalVideoController;
   bool isVideoPlaying = false;
   bool isLoading = false;
+  int? get loadedJobId => _loadedJobId;
   bool isExternalVideoInitialized = false;
   bool isInternalVideoInitialized = false;
   bool isExternalVideoPlaying = false;
@@ -110,6 +111,8 @@ class BasicInspectionReportController with ChangeNotifier {
   Future<void> getBasicInspection(int jobId) async {
     if (_loadedJobId == jobId) return;
     _loadedJobId = jobId;
+    isLoading = true;
+    notifyListeners();
     try {
       externalVideoController?.dispose();
       internalVideoController?.dispose();
@@ -240,6 +243,7 @@ class BasicInspectionReportController with ChangeNotifier {
     } catch (e) {
       debugPrint("Error : $e");
     } finally {
+      isLoading = false;
       notifyListeners();
     }
   }

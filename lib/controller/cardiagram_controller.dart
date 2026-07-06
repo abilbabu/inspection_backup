@@ -12,7 +12,7 @@ class CardiagramController extends ChangeNotifier {
   final GlobalKey imageKey = GlobalKey();
   DamageType selectedDamage = const DamageType("Crack", Color(0xFFF0291A));
   Color get selectedColor => selectedDamage.color;
-  bool isDrawingEnabled = false;
+  bool isDrawingEnabled = true;
   bool _isSaving = false;
   bool isProgrammaticPop = false;
   bool get isSaving => _isSaving;
@@ -23,12 +23,12 @@ class CardiagramController extends ChangeNotifier {
   List<Offset> currentStroke = [];
 
   final List<DamageType> damageTypes = const [
+    DamageType("Crack", Color(0xFFF0291A)),
     DamageType("Scratch", Colors.yellow),
     DamageType("Chip", Colors.blue),
     DamageType("Dent", Colors.orange),
     DamageType("Repainted", Colors.purple),
     DamageType("Faded", Color(0xFF5C2D1C)),
-    DamageType("Crack", Color(0xFFF0291A)),
   ];
   void selectDamage(DamageType type) {
     selectedDamage = type;
@@ -44,7 +44,12 @@ class CardiagramController extends ChangeNotifier {
     final RenderBox box =
         imageKey.currentContext!.findRenderObject() as RenderBox;
     final Offset localPosition = box.globalToLocal(details.globalPosition);
-    currentStroke = [localPosition];
+    final Size size = box.size;
+    final Offset normalizedPosition = Offset(
+      size.width > 0 ? localPosition.dx / size.width : 0.0,
+      size.height > 0 ? localPosition.dy / size.height : 0.0,
+    );
+    currentStroke = [normalizedPosition];
     strokes.add(currentStroke);
     strokeColors.add(selectedColor);
     redoStrokes.clear();
@@ -56,7 +61,12 @@ class CardiagramController extends ChangeNotifier {
     final RenderBox box =
         imageKey.currentContext!.findRenderObject() as RenderBox;
     final Offset localPosition = box.globalToLocal(details.globalPosition);
-    currentStroke.add(localPosition);
+    final Size size = box.size;
+    final Offset normalizedPosition = Offset(
+      size.width > 0 ? localPosition.dx / size.width : 0.0,
+      size.height > 0 ? localPosition.dy / size.height : 0.0,
+    );
+    currentStroke.add(normalizedPosition);
     notifyListeners();
   }
 
@@ -80,6 +90,7 @@ class CardiagramController extends ChangeNotifier {
     redoStrokes.clear();
     redoColors.clear();
     currentStroke = [];
+    isDrawingEnabled = true;
     notifyListeners();
   }
 

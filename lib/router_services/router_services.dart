@@ -213,7 +213,11 @@ final GoRouter router = GoRouter(
       name: 'Basic Inspection Preview',
       builder: (BuildContext context, GoRouterState state) {
         final jobId = state.extra as int;
-        return BasicInspectionPreview(jobId: jobId);
+        return Scaffold(
+          body: SingleChildScrollView(
+            child: BasicInspectionPreview(jobId: jobId),
+          ),
+        );
       },
     ),
 

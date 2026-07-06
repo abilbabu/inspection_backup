@@ -295,9 +295,10 @@ class DamagePainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round;
       final stroke = strokes[i];
       if (stroke.length < 2) continue;
-      final path = Path()..moveTo(stroke.first.dx, stroke.first.dy);
+      final path = Path()
+        ..moveTo(stroke.first.dx * size.width, stroke.first.dy * size.height);
       for (int j = 1; j < stroke.length; j++) {
-        path.lineTo(stroke[j].dx, stroke[j].dy);
+        path.lineTo(stroke[j].dx * size.width, stroke[j].dy * size.height);
       }
       canvas.drawPath(path, paint);
     }
