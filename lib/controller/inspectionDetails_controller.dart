@@ -40,7 +40,13 @@ class InspectionDetailsController extends ChangeNotifier {
       );
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        technicianList = List<Map<String, dynamic>>.from(decoded['data']);
+        final List<Map<String, dynamic>> allList =
+            List<Map<String, dynamic>>.from(decoded['data']);
+        technicianList = allList
+            .where((tech) =>
+                tech['userStatusflag'] == 1 ||
+                tech['userStatusflag'] == '1')
+            .toList();
       }
     } catch (e) {
       debugPrint("Error : $e");
