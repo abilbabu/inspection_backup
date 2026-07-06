@@ -39,6 +39,10 @@ class InspectionItem {
   final String? reInspectionVideoUrl;
   final String? reInspectionAudioUrl;
   final String? reInspectionNote;
+  final String? reInspectionInitialNote;
+
+  final bool isMarked;
+  final bool isReInspectionMarked;
 
   InspectionItem({
     required this.title,
@@ -61,6 +65,9 @@ class InspectionItem {
     this.reInspectionVideoUrl,
     this.reInspectionAudioUrl,
     this.reInspectionNote,
+    this.reInspectionInitialNote,
+    this.isMarked = false,
+    this.isReInspectionMarked = false,
   });
 }
 
@@ -262,9 +269,9 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                             final entries = controller.groupedItems.entries.map((entry) {
                               final filteredList = entry.value.where((item) {
                                 if (widget.flag == 2) {
-                                  return item.viReInspection;
+                                  return item.isReInspectionMarked;
                                 }
-                                return true;
+                                return item.isMarked;
                               }).toList();
                               return MapEntry(entry.key, filteredList);
                             }).where((entry) => entry.value.isNotEmpty).toList();
@@ -435,11 +442,12 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
   }
 
   Widget _buildInspectionItem(InspectionItem item) {
-    final displayStatus = (widget.flag == 1) ? (item.originalStatus ?? item.status) : item.status;
+    final displayStatus = (widget.flag == 2) ? item.status : (item.originalStatus ?? item.status);
     final List<String> displayImages = (widget.flag == 2) ? item.reInspectionImageUrls : item.imageUrls;
     final String? displayVideo = (widget.flag == 2) ? item.reInspectionVideoUrl : item.videoUrl;
     final String? displayAudio = (widget.flag == 2) ? item.reInspectionAudioUrl : item.audioUrl;
     final String displayNote = (widget.flag == 2) ? (item.reInspectionNote ?? "") : item.note;
+    final String displayInitialNote = (widget.flag == 2) ? (item.reInspectionInitialNote ?? "") : item.initialNote;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -496,7 +504,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
 
                 SizedBox(height: 8),
 
-                if (displayImages.isNotEmpty || displayVideo != null) ...[
+                if (displayImages.isNotEmpty || displayVideo != null || displayNote.trim().isNotEmpty) ...[
                   SizedBox(height: 8),
                   _buildMediaWithNote(
                     title: item.title,
@@ -518,7 +526,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                   }
                 ),
 
-                if (item.initialNote.trim().isNotEmpty) ...[
+                if (displayInitialNote.trim().isNotEmpty) ...[
                   SizedBox(height: 8),
                   Container(
                     width: double.infinity,
@@ -529,7 +537,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                     child: Padding(
                       padding: const EdgeInsets.all(8),
                       child: Text(
-                        item.initialNote,
+                        displayInitialNote,
                         style: ApptextstyleConstants.thinText(
                           color: ColorConstants.blackColor,
                           fontSize: 12,
@@ -559,7 +567,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     Widget noteWidget() {
       if (note.trim().isEmpty) return const SizedBox.shrink();
       return Container(
-        height: 50,
+        constraints: const BoxConstraints(minHeight: 50),
         width: double.infinity,
         decoration: BoxDecoration(
           border: Border.all(color: ColorConstants.blackColor),
@@ -574,6 +582,9 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
           ),
         ),
       );
+    }
+    if (imageCount == 0 && !hasVideo) {
+      return noteWidget();
     }
     if (imageCount == 1 && !hasVideo) {
       return Row(
@@ -753,15 +764,15 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
   }
 
   Widget _buildPredefinedCommentsCard(InspectionsummarypageController controller) {
-    final String saComm = controller.saComment.trim().isNotEmpty
-        ? controller.saComment
-        : (controller.previousSaComment.trim().isNotEmpty ? controller.previousSaComment : "No comments");
-    final String supComm = controller.supervisorComment.trim().isNotEmpty
-        ? controller.supervisorComment
-        : (controller.previousSupervisorComment.trim().isNotEmpty ? controller.previousSupervisorComment : "No comments");
-    final String techComm = controller.technicianComment.trim().isNotEmpty
-        ? controller.technicianComment
-        : (controller.previousTechnicianComment.trim().isNotEmpty ? controller.previousTechnicianComment : "No comments");
+    final String saComm = controller.previousSaComment.trim().isNotEmpty
+        ? controller.previousSaComment
+        : (controller.saComment.trim().isNotEmpty ? controller.saComment : "No comments");
+    final String supComm = controller.previousSupervisorComment.trim().isNotEmpty
+        ? controller.previousSupervisorComment
+        : (controller.supervisorComment.trim().isNotEmpty ? controller.supervisorComment : "No comments");
+    final String techComm = controller.previousTechnicianComment.trim().isNotEmpty
+        ? controller.previousTechnicianComment
+        : (controller.technicianComment.trim().isNotEmpty ? controller.technicianComment : "No comments");
 
     final bool showSaAndSup = (controller.jobStatus >= 10 || controller.jobStatus == 9 || controller.jobStatus == 17 || controller.jobStatus == 19 || widget.flag == 2);
 
@@ -777,9 +788,9 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "INSPECTION COMMENTS",
-            style: TextStyle(
+          Text(
+            widget.flag == 2 ? "RE-INSPECTION COMMENTS" : "INSPECTION COMMENTS",
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14,
               color: ColorConstants.textBlueColor,

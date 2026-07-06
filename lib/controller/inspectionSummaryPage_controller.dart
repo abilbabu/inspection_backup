@@ -161,8 +161,10 @@ class InspectionsummarypageController extends ChangeNotifier {
         final _ = insp["inspectionTasks"] as List? ?? [];
       }
       inspections.sort((a, b) {
-        final aId = a["master"]?["vimId"] as num? ?? 0;
-        final bId = b["master"]?["vimId"] as num? ?? 0;
+        final aVal = a["master"]?["vimId"];
+        final bVal = b["master"]?["vimId"];
+        final aId = aVal is num ? aVal.toInt() : int.tryParse(aVal?.toString() ?? "") ?? 0;
+        final bId = bVal is num ? bVal.toInt() : int.tryParse(bVal?.toString() ?? "") ?? 0;
         return aId.compareTo(bId);
       });
       final jobCard = result["data"]["jobCard"] ?? {};
@@ -180,27 +182,70 @@ class InspectionsummarypageController extends ChangeNotifier {
         final int taskInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
         final int inspInt = inspectionId is num ? inspectionId.toInt() : int.tryParse(inspectionId.toString()) ?? 0;
         
-        if (att["iaType"] == 0) {
+        final rawType = att["iaType"] ?? att["type"];
+        final int type = rawType is num
+            ? rawType.toInt()
+            : int.tryParse(rawType?.toString() ?? "") ?? 0;
+        final String currentUrl = (att["iaUrl"] ?? att["url"])?.toString() ?? "";
+        if (currentUrl.isEmpty) continue;
+
+        if (type == 0) {
           final list = imageMap
               .putIfAbsent(inspInt, () => {})
               .putIfAbsent(taskInt, () => []);
-          final String currentUrl = att["iaUrl"]?.toString() ?? "";
-          if (currentUrl.isNotEmpty) {
-            final String currentFilename = currentUrl.split('/').last.split('?').first;
-            final bool alreadyExists = list.any((url) {
-              final String existingFilename = url.split('/').last.split('?').first;
-              return existingFilename == currentFilename;
-            });
-            if (!alreadyExists) {
-              list.add(currentUrl);
-            }
+          if (!list.contains(currentUrl)) {
+            list.add(currentUrl);
           }
         }
-        if (att["iaType"] == 1) {
-          audioMap.putIfAbsent(inspInt, () => {})[taskInt] = att["iaUrl"];
+        if (type == 1) {
+          audioMap.putIfAbsent(inspInt, () => {})[taskInt] = currentUrl;
         }
-        if (att["iaType"] == 2) {
-          videoMap.putIfAbsent(inspInt, () => {})[taskInt] = att["iaUrl"];
+        if (type == 2) {
+          videoMap.putIfAbsent(inspInt, () => {})[taskInt] = currentUrl;
+        }
+      }
+
+      for (final inspection in inspections) {
+        final master = inspection["master"] ?? {};
+        final int vimId = master["vimId"] is num
+            ? (master["vimId"] as num).toInt()
+            : int.tryParse(master["vimId"]?.toString() ?? "") ?? 0;
+        if (vimId == 0) continue;
+
+        final categories = inspection["inspectionTasks"] as List? ?? [];
+        for (final category in categories) {
+          final categoryTasks = category["tasks"] as List? ?? [];
+          for (final task in categoryTasks) {
+            final taskId = task["viTaskId"];
+            if (taskId == null) continue;
+            final int taskInt = taskId is num
+                ? taskId.toInt()
+                : int.tryParse(taskId.toString()) ?? 0;
+            if (taskInt == 0) continue;
+
+            final taskAttachments = task["attachments"] as List? ?? [];
+            for (final att in taskAttachments) {
+              final rawType = att["iaType"] ?? att["type"];
+              final int type = rawType is num
+                  ? rawType.toInt()
+                  : int.tryParse(rawType?.toString() ?? "") ?? 0;
+              final String currentUrl = (att["iaUrl"] ?? att["url"])?.toString() ?? "";
+              if (currentUrl.isEmpty) continue;
+
+              if (type == 0) {
+                final list = imageMap
+                    .putIfAbsent(vimId, () => {})
+                    .putIfAbsent(taskInt, () => []);
+                if (!list.contains(currentUrl)) {
+                  list.add(currentUrl);
+                }
+              } else if (type == 1) {
+                audioMap.putIfAbsent(vimId, () => {})[taskInt] = currentUrl;
+              } else if (type == 2) {
+                videoMap.putIfAbsent(vimId, () => {})[taskInt] = currentUrl;
+              }
+            }
+          }
         }
       }
       if (inspections.length > 1) {
@@ -221,7 +266,9 @@ class InspectionsummarypageController extends ChangeNotifier {
         final master = inspection["master"];
         if (master == null) continue;
         final int vimId = master["vimId"] is num ? (master["vimId"] as num).toInt() : int.tryParse(master["vimId"].toString()) ?? 0;
-        final int? inspType = master["vimInspectionType"];
+        final int? inspType = master["vimInspectionType"] is num
+            ? (master["vimInspectionType"] as num).toInt()
+            : int.tryParse(master["vimInspectionType"]?.toString() ?? "");
         final int? ifMasterId = master["vimIfMasterId"];
         final tasks = inspection["inspectionTasks"] as List? ?? [];
         vimInspectionTypeId = inspType;
@@ -232,7 +279,7 @@ class InspectionsummarypageController extends ChangeNotifier {
         final String serviceComm = master["vimSaComment"]?.toString() ?? "";
 
         final bool isCustom = ifMasterId == null || ifMasterId == 0;
-        final bool isReinspectionRun = i > 0;
+        final bool isReinspectionRun = inspType == 2;
 
         if (isReinspectionRun) {
           technicianComment = techComm;
@@ -304,8 +351,9 @@ class InspectionsummarypageController extends ChangeNotifier {
             String? reVideo;
             String? reAudio;
             String? reNote;
+            String? reInitialNote;
 
-            if (isReinspectionRun || (inspType == 2 && !isCustom)) {
+            if (isReinspectionRun) {
               // Re-inspection: Keep the initial run's media from 'existing'
               finalImages = existing?.imageUrls ?? [];
               finalVideo = existing?.videoUrl;
@@ -318,6 +366,7 @@ class InspectionsummarypageController extends ChangeNotifier {
               reVideo = video;
               reAudio = audio;
               reNote = note;
+              reInitialNote = initialNote;
             } else {
               // Initial or other run: media goes to the main fields
               finalImages = images;
@@ -330,6 +379,25 @@ class InspectionsummarypageController extends ChangeNotifier {
             final InspectionStatus? finalOriginalStatus = existing != null
                 ? (existing.originalStatus ?? existing.status)
                 : null;
+
+            final bool currentMarked =
+                task["viGood"] == true || task["viGood"] == 1 || task["viGood"]?.toString() == "true" ||
+                task["viRepair"] == true || task["viRepair"] == 1 || task["viRepair"]?.toString() == "true" ||
+                task["viPoor"] == true || task["viPoor"] == 1 || task["viPoor"]?.toString() == "true" ||
+                task["viReplace"] == true || task["viReplace"] == 1 || task["viReplace"]?.toString() == "true" ||
+                task["viNotApplicable"] == true || task["viNotApplicable"] == 1 || task["viNotApplicable"]?.toString() == "true" ||
+                images.isNotEmpty || video != null || audio != null || note.trim().isNotEmpty || initialNote.trim().isNotEmpty;
+
+            bool finalIsMarked = false;
+            bool finalIsReInspectionMarked = false;
+
+            if (isReinspectionRun) {
+              finalIsMarked = existing?.isMarked ?? false;
+              finalIsReInspectionMarked = currentMarked;
+            } else {
+              finalIsMarked = currentMarked;
+              finalIsReInspectionMarked = false;
+            }
 
             categoryMap[taskKey] = InspectionItem(
               title: task["taskName"] ?? "",
@@ -354,6 +422,9 @@ class InspectionsummarypageController extends ChangeNotifier {
               reInspectionVideoUrl: reVideo,
               reInspectionAudioUrl: reAudio,
               reInspectionNote: reNote,
+              reInspectionInitialNote: reInitialNote,
+              isMarked: finalIsMarked,
+              isReInspectionMarked: finalIsReInspectionMarked,
             );
           }
         }
