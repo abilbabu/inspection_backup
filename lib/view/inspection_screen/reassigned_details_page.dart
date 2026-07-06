@@ -767,6 +767,37 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       int formId = summaryController.vimIfMasterId ?? 0;
       int taskToSaveId = visibleTaskIds.isNotEmpty ? visibleTaskIds.first : 0;
 
+      if (taskToSaveId == 0) {
+        if (isCustom) {
+          for (final task in controller.allTaskComponents) {
+            final taskId = task["itcId"];
+            if (taskId != null) {
+              final int parsedId = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+              if (parsedId > 0) {
+                taskToSaveId = parsedId;
+                break;
+              }
+            }
+          }
+        } else {
+          for (final entry in controller.groupedTasks.entries) {
+            final rawTasks = entry.value;
+            for (final task in rawTasks) {
+              final components = task["components"];
+              final taskId = components?["itcId"];
+              if (taskId != null) {
+                final int parsedId = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+                if (parsedId > 0) {
+                  taskToSaveId = parsedId;
+                  break;
+                }
+              }
+            }
+            if (taskToSaveId > 0) break;
+          }
+        }
+      }
+
       if (taskToSaveId > 0) {
         final tempCardController = InspectioncardController();
         await tempCardController.loadExistingTask(
