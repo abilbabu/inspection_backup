@@ -84,6 +84,7 @@ class _InspectionCardState extends State<InspectionCard> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final formController = context.read<InspectionFormController>();
       final cardController = context.read<InspectioncardController>();
       cardController.initSpeech();

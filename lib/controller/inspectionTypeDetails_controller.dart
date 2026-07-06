@@ -274,29 +274,43 @@ class InspectionTypeDetailsController extends ChangeNotifier {
 
     for (final inspection in inspections) {
       // Custom Inspection only
-      if (inspection["inspectionFormId"] != null) {
+      if (inspection["inspectionFormId"] != null &&
+          inspection["inspectionFormId"] != 0) {
         continue;
       }
 
+      final int vimInspectionType = inspection["master"]?["vimInspectionType"] ?? 0;
       final completedTasks = inspection["completedTasks"] ?? [];
 
       for (final savedTask in completedTasks) {
         final int taskId = savedTask["viTaskId"];
+        final double reTime =
+            double.tryParse(savedTask["viReInspectionTime"]?.toString() ?? "") ??
+            0.0;
+        final bool isReInspectionItem = savedTask["viReInspection"] == true ||
+            savedTask["viReInspection"] == 1 ||
+            savedTask["viReInspection"]?.toString() == "true" ||
+            reTime > 0.0;
+
+        // Skip prefilling for reinspection items if this is the initial/previous run (type != 2)
+        if (isReInspectionItem && vimInspectionType != 2) {
+          continue;
+        }
 
         formController.updateTask(
           InspectionTaskData(
             jobId: data["jobId"],
             taskId: taskId,
             formId: null,
-            condition: savedTask["viGood"] == true
+            condition: _asBool(savedTask["viGood"])
                 ? "Good"
-                : savedTask["viRepair"] == true
+                : _asBool(savedTask["viRepair"])
                 ? "Repair"
-                : savedTask["viReplace"] == true
+                : _asBool(savedTask["viReplace"])
                 ? "Replace"
-                : savedTask["viPoor"] == true
+                : _asBool(savedTask["viPoor"])
                 ? "Poor"
-                : savedTask["viNotApplicable"] == true
+                : _asBool(savedTask["viNotApplicable"])
                 ? "N/A"
                 : null,
             note: savedTask["viNote"] ?? "",
@@ -398,9 +412,23 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       return;
     }
     for (final inspection in inspections) {
+      final int vimInspectionType = inspection["master"]?["vimInspectionType"] ?? 0;
       final completedTasks = inspection["completedTasks"] ?? [];
       for (final savedTask in completedTasks) {
         final int savedTaskId = savedTask["viTaskId"];
+        final double reTime =
+            double.tryParse(savedTask["viReInspectionTime"]?.toString() ?? "") ??
+            0.0;
+        final bool isReInspectionItem = savedTask["viReInspection"] == true ||
+            savedTask["viReInspection"] == 1 ||
+            savedTask["viReInspection"]?.toString() == "true" ||
+            reTime > 0.0;
+
+        // Skip prefilling for reinspection items if this is the initial/previous run (type != 2)
+        if (isReInspectionItem && vimInspectionType != 2) {
+          continue;
+        }
+
         final List attachments = savedTask["attachments"] ?? [];
         String? videoUrl;
         final List<String> imageUrl = [];
@@ -436,15 +464,15 @@ class InspectionTypeDetailsController extends ChangeNotifier {
                   jobId: data["jobId"],
                   taskId: savedTaskId,
                   formId: inspection["inspectionFormId"],
-                  condition: savedTask["viGood"] == true
+                  condition: _asBool(savedTask["viGood"])
                       ? "Good"
-                      : savedTask["viRepair"] == true
+                      : _asBool(savedTask["viRepair"])
                       ? "Repair"
-                      : savedTask["viReplace"] == true
+                      : _asBool(savedTask["viReplace"])
                       ? "Replace"
-                      : savedTask["viPoor"] == true
+                      : _asBool(savedTask["viPoor"])
                       ? "Poor"
-                      : savedTask["viNotApplicable"] == true
+                      : _asBool(savedTask["viNotApplicable"])
                       ? "N/A"
                       : null,
                   note: savedTask["viNote"] ?? "",
@@ -632,5 +660,12 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  bool _asBool(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value.toInt() == 1;
+    return value.toString().toLowerCase() == "true" || value.toString() == "1";
   }
 }

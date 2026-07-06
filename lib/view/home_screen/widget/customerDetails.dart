@@ -66,15 +66,18 @@ class _CustomerdetailsState extends State<Customerdetails> {
     final String resolvedMobileNumber =
         widget.initialMobileNumber ?? widget.data?['mobileNumber'] ?? "";
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       customerController.mobileNumController.text = resolvedMobileNumber;
       if (resolvedCountryCode.isNotEmpty) {
         customerController.setCountryCode(resolvedCountryCode);
       }
       await customerController.getBrandList();
+      if (!mounted) return;
       if (customerController.brandList.isNotEmpty) {
         final firstBrand = customerController.brandList.first;
         customerController.setBrand(firstBrand);
         await customerController.postModelList(firstBrand);
+        if (!mounted) return;
         if (widget.model.isNotEmpty &&
             customerController.modelList.contains(widget.model)) {
           customerController.setModel(widget.model);
@@ -95,6 +98,7 @@ class _CustomerdetailsState extends State<Customerdetails> {
         }
       }
       await customerController.getFuelTypeList();
+      if (!mounted) return;
       if (widget.fuelType.isNotEmpty &&
           customerController.fuelTypeList.any(
             (e) => e['id'] == widget.fuelType,
@@ -102,6 +106,7 @@ class _CustomerdetailsState extends State<Customerdetails> {
         customerController.setFuelType(widget.fuelType);
       }
       await customerController.getTransmissionList();
+      if (!mounted) return;
       if (widget.transmissionType.isNotEmpty &&
           customerController.transmissionTypeList.any(
             (e) => e['id'] == widget.transmissionType,
@@ -109,6 +114,7 @@ class _CustomerdetailsState extends State<Customerdetails> {
         customerController.setTransmission(widget.transmissionType);
       }
       await customerController.getServiceTypeList();
+      if (!mounted) return;
       if (widget.serviceType.isNotEmpty &&
           customerController.serviceTypeList.any(
             (e) => e['id'] == widget.serviceType,

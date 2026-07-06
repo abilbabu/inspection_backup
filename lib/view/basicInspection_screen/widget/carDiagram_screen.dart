@@ -23,6 +23,7 @@ class _CardiagramScreenState extends State<CardiagramScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<CardiagramController>().clearAll();
     });
   }

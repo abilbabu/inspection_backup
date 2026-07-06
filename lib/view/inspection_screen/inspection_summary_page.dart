@@ -88,6 +88,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<InspectionsummarypageController>().getInspectionSummary(
         widget.jobId,
       );
@@ -161,8 +162,12 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                                }
                                return getWeight(a.originalStatus ?? a.status).compareTo(getWeight(b.originalStatus ?? b.status));
                              });
-                             final bool isCustom = controller.isCustomInspectionAssigned || controller.vimIfMasterId == null || controller.vimIfMasterId == 0;
-                             if (isCustom || reInspectionItems.isEmpty || widget.flag == 2) return const SizedBox.shrink();
+                             final activeReInspectionStatuses = [10, 11, 14, 15, 16, 18];
+                             if (reInspectionItems.isEmpty ||
+                                 widget.flag == 2 ||
+                                 !activeReInspectionStatuses.contains(controller.jobStatus)) {
+                               return const SizedBox.shrink();
+                             }
                             return Container(
                               width: double.infinity,
                               margin: const EdgeInsets.only(bottom: 12),
@@ -748,9 +753,15 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
   }
 
   Widget _buildPredefinedCommentsCard(InspectionsummarypageController controller) {
-    final String saComm = controller.previousSaComment.trim().isEmpty ? (controller.saComment.trim().isEmpty ? "No comments" : controller.saComment) : controller.previousSaComment;
-    final String supComm = controller.previousSupervisorComment.trim().isEmpty ? (controller.supervisorComment.trim().isEmpty ? "No comments" : controller.supervisorComment) : controller.previousSupervisorComment;
-    final String techComm = controller.previousTechnicianComment.trim().isEmpty ? (controller.technicianComment.trim().isEmpty ? "No comments" : controller.technicianComment) : controller.previousTechnicianComment;
+    final String saComm = controller.saComment.trim().isNotEmpty
+        ? controller.saComment
+        : (controller.previousSaComment.trim().isNotEmpty ? controller.previousSaComment : "No comments");
+    final String supComm = controller.supervisorComment.trim().isNotEmpty
+        ? controller.supervisorComment
+        : (controller.previousSupervisorComment.trim().isNotEmpty ? controller.previousSupervisorComment : "No comments");
+    final String techComm = controller.technicianComment.trim().isNotEmpty
+        ? controller.technicianComment
+        : (controller.previousTechnicianComment.trim().isNotEmpty ? controller.previousTechnicianComment : "No comments");
 
     final bool showSaAndSup = (controller.jobStatus >= 10 || controller.jobStatus == 9 || controller.jobStatus == 17 || controller.jobStatus == 19 || widget.flag == 2);
 

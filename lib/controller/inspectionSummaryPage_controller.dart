@@ -216,7 +216,8 @@ class InspectionsummarypageController extends ChangeNotifier {
         }
       }
       final Map<String, Map<String, InspectionItem>> categoryTaskMap = {};
-      for (final inspection in inspections) {
+      for (int i = 0; i < inspections.length; i++) {
+        final inspection = inspections[i];
         final master = inspection["master"];
         if (master == null) continue;
         final int vimId = master["vimId"] is num ? (master["vimId"] as num).toInt() : int.tryParse(master["vimId"].toString()) ?? 0;
@@ -225,13 +226,15 @@ class InspectionsummarypageController extends ChangeNotifier {
         final tasks = inspection["inspectionTasks"] as List? ?? [];
         vimInspectionTypeId = inspType;
         vimIfMasterId = ifMasterId;
-        if (ifMasterId != null && ifMasterId == 0) continue;
         final String techComm =
             master["vimAdditionalComments"]?.toString() ?? "";
         final String supComm = master["vimSupervisorComment"]?.toString() ?? "";
         final String serviceComm = master["vimSaComment"]?.toString() ?? "";
 
-        if (inspType == 2) {
+        final bool isCustom = ifMasterId == null || ifMasterId == 0;
+        final bool isReinspectionRun = i > 0;
+
+        if (isReinspectionRun) {
           technicianComment = techComm;
           supervisorComment = supComm;
           saComment = serviceComm;
@@ -280,8 +283,7 @@ class InspectionsummarypageController extends ChangeNotifier {
                 task["viReInspection"] == true ||
                 task["viReInspection"] == 1 ||
                 task["viReInspection"]?.toString() == "true" ||
-                reTime > 0.0 ||
-                inspType == 2;
+                reTime > 0.0;
 
             final String note = (task["viNote"] ?? "").toString();
             final String initialNote = (task["viDescription"] ?? "").toString();
@@ -303,7 +305,7 @@ class InspectionsummarypageController extends ChangeNotifier {
             String? reAudio;
             String? reNote;
 
-            if (inspType == 2) {
+            if (isReinspectionRun || (inspType == 2 && !isCustom)) {
               // Re-inspection: Keep the initial run's media from 'existing'
               finalImages = existing?.imageUrls ?? [];
               finalVideo = existing?.videoUrl;

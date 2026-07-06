@@ -41,6 +41,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       await loadUserDepartment();
       await loadData();
     });
@@ -48,6 +49,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
   Future<void> loadUserDepartment() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       userDepartment =
           int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
@@ -88,18 +90,17 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         );
 
         final data = inspectionResponse.data as Map<String, dynamic>;
-        final jobCard = data["jobCard"];
-        if (jobCard != null) {
-          final jobStatus = int.tryParse(jobCard["jobStatus"]?.toString() ?? "0") ?? 0;
-          if (jobStatus == 10 || jobStatus == 18) {
-            await detailsCtrl.changeStatus(jobId: widget.jobId, status: 11);
-            if (!mounted) return;
-          }
+        int jobStatus = summaryCtrl.jobStatus;
+        if (jobStatus == 10 || jobStatus == 18) {
+          await detailsCtrl.changeStatus(jobId: widget.jobId, status: 11);
+          if (!mounted) return;
+          jobStatus = 11;
         }
         final inspections = data["inspections"] ?? [];
         _reInspectionTaskIds.clear();
         _initialCompletedTaskIds.clear();
 
+        final bool isCustom = (summaryCtrl.vimIfMasterId ?? 0) == 0;
         for (final list in summaryCtrl.groupedItems.values) {
           for (final item in list) {
             if (item.viReInspection && item.taskId != null) {
@@ -107,7 +108,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
             }
           }
         }
-        for (final inspection in inspections) {
+        for (int i = 0; i < inspections.length; i++) {
+          final inspection = inspections[i];
           final master = inspection["master"] ?? {};
           final int vimInspectionType = master["vimInspectionType"] ?? 0;
           final completedTasks = inspection["completedTasks"] ?? [];
@@ -123,25 +125,24 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                 savedTask["viReInspection"] == 1 ||
                 savedTask["viReInspection"]?.toString() == "true" ||
                 reTime > 0.0 ||
-                vimInspectionType == 2) {
+                (i > 0 && vimInspectionType == 2 && !isCustom)) {
               _reInspectionTaskIds.add(taskId);
             }
           }
         }
         final Set<int> reinspectedTaskIds = {};
-        for (final inspection in inspections) {
-          final master = inspection["master"] ?? {};
-          final int vimInspectionType = master["vimInspectionType"] ?? 0;
-          if (vimInspectionType == 2) {
-            final completedTasks = inspection["completedTasks"] ?? [];
-            for (final savedTask in completedTasks) {
-              final int taskId = savedTask["viTaskId"];
-              reinspectedTaskIds.add(taskId);
-            }
+        for (int i = 1; i < inspections.length; i++) {
+          final completedTasks = inspections[i]["completedTasks"] ?? [];
+          for (final savedTask in completedTasks) {
+            final int taskId = savedTask["viTaskId"];
+            reinspectedTaskIds.add(taskId);
           }
         }
         for (final taskId in _reInspectionTaskIds) {
-          if (!reinspectedTaskIds.contains(taskId)) {
+          if (!reinspectedTaskIds.contains(taskId) ||
+              jobStatus == 10 ||
+              jobStatus == 11 ||
+              jobStatus == 18) {
             formCtrl.makeTaskEditable(taskId);
           }
         }
@@ -731,12 +732,11 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
       if (taskToSaveId > 0) {
         final tempCardController = InspectioncardController();
-        final existing = formController.getTaskById(taskToSaveId);
-        if (existing != null) {
-          tempCardController.selectedOption = existing.condition;
-          tempCardController.noteController.text = existing.note;
-          tempCardController.descriptionController.text = existing.description;
-        }
+        await tempCardController.loadExistingTask(
+          formController: formController,
+          taskId: taskToSaveId,
+          isReInspection: true,
+        );
 
         await tempCardController.saveSingleInspectionTask(
           status: 11,

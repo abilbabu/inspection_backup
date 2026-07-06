@@ -39,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> loadUserDepartment() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       userDepartment =
           int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
@@ -57,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     loadUserDepartment();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       setState(() {
         isLoading = true;
       });

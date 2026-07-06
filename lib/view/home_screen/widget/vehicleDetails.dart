@@ -49,6 +49,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
       listen: false,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       context.read<VehicleDetailsController>();
       await vehicleCtrl.getCustomerTypeList();
       vehicleCtrl.restoreFromSnapshot();

@@ -51,21 +51,30 @@ class _JobCardDetailsState extends State<JobCardDetails> {
     //  debugPrint('Job ID: ${widget.jobId}');
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       context.read<InspectionsummarypageController>().getInspectionSummary(
         widget.jobId,
       );
-      Future.microtask(() {
-        context.read<JobcarddetailsController>().getInspectionListByUserId();
-      });
       final jobCtrl = context.read<JobcarddetailsController>();
       final custCtrl = context.read<CustomerDetailsController>();
       final vehicleCtrl = context.read<VehicleDetailsController>();
+
+      Future.microtask(() {
+        if (!mounted) return;
+        jobCtrl.getInspectionListByUserId();
+      });
+
       jobCtrl.reset();
       await jobCtrl.postJobCardDetails(widget.jobId);
+      if (!mounted) return;
       await custCtrl.getFuelTypeList();
+      if (!mounted) return;
       await custCtrl.getTransmissionList();
+      if (!mounted) return;
       await vehicleCtrl.getCustomerTypeList();
+      if (!mounted) return;
       await custCtrl.getServiceTypeList();
+      if (!mounted) return;
       jobCtrl.mapFuelAndTransmissionNames(custCtrl);
     });
   }

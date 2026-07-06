@@ -45,6 +45,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final detailsController = context.read<InspectionTypeDetailsController>();
       final formController = context.read<InspectionFormController>();
 
@@ -66,10 +67,13 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                 .toString();
           }
           final completedTasks = inspections[0]["completedTasks"] ?? [];
+          if (!mounted) return;
           setState(() {
             _reInspectionTaskIds.clear();
             for (final savedTask in completedTasks) {
-              if (savedTask["viReInspection"] == true) {
+              final val = savedTask["viReInspection"];
+              final isRe = val == true || val == 1 || val?.toString() == "true" || val?.toString() == "1";
+              if (isRe) {
                 _reInspectionTaskIds.add(savedTask["viTaskId"]);
               }
             }
@@ -306,57 +310,13 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                     );
                                   },
                                 ),
-                                const SizedBox(height: 10),
-                                //
-                                CustomButtonWidget(
-                                  text: "SAVE",
-                                  isDisabled: completedTasks.isEmpty,
-                                  onPressed: () async {
-                                    final success = await controller
-                                        .changeStatus(jobId: widget.jobId);
-                                    if (!context.mounted) return;
-                                    if (success) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          backgroundColor:
-                                              ColorConstants.greenColor,
-                                          content: Text(
-                                            "Custom inspection complete",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                      context.go(
-                                        "/inspectionsummarypage",
-                                        extra: {
-                                          "jobId": widget.jobId,
-                                          "flag": 0,
-                                        },
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          backgroundColor:
-                                              ColorConstants.errorcolor,
-                                          content: Text(
-                                            "Failed to Custom inspection",
-                                            style: TextStyle(
-                                              color: ColorConstants.whiteColor,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  textSize: 16,
-                                ),
-                                SizedBox(height: 40),
+                                 const SizedBox(height: 10),
+                                 _buildBottomSection(
+                                   context,
+                                   formController,
+                                   controller,
+                                 ),
+                                 const SizedBox(height: 40),
                               ],
                             ),
                           ),
@@ -1252,8 +1212,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                             final isChecked = _reInspectionTaskIds.contains(
                               task.taskId,
                             );
-                            final tempCardController =
-                                InspectioncardController();
+                            final tempCardController = InspectioncardController();
                             tempCardController.setSelectedOption(
                               task.condition ?? "Good",
                             );
@@ -1271,23 +1230,34 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                             );
                           }
 
+                          final targetStatus = _reInspectionTaskIds.isNotEmpty
+                              ? 14
+                              : 6;
+
                           final success = await controller.changeStatus(
                             jobId: widget.jobId,
+                            status: targetStatus,
                           );
                           if (!mounted) return;
                           if (success) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 backgroundColor: ColorConstants.greenColor,
                                 content: Text(
-                                  "Inspection report submitted successfully",
-                                  style: TextStyle(color: Colors.white),
+                                  widget.inspectionTypeId == 2
+                                      ? "Custom inspection complete"
+                                      : "Inspection report submitted successfully",
+                                  style: const TextStyle(color: Colors.white),
                                 ),
                               ),
                             );
+                            final isCustom = widget.inspectionFormId == 0;
                             context.go(
                               "/inspectionsummarypage",
-                              extra: {"jobId": widget.jobId, "flag": 0},
+                              extra: {
+                                "jobId": widget.jobId,
+                                "flag": (isCustom || widget.inspectionTypeId != 2) ? 0 : 2
+                              },
                             );
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -1341,6 +1311,11 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
           }
           return compName;
         }
+      }
+    }
+    for (final comp in controller.allTaskComponents) {
+      if (comp != null && comp["itcId"] == taskId) {
+        return comp["itcName"] ?? "Unknown";
       }
     }
     return "Task $taskId";

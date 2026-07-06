@@ -33,6 +33,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      if (!mounted) return;
       context.read<InspectionDetailsController>().getInspectionTypes();
       context.read<JobcarddetailsController>().postJobCardDetails(
         widget.jobId!,
@@ -47,6 +48,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
   Future<void> loadUserDepartment() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     final value = prefs.get("userDepartment");
+    if (!mounted) return;
     setState(() {
       userDepartment = int.tryParse(value.toString());
     });

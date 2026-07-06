@@ -101,12 +101,16 @@ class BasicinspController extends ChangeNotifier {
       if (currentStage == InspectionStage.diagram) {
         hasOpenedResumeStage = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          openCarDiagram(context);
+          if (context.mounted) {
+            openCarDiagram(context);
+          }
         });
       } else if (currentStage == InspectionStage.signature) {
         hasOpenedResumeStage = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          openSignature(context);
+          if (context.mounted) {
+            openSignature(context);
+          }
         });
       }
     }

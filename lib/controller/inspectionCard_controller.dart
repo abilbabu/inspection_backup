@@ -408,6 +408,10 @@ class InspectioncardController extends ChangeNotifier {
       selectedOption = null;
       noteController.text = "";
       descriptionController.text = "";
+      _capturedImages.fillRange(0, maxImages, null);
+      _capturedVideo = null;
+      _recordedFilePath = null;
+      _imageAngles.clear();
     } else {
       selectedOption = existing.condition;
       noteController.text = existing.note;
@@ -564,7 +568,7 @@ class InspectioncardController extends ChangeNotifier {
       taskId: taskId,
       formId: formId,
       inspectionTypeId: inspectionTypeId,
-      viReInspection: isReInspection || (inspectionTypeId == 2),
+      viReInspection: isReInspection,
       vimInspectionType: isReInspection ? 2 : (inspectionTypeId ?? 1),
     );
     if (response.success != true) {
@@ -811,13 +815,15 @@ class InspectioncardController extends ChangeNotifier {
       taskId: taskId,
       formId: formId,
     );
+    isLoading = true;
+    notifyListeners();
     final ApiResponse response = await saveSingleInspectionTask(
       status: isReInspection ? 11 : 5,
       jobId: jobId,
       taskId: taskId,
       formId: formId,
       inspectionTypeId: inspectionTypeId,
-      viReInspection: isReInspection || (inspectionTypeId == 2),
+      viReInspection: isReInspection,
       vimInspectionType: isReInspection ? 2 : (inspectionTypeId ?? 2),
     );
     if (response.success != true) {
@@ -855,5 +861,20 @@ class InspectioncardController extends ChangeNotifier {
         inserted: false,
       ),
     );
+  }
+
+  bool _isDisposed = false;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
   }
 }

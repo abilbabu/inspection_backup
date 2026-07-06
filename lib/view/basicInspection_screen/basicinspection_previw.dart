@@ -24,8 +24,10 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       final reportController = context.read<BasicInspectionReportController>();
       await reportController.getBasicInspection(widget.jobId);
+      if (!mounted) return;
       await reportController.getVehicleEssentialList();
     });
   }
