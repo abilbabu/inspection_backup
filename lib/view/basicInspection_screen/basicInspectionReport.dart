@@ -27,6 +27,7 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
   @override
   void initState() {
     super.initState();
+    context.read<BasicInspectionReportController>().clearLoadedJobId();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final reportController = context.read<BasicInspectionReportController>();
@@ -79,7 +80,10 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 20),
-                    VehicleSummaryWidget(jobId: widget.jobId),
+                    VehicleSummaryWidget(
+                      jobId: widget.jobId,
+                      fetchBasicInspection: false,
+                    ),
                     SizedBox(height: 12),
                     _registrationCardSection(controller),
                     SizedBox(height: 15),
@@ -197,12 +201,11 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                 );
               },
               child: Container(
-                height: 320,
+                height: 340,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(15),
                   color: ColorConstants.whiteColor,
-                  boxShadow: ColorConstants.dashboardboxShadow,
                 ),
                 child: Row(
                   children: [

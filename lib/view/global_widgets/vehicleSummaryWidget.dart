@@ -10,7 +10,12 @@ import 'package:provider/provider.dart';
 
 class VehicleSummaryWidget extends StatefulWidget {
   final int? jobId;
-  const VehicleSummaryWidget({super.key, this.jobId});
+  final bool fetchBasicInspection;
+  const VehicleSummaryWidget({
+    super.key,
+    this.jobId,
+    this.fetchBasicInspection = true,
+  });
   @override
   State<VehicleSummaryWidget> createState() => _vehicleSummaryWidgetState();
 }
@@ -26,9 +31,12 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
         context.read<JobcarddetailsController>().postJobCardDetails(
           widget.jobId!,
         );
-        context.read<BasicInspectionReportController>().getBasicInspection(
-          widget.jobId!,
-        );
+        if (widget.fetchBasicInspection) {
+          context.read<BasicInspectionReportController>().getBasicInspection(
+            widget.jobId!,
+            forceRefresh: true,
+          );
+        }
       }
     });
   }
