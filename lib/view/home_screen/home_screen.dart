@@ -47,10 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> refreshData() async {
-    await Future.wait([
-      getInspectionListByUserId(),
-      getJobCardListByUserId(),
-    ]);
+    await Future.wait([getInspectionListByUserId(), getJobCardListByUserId()]);
   }
 
   @override
@@ -210,6 +207,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool isOnlyJobCardDepartment =
         userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
 
+    final reversedList = jobcardList.reversed.toList();
+
+    final reInspectionList = reversedList.where((item) {
+      final status = int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
+
+      return (status == 10 || status == 11 || status == 18);
+    }).toList();
+
     return Scaffold(
       body: AppTheme(
         child: !isOnlyJobCardDepartment
@@ -231,6 +236,38 @@ class _HomeScreenState extends State<HomeScreen> {
                       inspectionModeSection(context),
                       SizedBox(height: 12),
                       jobCardSection(),
+                      SizedBox(height: 12),
+                      if ((userDepartment == 0 || userDepartment == 1) &&
+                          reInspectionList.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Re-Inspection",
+                                style: ApptextstyleConstants.regularText(
+                                  fontSize: 18,
+                                  color: ColorConstants.blackColor,
+                                ),
+                              ),
+                              ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: reInspectionList.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  return jobCardItemTechinician(
+                                    context,
+                                    reInspectionList[index],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                     ],
                   ),
@@ -503,7 +540,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final status =
               int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
 
-          return status >= 1 && status <= 18 &&  status != 6 &&  status != 12;
+          return [3, 4, 5, 9].contains(status);
         })
         .take(5)
         .toList();
@@ -596,7 +633,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: ShaderMask(
                                 shaderCallback: (bounds) {
                                   return const LinearGradient(
-                                    colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                    colors: [
+                                      Color(0xFF0066A6),
+                                      Color(0xFF00BFA6),
+                                    ],
                                   ).createShader(bounds);
                                 },
                                 child: const Text(
@@ -613,7 +653,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: ShaderMask(
                                 shaderCallback: (bounds) {
                                   return const LinearGradient(
-                                    colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                    colors: [
+                                      Color(0xFF0066A6),
+                                      Color(0xFF00BFA6),
+                                    ],
                                   ).createShader(bounds);
                                 },
                                 child: const Text(
@@ -628,21 +671,24 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             Tab(
                               child: ShaderMask(
-                                  shaderCallback: (bounds) {
-                                    return const LinearGradient(
-                                      colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                                    ).createShader(bounds);
-                                  },
-                                  child: const Text(
-                                    "Reassigned",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
+                                shaderCallback: (bounds) {
+                                  return const LinearGradient(
+                                    colors: [
+                                      Color(0xFF0066A6),
+                                      Color(0xFF00BFA6),
+                                    ],
+                                  ).createShader(bounds);
+                                },
+                                child: const Text(
+                                  "Reassigned",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
                                   ),
                                 ),
                               ),
+                            ),
                           ],
                         ),
                       ),
@@ -656,7 +702,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             prefixIcon: const Icon(Icons.search),
                             filled: true,
                             fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(30),
                               borderSide: BorderSide.none,
@@ -673,7 +721,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               builder: (context) {
                                 final pendingList = reversedList.where((item) {
                                   final status =
-                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      int.tryParse(
+                                        item["jobStatus"].toString(),
+                                      ) ??
                                       0;
 
                                   final searchMatch =
@@ -698,10 +748,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   return RefreshIndicator(
                                     onRefresh: refreshData,
                                     child: ListView(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       children: [
                                         SizedBox(
-                                          height: MediaQuery.sizeOf(context).height * 0.5,
+                                          height:
+                                              MediaQuery.sizeOf(
+                                                context,
+                                              ).height *
+                                              0.5,
                                           child: Center(
                                             child: emptyJobCardContainer(
                                               title: "No Pending Jobs",
@@ -719,7 +774,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Padding(
                                     padding: const EdgeInsets.all(5),
                                     child: ListView.separated(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       itemCount: pendingList.length,
                                       separatorBuilder: (_, __) =>
                                           SizedBox(height: 0),
@@ -740,7 +796,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               builder: (context) {
                                 final assignedList = reversedList.where((item) {
                                   final status =
-                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      int.tryParse(
+                                        item["jobStatus"].toString(),
+                                      ) ??
                                       0;
                                   final searchMatch =
                                       item["jobNo"]
@@ -766,10 +824,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   return RefreshIndicator(
                                     onRefresh: refreshData,
                                     child: ListView(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       children: [
                                         SizedBox(
-                                          height: MediaQuery.sizeOf(context).height * 0.5,
+                                          height:
+                                              MediaQuery.sizeOf(
+                                                context,
+                                              ).height *
+                                              0.5,
                                           child: Center(
                                             child: emptyJobCardContainer(
                                               title: "No Assigned Jobs",
@@ -787,7 +850,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Padding(
                                     padding: const EdgeInsets.all(5),
                                     child: ListView.separated(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       itemCount: assignedList.length,
                                       separatorBuilder: (_, __) =>
                                           const SizedBox(height: 0),
@@ -805,69 +869,82 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             /// ================= Re-Assigned =================
                             Builder(
-                                builder: (context) {
-                                  final reAssignedList = reversedList.where((item) {
-                                    final status =
-                                        int.tryParse(item["jobStatus"].toString()) ??
-                                        0;
-                                    final searchMatch =
-                                        item["jobNo"]
-                                                ?.toString()
-                                                .toLowerCase()
-                                                .contains(searchText) ==
-                                            true ||
-                                        item["plateNo"]
-                                                ?.toString()
-                                                .toLowerCase()
-                                                .contains(searchText) ==
-                                            true ||
-                                        item["vinNo"]
-                                                ?.toString()
-                                                .toLowerCase()
-                                                .contains(searchText) ==
-                                            true;
-                                    return (status == 10 || status == 11 || status == 18) && searchMatch;
-                                  }).toList();
-                                  if (reAssignedList.isEmpty) {
-                                    return RefreshIndicator(
-                                      onRefresh: refreshData,
-                                      child: ListView(
-                                        physics: const AlwaysScrollableScrollPhysics(),
-                                        children: [
-                                          SizedBox(
-                                            height: MediaQuery.sizeOf(context).height * 0.5,
-                                            child: Center(
-                                              child: emptyJobCardContainer(
-                                                title: "No Reassigned Jobs",
-                                                subtitle:
-                                                    "There are no reassigned job cards available.",
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }
+                              builder: (context) {
+                                final reAssignedList = reversedList.where((
+                                  item,
+                                ) {
+                                  final status =
+                                      int.tryParse(
+                                        item["jobStatus"].toString(),
+                                      ) ??
+                                      0;
+                                  final searchMatch =
+                                      item["jobNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["plateNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true ||
+                                      item["vinNo"]
+                                              ?.toString()
+                                              .toLowerCase()
+                                              .contains(searchText) ==
+                                          true;
+                                  return (status == 10 ||
+                                          status == 11 ||
+                                          status == 18) &&
+                                      searchMatch;
+                                }).toList();
+                                if (reAssignedList.isEmpty) {
                                   return RefreshIndicator(
                                     onRefresh: refreshData,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(5),
-                                      child: ListView.separated(
-                                        physics: const AlwaysScrollableScrollPhysics(),
-                                        itemCount: reAssignedList.length,
-                                        separatorBuilder: (_, __) =>
-                                            const SizedBox(height: 0),
-                                        itemBuilder: (context, index) {
-                                          return jobCardItemlist(
-                                            context,
-                                            reAssignedList[index],
-                                          );
-                                        },
-                                      ),
+                                    child: ListView(
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      children: [
+                                        SizedBox(
+                                          height:
+                                              MediaQuery.sizeOf(
+                                                context,
+                                              ).height *
+                                              0.5,
+                                          child: Center(
+                                            child: emptyJobCardContainer(
+                                              title: "No Reassigned Jobs",
+                                              subtitle:
+                                                  "There are no reassigned job cards available.",
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   );
-                                },
-                              ),
+                                }
+                                return RefreshIndicator(
+                                  onRefresh: refreshData,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(5),
+                                    child: ListView.separated(
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      itemCount: reAssignedList.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 0),
+                                      itemBuilder: (context, index) {
+                                        return jobCardItemlist(
+                                          context,
+                                          reAssignedList[index],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -914,7 +991,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: ShaderMask(
                                 shaderCallback: (bounds) {
                                   return const LinearGradient(
-                                    colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                    colors: [
+                                      Color(0xFF0066A6),
+                                      Color(0xFF00BFA6),
+                                    ],
                                   ).createShader(bounds);
                                 },
                                 child: const Text(
@@ -931,7 +1011,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: ShaderMask(
                                 shaderCallback: (bounds) {
                                   return const LinearGradient(
-                                    colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                    colors: [
+                                      Color(0xFF0066A6),
+                                      Color(0xFF00BFA6),
+                                    ],
                                   ).createShader(bounds);
                                 },
                                 child: const Text(
@@ -946,21 +1029,24 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             Tab(
                               child: ShaderMask(
-                                  shaderCallback: (bounds) {
-                                    return const LinearGradient(
-                                      colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                                    ).createShader(bounds);
-                                  },
-                                  child: const Text(
-                                    "Reassigned",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
+                                shaderCallback: (bounds) {
+                                  return const LinearGradient(
+                                    colors: [
+                                      Color(0xFF0066A6),
+                                      Color(0xFF00BFA6),
+                                    ],
+                                  ).createShader(bounds);
+                                },
+                                child: const Text(
+                                  "Reassigned",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
                                   ),
                                 ),
                               ),
+                            ),
                           ],
                         ),
                       ),
@@ -974,7 +1060,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             prefixIcon: const Icon(Icons.search),
                             filled: true,
                             fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(30),
                               borderSide: BorderSide.none,
@@ -990,7 +1078,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               builder: (context) {
                                 final pendingList = reversedList.where((item) {
                                   final status =
-                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      int.tryParse(
+                                        item["jobStatus"].toString(),
+                                      ) ??
                                       0;
                                   final searchMatch =
                                       item["jobNo"]
@@ -1014,10 +1104,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   return RefreshIndicator(
                                     onRefresh: refreshData,
                                     child: ListView(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       children: [
                                         SizedBox(
-                                          height: MediaQuery.sizeOf(context).height * 0.5,
+                                          height:
+                                              MediaQuery.sizeOf(
+                                                context,
+                                              ).height *
+                                              0.5,
                                           child: Center(
                                             child: emptyJobCardContainer(
                                               title: "No Pending Jobs",
@@ -1035,7 +1130,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Padding(
                                     padding: const EdgeInsets.all(5),
                                     child: ListView.separated(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       itemCount: pendingList.length,
                                       separatorBuilder: (_, __) =>
                                           const SizedBox(height: 0),
@@ -1054,7 +1150,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               builder: (context) {
                                 final ongoingList = reversedList.where((item) {
                                   final status =
-                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      int.tryParse(
+                                        item["jobStatus"].toString(),
+                                      ) ??
                                       0;
                                   final searchMatch =
                                       item["jobNo"]
@@ -1078,10 +1176,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   return RefreshIndicator(
                                     onRefresh: refreshData,
                                     child: ListView(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       children: [
                                         SizedBox(
-                                          height: MediaQuery.sizeOf(context).height * 0.5,
+                                          height:
+                                              MediaQuery.sizeOf(
+                                                context,
+                                              ).height *
+                                              0.5,
                                           child: Center(
                                             child: emptyJobCardContainer(
                                               title: "No On Going Jobs",
@@ -1099,7 +1202,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Padding(
                                     padding: const EdgeInsets.all(5),
                                     child: ListView.separated(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       itemCount: ongoingList.length,
                                       separatorBuilder: (_, __) =>
                                           const SizedBox(height: 0),
@@ -1116,9 +1220,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             Builder(
                               builder: (context) {
-                                final reAssignedList = reversedList.where((item) {
+                                final reAssignedList = reversedList.where((
+                                  item,
+                                ) {
                                   final status =
-                                      int.tryParse(item["jobStatus"].toString()) ??
+                                      int.tryParse(
+                                        item["jobStatus"].toString(),
+                                      ) ??
                                       0;
                                   final searchMatch =
                                       item["jobNo"]
@@ -1136,16 +1244,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                               .toLowerCase()
                                               .contains(searchText) ==
                                           true;
-                                  return (status == 10 || status == 11 || status == 18) && searchMatch;
+                                  return (status == 10 ||
+                                          status == 11 ||
+                                          status == 18) &&
+                                      searchMatch;
                                 }).toList();
                                 if (reAssignedList.isEmpty) {
                                   return RefreshIndicator(
                                     onRefresh: refreshData,
                                     child: ListView(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       children: [
                                         SizedBox(
-                                          height: MediaQuery.sizeOf(context).height * 0.5,
+                                          height:
+                                              MediaQuery.sizeOf(
+                                                context,
+                                              ).height *
+                                              0.5,
                                           child: Center(
                                             child: emptyJobCardContainer(
                                               title: "No Reassigned Jobs",
@@ -1163,7 +1279,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Padding(
                                     padding: const EdgeInsets.all(5),
                                     child: ListView.separated(
-                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
                                       itemCount: reAssignedList.length,
                                       separatorBuilder: (_, __) =>
                                           const SizedBox(height: 0),
