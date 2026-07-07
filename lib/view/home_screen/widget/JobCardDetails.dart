@@ -348,7 +348,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                             ),
                           if ([6, 7, 8, 9, 12, 14, 15, 16, 17, 18, 19].contains(jobStatus)) ...[
                             _inspectionsummarypage(context, controller),
-                            if (controller.hasReinspection) ...[
+                            if (controller.hasReinspection &&
+                                (!controller.isCustomInspectionAssigned ||
+                                    [12, 15, 16, 17, 19].contains(jobStatus))) ...[
                               SizedBox(height: 5),
                               _reinspectionsummarypage(context, controller),
                             ],

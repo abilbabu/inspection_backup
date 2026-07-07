@@ -278,8 +278,29 @@ class InspectionsummarypageController extends ChangeNotifier {
         final String supComm = master["vimSupervisorComment"]?.toString() ?? "";
         final String serviceComm = master["vimSaComment"]?.toString() ?? "";
 
-        final bool isCustom = ifMasterId == null || ifMasterId == 0;
-        final bool isReinspectionRun = inspType == 2;
+        final bool isCustom = (ifMasterId == null || ifMasterId == 0) && inspType != 0;
+        bool isReinspectionRun = inspType == 2;
+        if (isCustom && isReinspectionRun) {
+          final firstCustom = inspections.firstWhere((insp) {
+            final m = insp["master"];
+            if (m == null) return false;
+            final int? t = m["vimInspectionType"] is num
+                ? (m["vimInspectionType"] as num).toInt()
+                : int.tryParse(m["vimInspectionType"]?.toString() ?? "");
+            if (t == 0) return false;
+            final int? fId = m["vimIfMasterId"];
+            return fId == null || fId == 0;
+          }, orElse: () => null);
+
+          if (firstCustom != null) {
+            final firstVimId = firstCustom["master"]?["vimId"];
+            if (vimId == firstVimId) {
+              isReinspectionRun = false;
+            } else {
+              isReinspectionRun = true;
+            }
+          }
+        }
 
         if (isReinspectionRun) {
           technicianComment = techComm;

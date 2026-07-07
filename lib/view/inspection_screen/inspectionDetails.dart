@@ -194,7 +194,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                 "/inspectiontypedetailspage",
                                 extra: {
                                   "jobId": widget.jobId,
-                                  "inspectionTypeId": 2,
+                                  "inspectionTypeId": 1,
                                   "inspectionFormId": 0,
                                 },
                               );
