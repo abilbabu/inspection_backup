@@ -39,7 +39,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
     "all": 0,
     "pending": 0,
     "ongoing": 0,
-    "reinspection": 0
+    "reinspection": 0,
   };
 
   @override
@@ -235,7 +235,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
         child: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: "Search Job card / Registration / Customer / Model",
+            hintText: "Search Job-Card Number",
             hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
             prefixIcon: const Icon(Icons.search, color: Colors.grey),
             suffixIcon: _searchController.text.isNotEmpty
@@ -263,7 +263,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
   Widget _filterChipsSection() {
     final filters = [
       {"key": "all", "label": "All"},
-      {"key": "pending", "label": "Inspection Pending"},
+      {"key": "pending", "label": "Inspection\nPending"},
       {"key": "ongoing", "label": "Ongoing"},
       {"key": "reinspection", "label": "Re-Inspection"},
     ];
@@ -271,7 +271,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: SizedBox(
-        height: 48,
+        height: 56,
         child: Row(
           children: filters.map((f) {
             final key = f["key"]!;
@@ -289,9 +289,9 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
                   _fetchJobs(refresh: true);
                 },
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     gradient: isSelected
                         ? const LinearGradient(
                             colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
@@ -311,14 +311,18 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black87,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          fontSize: 11,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                            fontSize: 9,
+                            height: 1.1,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -327,7 +331,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
                         style: TextStyle(
                           color: isSelected ? Colors.white.withOpacity(0.8) : Colors.grey.shade600,
                           fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                          fontSize: 9.5,
+                          fontSize: 9,
                         ),
                       ),
                     ],
