@@ -170,11 +170,11 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
       }
 
       final status = int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
-      if (status == 3 || status == 4 || status == 5 || status == 10) {
+      if (status == 3 || status == 4 || status == 10) {
         allCount++;
         if (status == 3) {
           pendingCount++;
-        } else if (status == 4 || status == 5) {
+        } else if (status == 4) {
           assignedCount++;
         } else if (status == 10) {
           reassignedCount++;
@@ -186,7 +186,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
     if (_activeFilter == "all") {
       temp = temp.where((item) {
         final status = int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
-        return status == 3 || status == 4 || status == 5 || status == 10;
+        return status == 3 || status == 4 || status == 10;
       }).toList();
     } else if (_activeFilter == "pending") {
       temp = temp.where((item) {
@@ -196,7 +196,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
     } else if (_activeFilter == "assigned") {
       temp = temp.where((item) {
         final status = int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
-        return status == 4 || status == 5;
+        return status == 4;
       }).toList();
     } else if (_activeFilter == "reassigned") {
       temp = temp.where((item) {
@@ -424,11 +424,20 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
 
     return GestureDetector(
       onTap: () {
-        final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
-        if (jobStatus == 3 || jobStatus == 4 || jobStatus == 10) {
-          context.go("/reassigneddetails", extra: jobId);
-        } else {
+        final dynamic rawJobId = item['jobId'];
+        final int jobId = rawJobId is int
+            ? rawJobId
+            : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
+        if (jobStatus == 3) {
           context.go("/jobcarddetails", extra: jobId);
+        } else if (jobStatus == 4) {
+          context.go("/jobcarddetails", extra: jobId);
+        } else if (jobStatus == 5) {
+          context.go("/jobcarddetails", extra: jobId);
+        } else if (jobStatus == 10) {
+          context.go("/reassigneddetails", extra: jobId);
+        }else if (jobStatus == 11) {
+          context.go("/reassigneddetails", extra: jobId);
         }
       },
       child: Container(
