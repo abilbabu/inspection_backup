@@ -12,6 +12,8 @@ import 'package:inspection/view/global_widgets/gallery_view.dart';
 import 'package:inspection/view/history_screen/history_screen.dart';
 import 'package:inspection/view/home_screen/home_screen.dart';
 import 'package:inspection/view/home_screen/technician_dashboard.dart';
+import 'package:inspection/view/home_screen/job_controller_dashboard.dart';
+import 'package:inspection/view/home_screen/supervisor_dashboard.dart';
 import 'package:inspection/controller/authentication_%20controller.dart';
 import 'package:inspection/view/home_screen/widget/JobCardDetails.dart';
 import 'package:inspection/view/home_screen/widget/allJobCardView.dart';
@@ -65,6 +67,12 @@ final GoRouter router = GoRouter(
                 }
                 if (authCtrl.userDepartment == 4) {
                   return const TechnicianDashboard();
+                }
+                if (authCtrl.userDepartment == 5) {
+                  return const JobControllerDashboard();
+                }
+                if (authCtrl.userDepartment == 2) {
+                  return const SupervisorDashboard();
                 }
                 return const HomeScreen();
               },
