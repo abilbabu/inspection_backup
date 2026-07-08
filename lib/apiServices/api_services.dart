@@ -53,4 +53,5 @@ class ApiServices {
   static String basicimageSettingList = "${baseUrl}settings/imageSettingsList";
   static String componentList = "${baseUrl}settings/componentList";
   static String componentSearch = "${baseUrl}settings/componentList/search";
+  static String technicianJobsPaginated = "${baseUrl}jobcard/getTechnicianJobsPaginated";
 }

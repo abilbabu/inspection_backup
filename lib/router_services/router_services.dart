@@ -11,6 +11,8 @@ import 'package:inspection/view/global_widgets/fullScreenImage.dart';
 import 'package:inspection/view/global_widgets/gallery_view.dart';
 import 'package:inspection/view/history_screen/history_screen.dart';
 import 'package:inspection/view/home_screen/home_screen.dart';
+import 'package:inspection/view/home_screen/technician_dashboard.dart';
+import 'package:inspection/controller/authentication_%20controller.dart';
 import 'package:inspection/view/home_screen/widget/JobCardDetails.dart';
 import 'package:inspection/view/home_screen/widget/allJobCardView.dart';
 import 'package:inspection/view/home_screen/widget/allPendingInspection.dart';
@@ -51,7 +53,24 @@ final GoRouter router = GoRouter(
     ShellRoute(
       builder: (context, state, child) => BottomnavbarScreen(child: child),
       routes: [
-        GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+        GoRoute(
+          path: '/home',
+          builder: (context, state) {
+            return Consumer<AuthenticationController>(
+              builder: (context, authCtrl, child) {
+                if (!authCtrl.isDepartmentLoaded) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (authCtrl.userDepartment == 4) {
+                  return const TechnicianDashboard();
+                }
+                return const HomeScreen();
+              },
+            );
+          },
+        ),
         GoRoute(
           path: '/quotation',
           builder: (context, state) => const QuotationListPage(),
