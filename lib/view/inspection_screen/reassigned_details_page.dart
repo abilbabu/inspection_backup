@@ -94,7 +94,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
         final data = inspectionResponse.data as Map<String, dynamic>;
         int jobStatus = summaryCtrl.jobStatus;
-        if (jobStatus == 10 || jobStatus == 18) {
+        if (jobStatus == 18) {
           await detailsCtrl.changeStatus(jobId: widget.jobId, status: 11);
           if (!mounted) return;
           jobStatus = 11;
