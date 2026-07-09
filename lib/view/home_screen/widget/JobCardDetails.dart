@@ -205,7 +205,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                     );
                                     final output = {
                                       "jobId": widget.jobId,
-                                      "status": 4,
+                                      "status": 3,
                                       "vimIfMasterId": "",
                                       "assignedBy": assignedBy,
                                     };
