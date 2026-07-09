@@ -406,23 +406,18 @@ class _InspectionCardState extends State<InspectionCard> {
                             child: SizedBox(
                               height: fieldHeight,
                               child: CustomButtonWidget(
-                                text:
-                                    cardController.isLoading ||
-                                        cardController.isVideoLoading ||
+                                text: cardController.isLoading ||
                                         cardController.isAudioDownloading
                                     ? "Please Wait..."
                                     : cardController.isSuccess
-                                    ? (widget.isReInspection ? "SAVED" : "UPLOADED")
-                                    : "SAVE",
+                                        ? (widget.isReInspection ? "SAVED" : "UPLOADED")
+                                        : "SAVE",
                                 textSize: 12,
-                                isDisabled:
-                                    cardController.isLoading ||
+                                isDisabled: cardController.isLoading ||
                                     cardController.isSuccess ||
                                     cardController.isVideoLoading ||
                                     cardController.isAudioDownloading,
-                                showLoader:
-                                    cardController.isLoading ||
-                                    cardController.isVideoLoading ||
+                                showLoader: cardController.isLoading ||
                                     cardController.isAudioDownloading,
                                 onPressed: () async {
                                   if (widget.formid == 0 || widget.categoryId == null || widget.categoryId == 0) {

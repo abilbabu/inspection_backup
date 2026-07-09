@@ -207,7 +207,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     _buildCommentsSummaryCard(summaryCtrl),
                     if (jobCardCtrl.isTechnicianAssigned == true &&
                         jobCardCtrl.assignedTechnicianName != null &&
-                        jobCardCtrl.assignedTechnicianName!.isNotEmpty) ...[
+                        jobCardCtrl.assignedTechnicianName!.isNotEmpty && ![10, 11, 12, 13, 14].contains(jobStatus)) ...[
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -452,7 +452,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                             ? Colors.red
                             : originalStatus == InspectionStatus.repair
                             ? Colors.orange
-                            : Colors.grey,
+                            : Colors.blue,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),

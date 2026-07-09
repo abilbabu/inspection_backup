@@ -1153,7 +1153,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                     ? Colors.red
                                     : task.condition == "Repair"
                                     ? Colors.orange
-                                    : Colors.grey,
+                                    : Colors.blue,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),

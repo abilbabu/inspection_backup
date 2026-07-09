@@ -774,7 +774,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         ? controller.previousTechnicianComment
         : (controller.technicianComment.trim().isNotEmpty ? controller.technicianComment : "No comments");
 
-    final bool showSaAndSup = (controller.jobStatus >= 10 || controller.jobStatus == 9 || controller.jobStatus == 17 || controller.jobStatus == 19 || widget.flag == 2);
+    final bool showSaAndSup = widget.flag == 2;
 
     return Container(
       width: double.infinity,

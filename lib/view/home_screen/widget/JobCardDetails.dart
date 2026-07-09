@@ -233,7 +233,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 },
                               ),
                             ),
-                          if (jobController.isTechnicianAssigned &&
+                          if (jobController.isTechnicianAssigned && ![10, 11, 12, 13, 14].contains(jobStatus) &&
                               userDepartment != 3 &&
                               !isHistoryTab) ...[
                             SizedBox(height: 16),

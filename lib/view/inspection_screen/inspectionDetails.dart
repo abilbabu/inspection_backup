@@ -106,8 +106,10 @@ class _InspectionDetailsState extends State<InspectionDetails> {
 
   @override
   Widget build(BuildContext context) {
-    final jobCtrl = context.read<JobcarddetailsController>();
+    final jobCtrl = context.watch<JobcarddetailsController>();
     final inspTypeCtrl = context.read<InspectionsummarypageController>();
+    final jobcard = jobCtrl.jobCardData?["jobcard"];
+    final status = int.tryParse(jobcard?["jobStatus"]?.toString() ?? "") ?? -1;
 
     return PopScope(
       canPop: false,
@@ -147,7 +149,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                 VehicleSummaryWidget(jobId: widget.jobId),
                 const SizedBox(height: 20),
 
-                if (jobCtrl.isTechnicianAssigned == true)
+                if (jobCtrl.isTechnicianAssigned == true &&  ![10, 11, 12, 13, 14].contains(status))
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
