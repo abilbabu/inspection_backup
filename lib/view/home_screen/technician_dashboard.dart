@@ -80,13 +80,15 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
     return {"name": prefs.getString("userName") ?? "System User"};
   }
 
-  Future<void> _fetchJobs({bool refresh = false}) async {
+  Future<void> _fetchJobs({bool refresh = false, bool isPullToRefresh = false}) async {
     if (refresh) {
       setState(() {
         _currentPage = 0;
         _hasMore = true;
-        _jobs = [];
-        _isLoading = true;
+        if (!isPullToRefresh) {
+          _jobs = [];
+          _isLoading = true;
+        }
       });
     } else {
       if (!_hasMore || _isMoreLoading) return;
@@ -137,7 +139,11 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
           final countsData = data["counts"] ?? {};
 
           setState(() {
-            _jobs.addAll(newJobs);
+            if (refresh) {
+              _jobs = List.from(newJobs);
+            } else {
+              _jobs.addAll(newJobs);
+            }
             _hasMore = !last;
             _currentPage++;
             _counts = {
@@ -175,7 +181,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
             const SizedBox(height: 12),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () => _fetchJobs(refresh: true),
+                onRefresh: () => _fetchJobs(refresh: true, isPullToRefresh: true),
                 child: _isLoading
                     ? _shimmerLoading()
                     : _jobs.isEmpty
@@ -348,6 +354,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
   Widget _listView() {
     return ListView.separated(
       controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(top: 8, bottom: 120, left: 12, right: 12),
       itemCount: _jobs.length + (_isMoreLoading ? 1 : 0),
       separatorBuilder: (_, __) => const SizedBox(height: 10),

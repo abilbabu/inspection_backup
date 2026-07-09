@@ -572,6 +572,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                     .toString(),
 
                                 formMasterId: inspectionFormId,
+                                status: 4,
                               );
                               // log("Assign Technician Response: $success");
 

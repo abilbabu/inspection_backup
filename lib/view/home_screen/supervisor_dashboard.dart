@@ -68,11 +68,13 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
     return {"name": prefs.getString("userName") ?? "System User"};
   }
 
-  Future<void> _fetchJobs() async {
+  Future<void> _fetchJobs({bool isPullToRefresh = false}) async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
+    if (!isPullToRefresh) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -232,7 +234,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
             const SizedBox(height: 12),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: _fetchJobs,
+                onRefresh: () => _fetchJobs(isPullToRefresh: true),
                 child: _isLoading
                     ? _shimmerLoading()
                     : _filteredJobs.isEmpty
@@ -404,6 +406,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
 
   Widget _listView() {
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(top: 8, bottom: 120, left: 12, right: 12),
       itemCount: _filteredJobs.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
