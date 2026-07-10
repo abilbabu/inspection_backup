@@ -259,15 +259,11 @@ class CustomerDetailsController extends ChangeNotifier {
         "Authorization": "Bearer $userToken",
       };
       final body = jsonEncode({"brand": brand});
-      // print("API Request URL: $url");
-      // print("API Request Body: $body");
       final response = await http.post(
         Uri.parse(url),
         headers: headers,
         body: body,
       );
-      // print("API Response Code: ${response.statusCode}");
-      // print("API Response Body: ${response.body}");
       if (response.statusCode == 200) {
         final res = jsonDecode(response.body);
         modelList = (res['data'] as List)
