@@ -26,7 +26,6 @@ class VehicleEssentialScreen extends StatefulWidget {
 }
 
 class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
-  bool isLoading = false;
   bool isSuccess = false;
 
   @override
@@ -87,7 +86,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
         ),
         body: Consumer<VehicleessentialController>(
           builder: (context, controller, _) {
-            if (controller.isLoading) {
+            if (controller.isDataLoading) {
               return const Center(child: CircularProgressIndicator());
             }
             return SingleChildScrollView(
@@ -140,20 +139,20 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: CustomButtonWidget(
-                                text: isLoading
+                                text: controller.isLoading
                                     ? "Please wait..."
                                     : isSuccess
                                     ? "COMPLETED"
                                     : "START BASIC INSPECTION",
                                 textSize: 16,
-                                isDisabled: isLoading || isSuccess,
-                                showLoader: isLoading,
+                                isDisabled: controller.isLoading || isSuccess,
+                                showLoader: controller.isLoading,
                                 textColor: ColorConstants.whiteColor,
                                 onPressed: () async {
-                                  if (isLoading) return;
-                                  final controller = context
+                                  final vehicleCtrl = context
                                       .read<VehicleessentialController>();
-                                  if (controller.selectedDocumentTypeId ==
+                                  if (vehicleCtrl.isLoading) return;
+                                  if (vehicleCtrl.selectedDocumentTypeId ==
                                       null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
@@ -169,23 +168,20 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                                     );
                                     return;
                                   }
-                                  setState(() => isLoading = true);
-                                  await Future.delayed(Duration.zero);
-                                  final success = await controller
+                                  final success = await vehicleCtrl
                                       .submitVehicleEssential(
                                         jobId: widget.jobId!,
                                         vId: widget.vId,
                                       );
                                   if (!mounted) return;
                                   if (success) {
-                                    controller.clearData();
+                                    vehicleCtrl.clearData();
                                     setState(() => isSuccess = true);
                                     context.go(
                                       '/basicinspection',
                                       extra: widget.jobId,
                                     );
                                   } else {
-                                    setState(() => isLoading = false);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         backgroundColor:

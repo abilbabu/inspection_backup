@@ -16,6 +16,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 class VehicleessentialController extends ChangeNotifier {
   bool isLoading = false;
+  bool isDataLoading = false;
   Map<int, bool> selectedCheckBox = {};
   Map<int, String> checkBoxType = {};
   String notes = '';
@@ -101,7 +102,7 @@ class VehicleessentialController extends ChangeNotifier {
 
   Future<void> getvehicleEssentialList({String? defaultValue}) async {
     final url = Uri.parse(ApiServices.getvehicleEssentialList);
-    isLoading = true;
+    isDataLoading = true;
     notifyListeners();
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -128,7 +129,7 @@ class VehicleessentialController extends ChangeNotifier {
     } catch (e) {
       print("Vehicle essential error: $e");
     }
-    isLoading = false;
+    isDataLoading = false;
     notifyListeners();
   }
 
@@ -290,6 +291,7 @@ class VehicleessentialController extends ChangeNotifier {
 
   void clearData() {
     isLoading = false;
+    isDataLoading = false;
     selectedCheckBox.clear();
     checkBoxType.clear();
     notes = '';

@@ -56,6 +56,7 @@ class _CustomerdetailsState extends State<Customerdetails> {
 
   bool isLoading = false;
   bool isSuccess = false;
+  bool isDataLoading = false;
 
   @override
   void initState() {
@@ -67,62 +68,69 @@ class _CustomerdetailsState extends State<Customerdetails> {
         widget.initialMobileNumber ?? widget.data?['mobileNumber'] ?? "";
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      customerController.mobileNumController.text = resolvedMobileNumber;
-      if (resolvedCountryCode.isNotEmpty) {
-        customerController.setCountryCode(resolvedCountryCode);
-      }
-      await customerController.getBrandList();
-      if (!mounted) return;
-      if (customerController.brandList.isNotEmpty) {
-        final String brandToSelect = (widget.make.isNotEmpty &&
-                customerController.brandList.contains(widget.make))
-            ? widget.make
-            : customerController.brandList.first;
-        customerController.setBrand(brandToSelect);
-        await customerController.postModelList(brandToSelect);
+      setState(() => isDataLoading = true);
+      try {
+        customerController.mobileNumController.text = resolvedMobileNumber;
+        if (resolvedCountryCode.isNotEmpty) {
+          customerController.setCountryCode(resolvedCountryCode);
+        }
+        await customerController.getBrandList();
         if (!mounted) return;
-        if (widget.model.isNotEmpty &&
-            customerController.modelList.contains(widget.model)) {
-          customerController.setModel(widget.model);
-        } else {
-          customerController.setModel(null);
+        if (customerController.brandList.isNotEmpty) {
+          final String brandToSelect = (widget.make.isNotEmpty &&
+                  customerController.brandList.contains(widget.make))
+              ? widget.make
+              : customerController.brandList.first;
+          customerController.setBrand(brandToSelect);
+          await customerController.postModelList(brandToSelect);
+          if (!mounted) return;
+          if (widget.model.isNotEmpty &&
+              customerController.modelList.contains(widget.model)) {
+            customerController.setModel(widget.model);
+          } else {
+            customerController.setModel(null);
+          }
         }
-      }
-      if (widget.engineNo.isNotEmpty) {
-        customerController.engineController.text = widget.engineNo;
-      }
-      if (widget.year.isNotEmpty) {
-        final yearList = customerController.dummyDB.modelYear
-            .map((e) => e.toString())
-            .toSet()
-            .toList();
-        if (yearList.contains(widget.year)) {
-          customerController.setModelYear(widget.year);
+        if (widget.engineNo.isNotEmpty) {
+          customerController.engineController.text = widget.engineNo;
         }
-      }
-      await customerController.getFuelTypeList();
-      if (!mounted) return;
-      if (widget.fuelType.isNotEmpty &&
-          customerController.fuelTypeList.any(
-            (e) => e['id'] == widget.fuelType,
-          )) {
-        customerController.setFuelType(widget.fuelType);
-      }
-      await customerController.getTransmissionList();
-      if (!mounted) return;
-      if (widget.transmissionType.isNotEmpty &&
-          customerController.transmissionTypeList.any(
-            (e) => e['id'] == widget.transmissionType,
-          )) {
-        customerController.setTransmission(widget.transmissionType);
-      }
-      await customerController.getServiceTypeList();
-      if (!mounted) return;
-      if (widget.serviceType.isNotEmpty &&
-          customerController.serviceTypeList.any(
-            (e) => e['id'] == widget.serviceType,
-          )) {
-        customerController.setServiceType(widget.serviceType);
+        if (widget.year.isNotEmpty) {
+          final yearList = customerController.dummyDB.modelYear
+              .map((e) => e.toString())
+              .toSet()
+              .toList();
+          if (yearList.contains(widget.year)) {
+            customerController.setModelYear(widget.year);
+          }
+        }
+        await customerController.getFuelTypeList();
+        if (!mounted) return;
+        if (widget.fuelType.isNotEmpty &&
+            customerController.fuelTypeList.any(
+              (e) => e['id'] == widget.fuelType,
+            )) {
+          customerController.setFuelType(widget.fuelType);
+        }
+        await customerController.getTransmissionList();
+        if (!mounted) return;
+        if (widget.transmissionType.isNotEmpty &&
+            customerController.transmissionTypeList.any(
+              (e) => e['id'] == widget.transmissionType,
+            )) {
+          customerController.setTransmission(widget.transmissionType);
+        }
+        await customerController.getServiceTypeList();
+        if (!mounted) return;
+        if (widget.serviceType.isNotEmpty &&
+            customerController.serviceTypeList.any(
+              (e) => e['id'] == widget.serviceType,
+            )) {
+          customerController.setServiceType(widget.serviceType);
+        }
+      } finally {
+        if (mounted) {
+          setState(() => isDataLoading = false);
+        }
       }
     });
   }
@@ -283,12 +291,13 @@ class _CustomerdetailsState extends State<Customerdetails> {
                           ),
                         ],
                       ),
-                      if (customerController.isLoading)
+                      if (isDataLoading || customerController.isLoading)
                         Positioned.fill(
                           child: Container(
                             color: Colors.white,
                             child: CustomShimmerLoader(
-                              isLoading: customerController.isLoading,
+                              isLoading: isDataLoading ||
+                                  customerController.isLoading,
                             ),
                           ),
                         ),
