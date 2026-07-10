@@ -98,7 +98,9 @@ final GoRouter router = GoRouter(
       path: '/vehicledetails',
       name: 'Vehicle Details',
       builder: (BuildContext context, GoRouterState state) {
-        return VehicleDetails();
+        final extra = state.extra as Map<String, dynamic>?;
+        final int? jobId = extra?['jobId'] as int?;
+        return VehicleDetails(jobId: jobId);
       },
     ),
 

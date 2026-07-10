@@ -54,6 +54,7 @@ class VehicleSnapshot {
 }
 
 class VehicleDetailsController with ChangeNotifier {
+  int? jobId;
   double fuelValue = 0;
   List<String> fuelMarks = ["E", "1/4", "1/2", "3/4", "F"];
 
@@ -328,6 +329,7 @@ class VehicleDetailsController with ChangeNotifier {
       "custLanguage": selectedLanguages,
       "custName": nameController.text.trim(),
       "vFuelMark": fuelMarks[fuelValue.round()],
+      if (jobId != null) "jobcardId": jobId,
     };
     try {
       isLoading = true;
@@ -424,6 +426,7 @@ class VehicleDetailsController with ChangeNotifier {
     vinImageUrl = null;
     plateImageUrl = null;
     _lastSubmittedSnapshot = null;
+    jobId = null;
     fuelValue = 0;
     isScanning = false;
     isLoading = false;

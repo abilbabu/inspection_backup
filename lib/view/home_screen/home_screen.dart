@@ -144,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
         .where((item) {
           final status =
               int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
-          return status == 1 || status == 2;
+          return status == 0 || status == 1 || status == 2;
         })
         .map((item) {
           return _mapVehicleData(item);
@@ -510,7 +510,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       final vehicle = item["vehicle"] ?? {};
                       final int vId =
                           int.tryParse(vehicle["vId"]?.toString() ?? "0") ?? 0;
-                      if (jobStatus == 1) {
+                      if (jobStatus == 0) {
+                        context.go(
+                          "/vehicledetails",
+                          extra: {"jobId": jobId},
+                        );
+                      } else if (jobStatus == 1) {
                         context.go(
                           "/vehiclecontents",
                           extra: {"jobId": jobId, "vId": vId},
@@ -1325,6 +1330,9 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       listen: false,
     );
+    final String jobStatusStr = data['jobStatus']?.toString().trim() ?? "";
+    final String statusText = controller.getJobStatusText(jobStatusStr);
+    final Color statusColor = controller.getJobStatusColor(jobStatusStr);
     return Container(
       height: 110,
       width: 260,
@@ -1352,23 +1360,46 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RichText(
-                    text: TextSpan(
-                      text: "Job Card No: ",
-                      style: ApptextstyleConstants.thinText(
-                        fontSize: 10,
-                        color: ColorConstants.blackColor,
-                      ).copyWith(fontWeight: FontWeight.bold),
-                      children: [
-                        TextSpan(
-                          text: data["jobNo"],
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.textBlueColor,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            text: "Job Card No: ",
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 10,
+                              color: ColorConstants.blackColor,
+                            ).copyWith(fontWeight: FontWeight.bold),
+                            children: [
+                              TextSpan(
+                                text: data["jobNo"],
+                                style: ApptextstyleConstants.thinText(
+                                  fontSize: 10,
+                                  color: ColorConstants.textBlueColor,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 8,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   RichText(
                     text: TextSpan(

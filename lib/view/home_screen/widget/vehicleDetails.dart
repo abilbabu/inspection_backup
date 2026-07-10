@@ -1,12 +1,15 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/customerDetails_controller.dart';
 import 'package:inspection/controller/vehicleDetails_controller.dart';
 import 'package:inspection/model/apiResponsModel.dart';
@@ -16,10 +19,12 @@ import 'package:inspection/utils/dummyDB/Dummydb.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 
 class VehicleDetails extends StatefulWidget {
-  const VehicleDetails({super.key});
+  final int? jobId;
+  const VehicleDetails({super.key, this.jobId});
 
   @override
   State<VehicleDetails> createState() => _VehicleDetailsState();
@@ -52,7 +57,11 @@ class _VehicleDetailsState extends State<VehicleDetails> {
       if (!mounted) return;
       context.read<VehicleDetailsController>();
       await vehicleCtrl.getCustomerTypeList();
-      vehicleCtrl.restoreFromSnapshot();
+      if (widget.jobId != null && widget.jobId! > 0) {
+        await _prefillFromJobId(widget.jobId!, vehicleCtrl, customerCtrl);
+      } else {
+        vehicleCtrl.restoreFromSnapshot();
+      }
       vehicleCtrl.resetStatus();
     });
     customerCtrl.onVehicleSelected = () {
@@ -72,6 +81,69 @@ class _VehicleDetailsState extends State<VehicleDetails> {
       }
       vehicleCtrl.notify();
     };
+  }
+
+  Future<void> _prefillFromJobId(
+    int jobId,
+    VehicleDetailsController vehicleCtrl,
+    CustomerDetailsController customerCtrl,
+  ) async {
+    try {
+      vehicleCtrl.jobId = jobId;
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('userToken') ?? '';
+      final url = Uri.parse(ApiServices.getCustomerVehicleByJobId);
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({"jobId": jobId}),
+      );
+      if (response.statusCode != 200) return;
+      final decoded = jsonDecode(response.body);
+      final jobcard = decoded['data']?['jobcard'];
+      if (jobcard == null) return;
+      final customer = jobcard['customer'] ?? {};
+      final vehicle = jobcard['vehicle'] ?? {};
+      // --- Customer fields ---
+      final rawCode = customer['custCountryCode']?.toString() ?? '971';
+      final countryCode = rawCode.startsWith('+') ? rawCode : '+$rawCode';
+      customerCtrl.setCountryCode(countryCode);
+      customerCtrl.mobileNumController.text =
+          customer['custMobile']?.toString() ?? '';
+      customerCtrl.customerStatusLabel = "Existing Customer";
+      customerCtrl.customerId =
+          int.tryParse(customer['custId']?.toString() ?? '');
+      vehicleCtrl.nameController.text = customer['custName']?.toString() ?? '';
+      // Customer type
+      final custTypeId = customer['custType']?.toString() ?? '';
+      if (custTypeId.isNotEmpty) {
+        vehicleCtrl.selectedCustomerTypeId = custTypeId;
+      }
+      // Language
+      final lang = customer['custLanguage']?.toString() ?? 'EN';
+      vehicleCtrl.selectedLanguages = lang;
+      // --- Vehicle fields ---
+      vehicleCtrl.vinController.text = vehicle['vVinNo']?.toString() ?? '';
+      vehicleCtrl.odometerController.text =
+          vehicle['vOdometer']?.toString() ?? '';
+      final plate = vehicle['vRegNo']?.toString() ?? '';
+      if (plate.isNotEmpty) {
+        vehicleCtrl.restorePlateFromApiSmart(plate);
+      }
+      vehicleCtrl.vinImageUrl = vehicle['vVinImg']?.toString();
+      vehicleCtrl.plateImageUrl = vehicle['vRegNoImg']?.toString();
+      // Fuel level
+      final fuelMark = vehicle['vFuelMark']?.toString() ?? 'E';
+      final fuelMarks = vehicleCtrl.fuelMarks;
+      final fuelIdx = fuelMarks.indexOf(fuelMark);
+      if (fuelIdx >= 0) vehicleCtrl.fuelValue = fuelIdx.toDouble();
+      if (mounted) vehicleCtrl.notify();
+    } catch (e) {
+      debugPrint('❗ _prefillFromJobId error: $e');
+    }
   }
 
   @override
