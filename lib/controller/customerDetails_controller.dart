@@ -16,6 +16,9 @@ class CustomerDetailsController extends ChangeNotifier {
   List<Map<String, dynamic>> filteredVehicles = [];
   List<Map<String, dynamic>> allCustomerVehicles = [];
   String? selectedVehicle;
+  bool _isModelLoading = false;
+  bool get isModelLoading => _isModelLoading;
+
   final DummyDB dummyDB = DummyDB();
   bool isAlreadyPresent = false;
   int? customerId;
@@ -153,6 +156,7 @@ class CustomerDetailsController extends ChangeNotifier {
 
   void setBrand(String value) {
     _selectedBrand = value;
+    _selectedModel = null;
     notifyListeners();
   }
 
@@ -229,6 +233,7 @@ class CustomerDetailsController extends ChangeNotifier {
           "Authorization": "Bearer $userToken",
         },
       );
+      // log(response.body);
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
         brandList = res['data'].cast<String>();
@@ -243,32 +248,43 @@ class CustomerDetailsController extends ChangeNotifier {
   }
 
   Future<bool> postModelList(String brand) async {
-    isLoading = true;
+    _isModelLoading = true;
     notifyListeners();
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
+      final url = ApiServices.vehicleModel;
+      final headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $userToken",
+      };
+      final body = jsonEncode({"brand": brand});
+      // print("API Request URL: $url");
+      // print("API Request Body: $body");
       final response = await http.post(
-        Uri.parse(ApiServices.vechileMode),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $userToken",
-        },
-        body: jsonEncode({"brand": brand}),
+        Uri.parse(url),
+        headers: headers,
+        body: body,
       );
+      // print("API Response Code: ${response.statusCode}");
+      // print("API Response Body: ${response.body}");
       if (response.statusCode == 200) {
         final res = jsonDecode(response.body);
         modelList = (res['data'] as List)
+            .where((e) => e != null)
             .map((e) => e.toString())
             .toSet()
             .toList();
+        _isModelLoading = false;
         notifyListeners();
         return true;
+      } else {
+        print("Failed to load models. Status: ${response.statusCode}");
       }
     } catch (e) {
       print("Model fetch error: $e");
     }
-    isLoading = false;
+    _isModelLoading = false;
     notifyListeners();
     return false;
   }

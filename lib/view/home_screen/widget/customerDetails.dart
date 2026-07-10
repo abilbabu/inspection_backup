@@ -74,9 +74,12 @@ class _CustomerdetailsState extends State<Customerdetails> {
       await customerController.getBrandList();
       if (!mounted) return;
       if (customerController.brandList.isNotEmpty) {
-        final firstBrand = customerController.brandList.first;
-        customerController.setBrand(firstBrand);
-        await customerController.postModelList(firstBrand);
+        final String brandToSelect = (widget.make.isNotEmpty &&
+                customerController.brandList.contains(widget.make))
+            ? widget.make
+            : customerController.brandList.first;
+        customerController.setBrand(brandToSelect);
+        await customerController.postModelList(brandToSelect);
         if (!mounted) return;
         if (widget.model.isNotEmpty &&
             customerController.modelList.contains(widget.model)) {
@@ -161,126 +164,134 @@ class _CustomerdetailsState extends State<Customerdetails> {
               key: _formKey,
               child: Consumer<CustomerDetailsController>(
                 builder: (context, customerController, child) {
-                  if (customerController.isLoading) {
-                    return CustomShimmerLoader(
-                      isLoading: customerController.isLoading,
-                    );
-                  }
-                  return Column(
+                  return Stack(
                     children: [
-                      SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.grey),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(height: 20),
-                            _vechicleDetailsSection(customerController),
-                            _serviceTypeSection(customerController),
-                            SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              child: CustomButtonWidget(
-                                text: isLoading
-                                    ? "Please wait..."
-                                    : isSuccess
-                                    ? "COMPLETED"
-                                    : "OPEN JOBCARD",
-                                textSize: 16,
-                                isDisabled: isLoading || isSuccess,
-                                showLoader: isLoading,
-                                onPressed: isLoading || isSuccess
-                                    ? null
-                                    : () async {
-                                        final isValid = _formKey.currentState!
-                                            .validate();
-                                        if (isValid == false) {
-                                          ScaffoldMessenger.of(context)
-                                            ..removeCurrentSnackBar()
-                                            ..showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  "Please fix the errors in the form",
-                                                ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                          return;
-                                        }
-                                        setState(() => isLoading = true);
-                                        try {
-                                          final controller = context
-                                              .read<
-                                                CustomerDetailsController
-                                              >();
-                                          ApiResponse response =
-                                              await controller
-                                                  .postCustomerVehicleDetails(
-                                                    widget.data!,
-                                                  );
-                                          if (!mounted) return;
-                                          if (response.success == true &&
-                                              response.data != null) {
-                                            setState(() {
-                                              isLoading = false;
-                                              isSuccess = true;
-                                            });
-                                            customerController.clearAllData(
-                                              context,
-                                            );
-                                            final jobId =
-                                                response.data["jobcardId"];
-                                            final vId =
-                                                response.data["vehicleId"];
-                                            context.go(
-                                              "/vehiclecontents",
-                                              extra: {
-                                                "jobId": jobId,
-                                                "vId": vId,
-                                              },
-                                            );
-                                          } else {
-                                            setState(() => isLoading = false);
-                                            ScaffoldMessenger.of(context)
-                                              ..removeCurrentSnackBar()
-                                              ..showSnackBar(
-                                                SnackBar(
-                                                  content: const Text(
-                                                    "Failed to upload vehicle details",
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                  backgroundColor:
-                                                      ColorConstants.errorcolor,
-                                                ),
-                                              );
-                                          }
-                                        } catch (e) {
-                                          setState(() => isLoading = false);
-                                          ScaffoldMessenger.of(context)
-                                            ..removeCurrentSnackBar()
-                                            ..showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  "Something went wrong: $e",
-                                                ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                        }
-                                      },
-                              ),
+                      Column(
+                        children: [
+                          SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey),
                             ),
-                            SizedBox(height: 40),
-                          ],
-                        ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(height: 20),
+                                _vechicleDetailsSection(customerController),
+                                _serviceTypeSection(customerController),
+                                SizedBox(height: 20),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: CustomButtonWidget(
+                                    text: isLoading
+                                        ? "Please wait..."
+                                        : isSuccess
+                                        ? "COMPLETED"
+                                        : "OPEN JOBCARD",
+                                    textSize: 16,
+                                    isDisabled: isLoading || isSuccess,
+                                    showLoader: isLoading,
+                                    onPressed: isLoading || isSuccess
+                                        ? null
+                                        : () async {
+                                            final isValid = _formKey.currentState!
+                                                .validate();
+                                            if (isValid == false) {
+                                              ScaffoldMessenger.of(context)
+                                                ..removeCurrentSnackBar()
+                                                ..showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      "Please fix the errors in the form",
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              return;
+                                            }
+                                            setState(() => isLoading = true);
+                                            try {
+                                              final controller = context
+                                                  .read<
+                                                    CustomerDetailsController
+                                                  >();
+                                              ApiResponse response =
+                                                  await controller
+                                                      .postCustomerVehicleDetails(
+                                                        widget.data!,
+                                                      );
+                                              if (!mounted) return;
+                                              if (response.success == true &&
+                                                  response.data != null) {
+                                                setState(() {
+                                                  isLoading = false;
+                                                  isSuccess = true;
+                                                });
+                                                customerController.clearAllData(
+                                                  context,
+                                                );
+                                                final jobId =
+                                                    response.data["jobcardId"];
+                                                final vId =
+                                                    response.data["vehicleId"];
+                                                context.go(
+                                                  "/vehiclecontents",
+                                                  extra: {
+                                                    "jobId": jobId,
+                                                    "vId": vId,
+                                                  },
+                                                );
+                                              } else {
+                                                setState(() => isLoading = false);
+                                                ScaffoldMessenger.of(context)
+                                                  ..removeCurrentSnackBar()
+                                                  ..showSnackBar(
+                                                    SnackBar(
+                                                      content: const Text(
+                                                        "Failed to upload vehicle details",
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                      backgroundColor:
+                                                          ColorConstants.errorcolor,
+                                                    ),
+                                                  );
+                                              }
+                                            } catch (e) {
+                                              setState(() => isLoading = false);
+                                              ScaffoldMessenger.of(context)
+                                                ..removeCurrentSnackBar()
+                                                ..showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      "Something went wrong: $e",
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                            }
+                                          },
+                                  ),
+                                ),
+                                SizedBox(height: 40),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
+                      if (customerController.isLoading)
+                        Positioned.fill(
+                          child: Container(
+                            color: Colors.white,
+                            child: CustomShimmerLoader(
+                              isLoading: customerController.isLoading,
+                            ),
+                          ),
+                        ),
                     ],
                   );
                 },
@@ -449,14 +460,15 @@ class _CustomerdetailsState extends State<Customerdetails> {
           items: customerController.brandList.toSet().map((brand) {
             return DropdownMenuItem<String>(value: brand, child: Text(brand));
           }).toList(),
-          onChanged: customerController.selectedBrand == null
-              ? (value) {
+          onChanged: customerController.isAlreadyPresent
+              ? null
+              : (value) {
                   if (value != null) {
                     customerController.setBrand(value);
+                    modelKey.currentState?.didChange(null);
                     customerController.postModelList(value);
                   }
-                }
-              : null,
+                },
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please select brand type';
@@ -465,100 +477,104 @@ class _CustomerdetailsState extends State<Customerdetails> {
           },
         ),
         SizedBox(height: 15),
-        DropdownSearch<String>(
-          key: modelKey,
-          items: (filter, infiniteScrollProps) => customerController.modelList,
-          selectedItem: customerController.selectedModel,
-          popupProps: PopupProps.menu(
-            showSearchBox: true,
-            searchFieldProps: TextFieldProps(
-              decoration: InputDecoration(
-                hintText: "Search Model",
-                prefixIcon: const Icon(Icons.search, size: 16),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                  horizontal: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-          ),
-          decoratorProps: DropDownDecoratorProps(
-            decoration: InputDecoration(
-              label: RichText(
-                text: TextSpan(
-                  text: 'Model',
-                  style: ApptextstyleConstants.lightText(
-                    fontSize: 12,
-                    color: ColorConstants.blackColor,
+        IgnorePointer(
+          ignoring: customerController.isModelLoading ||
+              customerController.isAlreadyPresent,
+          child: DropdownSearch<String>(
+            key: modelKey,
+            items: (filter, infiniteScrollProps) => customerController.modelList,
+            selectedItem: customerController.selectedModel,
+            popupProps: PopupProps.menu(
+              showSearchBox: true,
+              searchFieldProps: TextFieldProps(
+                decoration: InputDecoration(
+                  hintText: "Search Model",
+                  prefixIcon: const Icon(Icons.search, size: 16),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
                   ),
-                  children: [
-                    TextSpan(
-                      text: '*',
-                      style: ApptextstyleConstants.boldText(
-                        color: ColorConstants.errorcolor,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              floatingLabelStyle: TextStyle(color: ColorConstants.blackColor),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 3,
-                horizontal: 15,
-              ),
-              errorStyle: const TextStyle(height: 0.8, fontSize: 11),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(
-                  color: ColorConstants.greyColor,
-                  width: 1,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(
-                  color: ColorConstants.greyColor,
-                  width: 1.2,
-                ),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: ColorConstants.errorcolor,
-                  width: 1,
-                ),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: ColorConstants.errorcolor,
-                  width: 1.2,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ),
+            decoratorProps: DropDownDecoratorProps(
+              decoration: InputDecoration(
+                label: RichText(
+                  text: TextSpan(
+                    text: customerController.isModelLoading ? 'Model (Loading...)' : 'Model',
+                    style: ApptextstyleConstants.lightText(
+                      fontSize: 12,
+                      color: ColorConstants.blackColor,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '*',
+                        style: ApptextstyleConstants.boldText(
+                          color: ColorConstants.errorcolor,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                floatingLabelStyle: TextStyle(color: ColorConstants.blackColor),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 3,
+                  horizontal: 15,
+                ),
+                errorStyle: const TextStyle(height: 0.8, fontSize: 11),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: ColorConstants.greyColor,
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: ColorConstants.greyColor,
+                    width: 1.2,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: ColorConstants.errorcolor,
+                    width: 1,
+                  ),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(
+                    color: ColorConstants.errorcolor,
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+            onChanged: (value) {
+              if (value != null) {
+                customerController.setModel(value);
+                modelKey.currentState?.didChange(value);
+                modelKey.currentState?.validate();
+              }
+            },
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Model is required';
+              }
+              return null;
+            },
           ),
-          onChanged: (value) {
-            if (value != null) {
-              customerController.setModel(value);
-              modelKey.currentState?.didChange(value);
-              modelKey.currentState?.validate();
-            }
-          },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Model is required';
-            }
-            return null;
-          },
         ),
         SizedBox(height: 15),
         Row(

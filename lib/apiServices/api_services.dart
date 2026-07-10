@@ -4,7 +4,7 @@ class ApiServices {
   static final String baseUrl = dotenv.env['API_URL'] ?? "";
   static String loginUrl = "${baseUrl}user-auth/userLogin";
   static String openJobcard = "${baseUrl}jobcard/open";
-  static String vechileMode = "${baseUrl}vehicle/variants";
+  static String vehicleModel = "${baseUrl}vehicle/variants";
   static String fetchCustomerDetails = "${baseUrl}customer/getCustomerByMobile";
   static String fetchCustomerVehicleDetails =
       "${baseUrl}customerVehicleSearch/customerVehicle";
