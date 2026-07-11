@@ -412,7 +412,6 @@ class VehicleDetailsController with ChangeNotifier {
     vinImage = null;
     odometerImage = null;
     plateImage = null;
-    customerCtrl.setCountryCode('+971');
     selectedEmirate = "AUH";
     selectedPlateCode = PlateDummyDB.getCodesByEmirate("AUH").first;
     if (!keepName) {
