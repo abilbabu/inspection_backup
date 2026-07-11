@@ -716,6 +716,7 @@ class CustomerDetailsController extends ChangeNotifier {
 
   void resetForNewCustomer() {
     engineController.clear();
+    _selectedBrand = null;
     _selectedModel = null;
     _selectedModelYear = null;
     selectedFuelId = null;
@@ -726,6 +727,7 @@ class CustomerDetailsController extends ChangeNotifier {
     selectedVehicle = null;
     customerId = null;
     isAlreadyPresent = false;
+    modelList = [];
     notifyListeners();
   }
 

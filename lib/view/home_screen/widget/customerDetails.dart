@@ -77,18 +77,25 @@ class _CustomerdetailsState extends State<Customerdetails> {
         await customerController.getBrandList();
         if (!mounted) return;
         if (customerController.brandList.isNotEmpty) {
-          final String brandToSelect = (widget.make.isNotEmpty &&
-                  customerController.brandList.contains(widget.make))
-              ? widget.make
-              : customerController.brandList.first;
-          customerController.setBrand(brandToSelect);
-          await customerController.postModelList(brandToSelect);
-          if (!mounted) return;
-          if (widget.model.isNotEmpty &&
-              customerController.modelList.contains(widget.model)) {
-            customerController.setModel(widget.model);
-          } else {
+          if (widget.make.isNotEmpty &&
+              customerController.brandList.contains(widget.make)) {
+            customerController.setBrand(widget.make);
+            await customerController.postModelList(widget.make);
+            if (!mounted) return;
+            if (widget.model.isNotEmpty &&
+                customerController.modelList.contains(widget.model)) {
+              customerController.setModel(widget.model);
+            } else {
+              customerController.setModel(null);
+            }
+          } else if (customerController.selectedBrand == null) {
+            final String defaultBrand = customerController.brandList.first;
+            customerController.setBrand(defaultBrand);
+            await customerController.postModelList(defaultBrand);
+            if (!mounted) return;
             customerController.setModel(null);
+          } else {
+            await customerController.postModelList(customerController.selectedBrand!);
           }
         }
         if (widget.engineNo.isNotEmpty) {
