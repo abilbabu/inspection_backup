@@ -23,6 +23,10 @@ class CustomerDetailsController extends ChangeNotifier {
   bool isAlreadyPresent = false;
   int? customerId;
 
+  bool get isVehicleAlreadyPresent {
+    return selectedVehicle != null && selectedVehicle != "new";
+  }
+
   String? _selectedBrand;
   String? _selectedModel;
   String? _selectedModelYear;
