@@ -469,7 +469,9 @@ class _CustomerdetailsState extends State<Customerdetails> {
           items: customerController.brandList.toSet().map((brand) {
             return DropdownMenuItem<String>(value: brand, child: Text(brand));
           }).toList(),
-          onChanged: customerController.isAlreadyPresent
+          onChanged: (customerController.isAlreadyPresent &&
+                  customerController.selectedVehicle != "new" &&
+                  customerController.selectedVehicle != null)
               ? null
               : (value) {
                   if (value != null) {
@@ -488,7 +490,9 @@ class _CustomerdetailsState extends State<Customerdetails> {
         SizedBox(height: 15),
         IgnorePointer(
           ignoring: customerController.isModelLoading ||
-              customerController.isAlreadyPresent,
+              (customerController.isAlreadyPresent &&
+                  customerController.selectedVehicle != "new" &&
+                  customerController.selectedVehicle != null),
           child: DropdownSearch<String>(
             key: modelKey,
             items: (filter, infiniteScrollProps) => customerController.modelList,
