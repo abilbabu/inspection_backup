@@ -1030,42 +1030,28 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                         },
                         child: Stack(
                           children: [
-                            FutureBuilder<ImageInfo>(
-                              future: _getNetworkImageSize(
-                                controller.essentialImageUrl!,
+                            Container(
+                              height: double.infinity,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: ColorConstants.whiteColor,
+                                borderRadius: BorderRadius.circular(15),
                               ),
-                              builder: (context, snapshot) {
-                                if (!snapshot.hasData) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-
-                                final isLandscape =
-                                    snapshot.data!.image.width >
-                                    snapshot.data!.image.height;
-
-                                return Container(
-                                  height: double.infinity,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: ColorConstants.whiteColor,
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: FittedBox(
-                                      fit: BoxFit.cover,
-                                      child: Transform.rotate(
-                                        angle: isLandscape ? 1.5708 : 0,
-                                        child: Image.network(
-                                          controller.essentialImageUrl!,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  controller.essentialImageUrl!,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(Icons.broken_image),
+                                ),
+                              ),
                             ),
                             Positioned(
                               bottom: 8,
@@ -1142,17 +1128,4 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
   }
 }
 
-Future<ImageInfo> _getNetworkImageSize(String url) async {
-  final completer = Completer<ImageInfo>();
-  final image = NetworkImage(url);
-  final stream = image.resolve(const ImageConfiguration());
-  late ImageStreamListener listener;
-  listener = ImageStreamListener((ImageInfo info, bool _) {
-    if (!completer.isCompleted) {
-      completer.complete(info);
-    }
-    stream.removeListener(listener); // ✅ prevent memory leak
-  });
-  stream.addListener(listener);
-  return completer.future;
-}
+

@@ -20,6 +20,16 @@ class InspectionscreenimageController extends ChangeNotifier {
   final List<List<Offset>> redoStack = [];
   List<Offset> currentStroke = [];
 
+  int? imageWidth;
+  int? imageHeight;
+
+  double get aspectRatio {
+    if (imageWidth == null || imageHeight == null || imageHeight == 0) {
+      return 1.0;
+    }
+    return imageWidth! / imageHeight!;
+  }
+
   final GlobalKey imageKey = GlobalKey();
 
   Future<void> init(File file, int angle) async {
@@ -46,9 +56,15 @@ class InspectionscreenimageController extends ChangeNotifier {
   Future<void> preloadImage() async {
     final image = Image.file(displayedImage);
     final completer = Completer<void>();
-    image.image
-        .resolve(const ImageConfiguration())
-        .addListener(ImageStreamListener((_, __) => completer.complete()));
+    image.image.resolve(const ImageConfiguration()).addListener(
+      ImageStreamListener((ImageInfo info, bool _) {
+        imageWidth = info.image.width;
+        imageHeight = info.image.height;
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      }),
+    );
     await completer.future;
     imageLoaded = true;
     notifyListeners();
@@ -187,7 +203,7 @@ class InspectionscreenimageController extends ChangeNotifier {
       final newFile = File('${tempDir.path}/rotated.jpg');
       await newFile.writeAsBytes(rotatedBytes);
       displayedImage = newFile;
-      notifyListeners();
+      await preloadImage();
     } catch (e) {
       debugPrint("Rotate error: $e");
     }
