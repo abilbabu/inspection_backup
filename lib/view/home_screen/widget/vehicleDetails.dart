@@ -355,6 +355,14 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                   controller.isLoading || controller.isSuccess,
                               showLoader: controller.isLoading,
                               onPressed: () async {
+                                final customerCtrl = context
+                                    .read<CustomerDetailsController>();
+                                final mobileText = customerCtrl.mobileNumController.text.trim();
+                                if (customerCtrl.selectedCountryCode == '+971' &&
+                                    mobileText.startsWith('0')) {
+                                  customerCtrl.mobileNumController.text =
+                                      mobileText.substring(1);
+                                }
                                 if (!_formKey.currentState!.validate()) {
                                   return;
                                 }
@@ -1368,8 +1376,21 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                       ),
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
+                      if (value == null || value.trim().isEmpty) {
                         return "Mobile number is required";
+                      }
+                      final cleanVal = value.trim();
+                      final countryCode = customerController.selectedCountryCode;
+                      if (countryCode == '+971') {
+                        final hasLeadingZero = cleanVal.startsWith('0');
+                        final stripped = hasLeadingZero ? cleanVal.substring(1) : cleanVal;
+                        if (stripped.length != 9) {
+                          return "Mobile number must be 9 digits";
+                        }
+                      } else if (countryCode == '+91') {
+                        if (cleanVal.length != 10) {
+                          return "Mobile number must be 10 digits";
+                        }
                       }
                       return null;
                     },

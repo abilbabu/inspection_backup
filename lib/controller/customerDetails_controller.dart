@@ -452,8 +452,13 @@ class CustomerDetailsController extends ChangeNotifier {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
       final url = Uri.parse(ApiServices.fetchCustomerVehicleDetails);
+      String mobileText = mobileNumController.text.trim();
+      if (selectedCountryCode == '+971' && mobileText.startsWith('0')) {
+        mobileText = mobileText.substring(1);
+        mobileNumController.text = mobileText;
+      }
       final body = {
-        "custMobile": mobileNumController.text.trim(),
+        "custMobile": mobileText,
         "regNo": vehiclePlateController.text.trim(),
       };
       final response = await http.post(
