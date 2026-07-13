@@ -496,8 +496,17 @@ class VehicleDetailsController with ChangeNotifier {
       await recognizer.close();
       String text = recognizedText.text.toUpperCase();
       if (filterType == 'vin') {
+        text = text.replaceAll(RegExp(r'VIN[-\s:]*'), '');
         final regex = RegExp(r'[A-HJ-NPR-Z0-9]{17}');
-        text = regex.firstMatch(text)?.group(0) ?? text;
+        final match = regex.firstMatch(text);
+        if (match != null) {
+          text = match.group(0)!;
+        } else {
+          text = text.replaceAll(RegExp(r'[^A-HJ-NPR-Z0-9]'), '');
+          if (text.length > 17) {
+            text = text.substring(0, 17);
+          }
+        }
         vinImage = File(croppedFile.path);
         vinDisplayImage = File(croppedFile.path);
       } else if (filterType == 'odometer') {
