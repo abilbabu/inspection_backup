@@ -59,59 +59,66 @@ class _FullScreenImageViewState extends State<_FullScreenImageView> {
             children: [
               const SizedBox(height: 30),
               Expanded(
-                child: Container(
-                  key: controller.imageKey,
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: controller.imageLoaded
-                            ? Center(
-                                child: Image.file(
-                                  controller.displayedImage,
-                                  fit: BoxFit.cover,
+                child: Stack(
+                  children: [
+                    Center(
+                      child: controller.imageLoaded
+                          ? AspectRatio(
+                              aspectRatio: controller.aspectRatio,
+                              child: Container(
+                                key: controller.imageKey,
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: Image.file(
+                                        controller.displayedImage,
+                                        fit: BoxFit.fill,
+                                      ),
+                                    ),
+                                    if (controller.isEditMode)
+                                      Positioned.fill(
+                                        child: GestureDetector(
+                                          onPanStart: (details) =>
+                                              controller.startStroke(details.localPosition),
+                                          onPanUpdate: (details) =>
+                                              controller.updateStroke(details.localPosition),
+                                          onPanEnd: (_) => controller.endStroke(),
+                                          child: CustomPaint(
+                                            painter: LinePainter(controller.strokes),
+                                            size: Size.infinite,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                              )
-                            : Center(child: CircularProgressIndicator()),
-                      ),
-                      if (controller.isEditMode)
-                        GestureDetector(
-                          onPanStart: (details) =>
-                              controller.startStroke(details.localPosition),
-                          onPanUpdate: (details) =>
-                              controller.updateStroke(details.localPosition),
-                          onPanEnd: (_) => controller.endStroke(),
-                          child: CustomPaint(
-                            painter: LinePainter(controller.strokes),
-                            size: Size.infinite,
-                          ),
-                        ),
-                      Positioned(
-                        bottom: 12,
-                        right: 12,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context, "recapture"),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              shape: BoxShape.circle,
-                            ),
-                            child: SvgPicture.asset(
-                              'assets/svg/repeat.svg',
-                              width: 18,
-                              height: 18,
-                              colorFilter: const ColorFilter.mode(
-                                Colors.white,
-                                BlendMode.srcIn,
                               ),
+                            )
+                          : const Center(child: CircularProgressIndicator()),
+                    ),
+                    Positioned(
+                      bottom: 12,
+                      right: 12,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pop(context, "recapture"),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: SvgPicture.asset(
+                            'assets/svg/repeat.svg',
+                            width: 18,
+                            height: 18,
+                            colorFilter: const ColorFilter.mode(
+                              Colors.white,
+                              BlendMode.srcIn,
                             ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
