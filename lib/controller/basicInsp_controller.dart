@@ -929,7 +929,6 @@ class BasicinspController extends ChangeNotifier {
           "Authorization": "Bearer $token",
           "Accept": "application/json",
         };
-      FormData formData = FormData();
       int imageIdVal = 0;
       if (item != null) {
         imageIdVal = item['id'];
@@ -939,85 +938,153 @@ class BasicinspController extends ChangeNotifier {
         imageIdVal = firstExternalImageId;
       }
       final String imageId = imageIdVal != 0 ? imageIdVal.toString() : "";
-      formData.fields.addAll([
-        MapEntry("jobId", jobId.toString()),
-        MapEntry("job_id", jobId.toString()),
-        MapEntry("inspectionImageId", imageId),
-        MapEntry("inspection_image_id", imageId),
-        MapEntry("status", status.toString()),
-        MapEntry("inspectionNote", inspectionNote),
-        MapEntry("additionalComment", additionalComment),
-        MapEntry("attachType", currentAttachType.toString()),
-      ]);
-      int mediaIndex = 0;
+
+      List<Map<String, dynamic>> mediaItems = [];
       if (is360Stage) {
         if (_capturedVideo != null && await _capturedVideo!.exists()) {
-          formData.files.add(
-            MapEntry(
-              "mediaFiles[$mediaIndex].file",
-              await MultipartFile.fromFile(
-                _capturedVideo!.path,
-                filename: "inspection_360_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
-                contentType: http_parser.MediaType("video", "mp4"),
-              ),
-            ),
-          );
-          formData.fields.add(MapEntry("mediaFiles[$mediaIndex].type", "2"));
-          mediaIndex++;
+          mediaItems.add({
+            "file": _capturedVideo,
+            "type": "2",
+            "is360": true,
+          });
         }
       } else {
+        int imgIndex = 0;
         for (var img in _capturedImages) {
           if (img != null && await img.exists()) {
+            mediaItems.add({
+              "file": img,
+              "type": "0",
+              "imgIndex": imgIndex,
+              "is360": false,
+            });
+            imgIndex++;
+          }
+        }
+        if (_capturedVideo != null && await _capturedVideo!.exists()) {
+          mediaItems.add({
+            "file": _capturedVideo,
+            "type": "2",
+            "is360": false,
+          });
+        }
+      }
+
+      if (mediaItems.isEmpty) {
+        FormData formData = FormData();
+        formData.fields.addAll([
+          MapEntry("jobId", jobId.toString()),
+          MapEntry("job_id", jobId.toString()),
+          MapEntry("inspectionImageId", imageId),
+          MapEntry("inspection_image_id", imageId),
+          MapEntry("status", status.toString()),
+          MapEntry("inspectionNote", inspectionNote),
+          MapEntry("additionalComment", additionalComment),
+          MapEntry("attachType", currentAttachType.toString()),
+        ]);
+
+        final response = await dio.post(
+          ApiServices.basicInspection,
+          data: formData,
+        );
+
+        if (response.statusCode == 200) {
+          final resData = response.data;
+          if (resData is Map) {
+            final bodyStatusCode = resData['statusCode'];
+            final bodyStatus = resData['status'];
+            if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
+              return false;
+            }
+          }
+          if (!is360Stage && item != null) {
+            completedImageIds.add(item['id']);
+          }
+          if (currentStage == InspectionStage.external360) {
+            completedImageIds.add(-10);
+          }
+          if (currentStage == InspectionStage.internal360) {
+            completedImageIds.add(-20);
+          }
+          if (currentStage == InspectionStage.diagram) {
+            completedImageIds.add(-30);
+          }
+          if (currentStage == InspectionStage.signature) {
+            completedImageIds.add(-40);
+          }
+          return true;
+        }
+        notifyListeners();
+        return false;
+      } else {
+        for (var media in mediaItems) {
+          final File fileObj = media["file"];
+          final String typeVal = media["type"];
+          final bool is360Val = media["is360"];
+
+          MultipartFile multipartFile;
+          if (is360Val) {
+            multipartFile = await MultipartFile.fromFile(
+              fileObj.path,
+              filename: "inspection_360_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
+              contentType: http_parser.MediaType("video", "mp4"),
+            );
+          } else if (typeVal == "0") {
+            final int imgIndex = media["imgIndex"];
             String suffix = "image";
             if (currentStage == InspectionStage.diagram) {
               suffix = "diagram";
             } else if (currentStage == InspectionStage.signature) {
               suffix = "signature";
             }
-            formData.files.add(
-              MapEntry(
-                "mediaFiles[$mediaIndex].file",
-                await MultipartFile.fromFile(
-                  img.path,
-                  filename: "inspection_${suffix}_${mediaIndex}_${DateTime.now().millisecondsSinceEpoch}.jpg",
-                  contentType: http_parser.MediaType("image", "jpeg"),
-                ),
-              ),
+            multipartFile = await MultipartFile.fromFile(
+              fileObj.path,
+              filename: "inspection_${suffix}_${imgIndex}_${DateTime.now().millisecondsSinceEpoch}.jpg",
+              contentType: http_parser.MediaType("image", "jpeg"),
             );
-            formData.fields.add(MapEntry("mediaFiles[$mediaIndex].type", "0"));
-            mediaIndex++;
+          } else {
+            multipartFile = await MultipartFile.fromFile(
+              fileObj.path,
+              filename: "inspection_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
+              contentType: http_parser.MediaType("video", "mp4"),
+            );
           }
-        }
-        if (_capturedVideo != null && await _capturedVideo!.exists()) {
-          formData.files.add(
-            MapEntry(
-              "mediaFiles[$mediaIndex].file",
-              await MultipartFile.fromFile(
-                _capturedVideo!.path,
-                filename: "inspection_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
-                contentType: http_parser.MediaType("video", "mp4"),
-              ),
-            ),
+
+          FormData formData = FormData();
+          formData.fields.addAll([
+            MapEntry("jobId", jobId.toString()),
+            MapEntry("job_id", jobId.toString()),
+            MapEntry("inspectionImageId", imageId),
+            MapEntry("inspection_image_id", imageId),
+            MapEntry("status", status.toString()),
+            MapEntry("inspectionNote", inspectionNote),
+            MapEntry("additionalComment", additionalComment),
+            MapEntry("attachType", currentAttachType.toString()),
+          ]);
+
+          formData.files.add(MapEntry("mediaFiles[0].file", multipartFile));
+          formData.fields.add(MapEntry("mediaFiles[0].type", typeVal));
+
+          final response = await dio.post(
+            ApiServices.basicInspection,
+            data: formData,
           );
-          formData.fields.add(MapEntry("mediaFiles[$mediaIndex].type", "2"));
-          mediaIndex++;
-        }
-      }
-     
-      final response = await dio.post(
-        ApiServices.basicInspection,
-        data: formData,
-      );
-    
-      if (response.statusCode == 200) {
-        final resData = response.data;
-        if (resData is Map) {
-          final bodyStatusCode = resData['statusCode'];
-          final bodyStatus = resData['status'];
-          if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
+
+          if (response.statusCode != 200) {
+            notifyListeners();
             return false;
           }
+          final resData = response.data;
+          if (resData is Map) {
+            final bodyStatusCode = resData['statusCode'];
+            final bodyStatus = resData['status'];
+            if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
+              notifyListeners();
+              return false;
+            }
+          }
         }
+
         if (!is360Stage && item != null) {
           completedImageIds.add(item['id']);
         }
@@ -1035,8 +1102,6 @@ class BasicinspController extends ChangeNotifier {
         }
         return true;
       }
-      notifyListeners();
-      return false;
     } on DioException catch (e) {
      print(e);
       return false;
