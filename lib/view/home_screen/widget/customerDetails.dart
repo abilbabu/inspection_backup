@@ -499,7 +499,8 @@ class _CustomerdetailsState extends State<Customerdetails> {
           ignoring: customerController.isModelLoading ||
               (customerController.isAlreadyPresent &&
                   customerController.selectedVehicle != "new" &&
-                  customerController.selectedVehicle != null),
+                  customerController.selectedVehicle != null &&
+                  widget.model.isNotEmpty),
           child: DropdownSearch<String>(
             key: modelKey,
             items: (filter, infiniteScrollProps) => customerController.modelList,
