@@ -585,7 +585,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                 SizedBox(height: 5),
                 TextFormField(
                   controller: vehicleCtrl.nameController,
-                  textCapitalization: TextCapitalization.sentences,
+                  textCapitalization: TextCapitalization.characters,
                   autovalidateMode: AutovalidateMode.onUserInteraction,
                   decoration: InputDecoration(
                     hintText: "Enter the Customer Name",
