@@ -1028,8 +1028,21 @@ class BasicinspController extends ChangeNotifier {
         notifyListeners();
         return false;
       } else {
-        print("🔍 [BasicInspController] mediaItems is not empty, uploading each sequentially...");
-        for (var media in mediaItems) {
+        print("🔍 [BasicInspController] mediaItems is not empty, batching all files in a single request...");
+        FormData formData = FormData();
+        formData.fields.addAll([
+          MapEntry("jobId", jobId.toString()),
+          MapEntry("job_id", jobId.toString()),
+          MapEntry("inspectionImageId", imageId),
+          MapEntry("inspection_image_id", imageId),
+          MapEntry("status", status.toString()),
+          MapEntry("inspectionNote", inspectionNote),
+          MapEntry("additionalComment", additionalComment),
+          MapEntry("attachType", currentAttachType.toString()),
+        ]);
+
+        for (int i = 0; i < mediaItems.length; i++) {
+          final media = mediaItems[i];
           final File fileObj = media["file"];
           final String typeVal = media["type"];
           final bool is360Val = media["is360"];
@@ -1062,42 +1075,31 @@ class BasicinspController extends ChangeNotifier {
             );
           }
 
-          FormData formData = FormData();
-          formData.fields.addAll([
-            MapEntry("jobId", jobId.toString()),
-            MapEntry("job_id", jobId.toString()),
-            MapEntry("inspectionImageId", imageId),
-            MapEntry("inspection_image_id", imageId),
-            MapEntry("status", status.toString()),
-            MapEntry("inspectionNote", inspectionNote),
-            MapEntry("additionalComment", additionalComment),
-            MapEntry("attachType", currentAttachType.toString()),
-          ]);
+          formData.files.add(MapEntry("mediaFiles[$i].file", multipartFile));
+          formData.fields.add(MapEntry("mediaFiles[$i].type", typeVal));
+        }
 
-          formData.files.add(MapEntry("mediaFiles[0].file", multipartFile));
-          formData.fields.add(MapEntry("mediaFiles[0].type", typeVal));
-          print("🔍 [BasicInspController] Uploading media file path: ${fileObj.path}");
-          print("🔍 [BasicInspController] API request basicInspection fields: ${formData.fields.map((e) => "${e.key}: ${e.value}").toList()}");
+        print("🔍 [BasicInspController] Uploading ${mediaItems.length} media items...");
+        print("🔍 [BasicInspController] API request basicInspection fields: ${formData.fields.map((e) => "${e.key}: ${e.value}").toList()}");
 
-          final response = await dio.post(
-            ApiServices.basicInspection,
-            data: formData,
-          );
-          print("🔍 [BasicInspController] Response statusCode: ${response.statusCode}, data: ${response.data}");
+        final response = await dio.post(
+          ApiServices.basicInspection,
+          data: formData,
+        );
+        print("🔍 [BasicInspController] Response statusCode: ${response.statusCode}, data: ${response.data}");
 
-          if (response.statusCode != 200) {
+        if (response.statusCode != 200) {
+          notifyListeners();
+          return false;
+        }
+        final resData = response.data;
+        if (resData is Map) {
+          final bodyStatusCode = resData['statusCode'];
+          final bodyStatus = resData['status'];
+          if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
+            print("🔍 [BasicInspController] API request failed based on bodyStatusCode/bodyStatus");
             notifyListeners();
             return false;
-          }
-          final resData = response.data;
-          if (resData is Map) {
-            final bodyStatusCode = resData['statusCode'];
-            final bodyStatus = resData['status'];
-            if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
-              print("🔍 [BasicInspController] API request failed based on bodyStatusCode/bodyStatus");
-              notifyListeners();
-              return false;
-            }
           }
         }
 
