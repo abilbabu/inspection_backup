@@ -803,6 +803,31 @@ class _JobCardDetailsState extends State<JobCardDetails> {
     );
   }
 
+  bool _checkLaabsNumber(BuildContext context) {
+    final jobController = context.read<JobcarddetailsController>();
+    final jobcard = jobController.jobCardData?['jobcard'];
+    final laabsNo = jobcard?['jobLaabsJobcardno'];
+    if (laabsNo == null || laabsNo.toString().trim().isEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text("Alert"),
+            content: const Text("Please link Laabs Job Card Number."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+          );
+        },
+      );
+      return false;
+    }
+    return true;
+  }
+
   Row _shareOptions(BuildContext context) {
     return Row(
       children: [
@@ -810,6 +835,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
         Spacer(),
         InkWell(
           onTap: () {
+            if (!_checkLaabsNumber(context)) return;
             final jobId = widget.jobId;
             showShareOptions(context, jobId);
           },
@@ -844,6 +870,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
         SizedBox(width: 10),
         InkWell(
           onTap: () async {
+            if (!_checkLaabsNumber(context)) return;
             final jobController = context.read<JobcarddetailsController>();
             final customer = jobController.jobCardData?['jobcard']?['customer'];
             final phone = jobController.formatPhone(
