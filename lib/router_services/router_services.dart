@@ -219,6 +219,12 @@ final GoRouter router = GoRouter(
     ),
 
     GoRoute(
+      path: '/settings_history',
+      name: 'Settings History Screen',
+      builder: (context, state) => const HistoryScreenList(isFromSettings: true),
+    ),
+
+    GoRoute(
       path: '/basicinspection',
       name: 'Basic inspection Screen',
       builder: (BuildContext context, GoRouterState state) {

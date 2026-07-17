@@ -175,38 +175,43 @@ class SettingsScreenState extends State<SettingsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              alignment: Alignment.center,
-                              margin: EdgeInsets.symmetric(vertical: 8),
-                              padding: EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topRight,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    ColorConstants.lightblueColor,
-                                    ColorConstants.syanColor,
-                                  ],
+                        InkWell(
+                          onTap: () {
+                            context.push("/settings_history");
+                          },
+                          child: Row(
+                            children: [
+                              Container(
+                                alignment: Alignment.center,
+                                margin: EdgeInsets.symmetric(vertical: 8),
+                                padding: EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topRight,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      ColorConstants.lightblueColor,
+                                      ColorConstants.syanColor,
+                                    ],
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.history,
+                                  color: ColorConstants.whiteColor,
+                                  size: 20,
                                 ),
                               ),
-                              child: Icon(
-                                Icons.request_quote_rounded,
-                                color: ColorConstants.whiteColor,
-                                size: 20,
+                              SizedBox(width: 16),
+                              Text(
+                                "History List",
+                                style: ApptextstyleConstants.thinText(
+                                  color: ColorConstants.blackColor,
+                                  fontSize: 16,
+                                ),
                               ),
-                            ),
-                            SizedBox(width: 16),
-                            Text(
-                              "Quotation List",
-                              style: ApptextstyleConstants.thinText(
-                                color: ColorConstants.blackColor,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),

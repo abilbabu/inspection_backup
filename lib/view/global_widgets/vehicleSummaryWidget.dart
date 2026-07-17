@@ -88,6 +88,26 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           RichText(
+                        text: TextSpan(
+                          text: "Laabs Job Card No: ",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.blackColor,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text:
+                                 "ghhghh",
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.textBlueColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                          RichText(
                             text: TextSpan(
                               text: "Job Card No: ",
                               style: ApptextstyleConstants.thinText(
@@ -281,6 +301,26 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      RichText(
+                        text: TextSpan(
+                          text: "Laabs Job Card No: ",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.blackColor,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text:
+                                 "ghhghh",
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.textBlueColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 3),
                       RichText(
                         text: TextSpan(
                           text: "Job Card No: ",

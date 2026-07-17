@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -14,7 +14,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 
 class HistoryScreenList extends StatefulWidget {
-  const HistoryScreenList({super.key});
+  final bool isFromSettings;
+  const HistoryScreenList({super.key, this.isFromSettings = false});
 
   @override
   State<HistoryScreenList> createState() => _HistoryScreenListState();
@@ -210,28 +211,47 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AppTheme(
-        child: Column(
-          children: [
-            const SizedBox(height: 50),
-            _headerSection(),
-            const SizedBox(height: 12),
-            _searchSection(),
-            const SizedBox(height: 12),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _fetchAllFromApi,
-                child: _isLoading
-                    ? _shimmerLoading()
-                    : _jobs.isEmpty
-                        ? _emptyStateView()
-                        : _listView(),
-              ),
+    final bodyContent = AppTheme(
+      child: Column(
+        children: [
+          const SizedBox(height: 50),
+          _headerSection(),
+          const SizedBox(height: 12),
+          _searchSection(),
+          const SizedBox(height: 12),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _fetchAllFromApi,
+              child: _isLoading
+                  ? _shimmerLoading()
+                  : _jobs.isEmpty
+                      ? _emptyStateView()
+                      : _listView(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+
+    if (widget.isFromSettings) {
+      return PopScope(
+        canPop: false,
+        onPopInvoked: (didPop) {
+          if (didPop) return;
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/settings');
+          }
+        },
+        child: Scaffold(
+          body: bodyContent,
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: bodyContent,
     );
   }
 
@@ -240,6 +260,19 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
+          if (widget.isFromSettings) ...[
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/settings');
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
           Text(
             'Job Card History',
             style: ApptextstyleConstants.regularText(
