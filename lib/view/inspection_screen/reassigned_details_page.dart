@@ -104,13 +104,16 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         _initialCompletedTaskIds.clear();
 
         final bool isCustom = (summaryCtrl.vimIfMasterId ?? 0) == 0;
+        final Set<int> approvedReInspectionTaskIds = {};
         for (final list in summaryCtrl.groupedItems.values) {
           for (final item in list) {
             if (item.viReInspection && item.taskId != null) {
-              _reInspectionTaskIds.add(item.taskId!);
+              approvedReInspectionTaskIds.add(item.taskId!);
             }
           }
         }
+        _reInspectionTaskIds.addAll(approvedReInspectionTaskIds);
+
         for (int i = 0; i < inspections.length; i++) {
           final inspection = inspections[i];
           final master = inspection["master"] ?? {};
@@ -129,7 +132,9 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                 savedTask["viReInspection"]?.toString() == "true" ||
                 reTime > 0.0 ||
                 (i > 0 && vimInspectionType == 2 && !isCustom)) {
-              _reInspectionTaskIds.add(taskId);
+              if (approvedReInspectionTaskIds.contains(taskId)) {
+                _reInspectionTaskIds.add(taskId);
+              }
             }
           }
         }
