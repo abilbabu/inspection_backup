@@ -58,6 +58,15 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
         final root = controller.jobCardData;
         final jobcard = root?['jobcard'] ?? {};
         final vehicle = jobcard['vehicle'] ?? {};
+        final String? jobLaabsJobcardno =
+            (jobcard['jobLaabsJobcardno'] ??
+                    jobcard['laabsjobCardNo'] ??
+                    jobcard['laabsJobCardNo'])
+                ?.toString();
+        final bool showLaabs =
+            jobLaabsJobcardno != null &&
+            jobLaabsJobcardno.trim().isNotEmpty &&
+            jobLaabsJobcardno.trim().toLowerCase() != 'null';
         return Container(
           decoration: BoxDecoration(
             color: ColorConstants.whiteColor,
@@ -87,26 +96,27 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          RichText(
-                        text: TextSpan(
-                          text: "Laabs Job Card No: ",
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.blackColor,
-                          ).copyWith(fontWeight: FontWeight.bold),
-                          children: [
-                            TextSpan(
-                              text:
-                                 "ghhghh",
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.textBlueColor,
+                          if (showLaabs) ...[
+                            RichText(
+                              text: TextSpan(
+                                text: "Laabs Job Card No: ",
+                                style: ApptextstyleConstants.thinText(
+                                  fontSize: 10,
+                                  color: ColorConstants.blackColor,
+                                ).copyWith(fontWeight: FontWeight.bold),
+                                children: [
+                                  TextSpan(
+                                    text: jobLaabsJobcardno,
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 10,
+                                      color: ColorConstants.textBlueColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            SizedBox(height: 3),
                           ],
-                        ),
-                      ),
-                      SizedBox(height: 3),
                           RichText(
                             text: TextSpan(
                               text: "Job Card No: ",
@@ -117,7 +127,7 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                               children: [
                                 TextSpan(
                                   text:
-                                      "${jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
+                                      "${jobcard['jobCardNo'] ?? jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
                                   style: ApptextstyleConstants.thinText(
                                     fontSize: 10,
                                     color: ColorConstants.textBlueColor,
@@ -164,7 +174,7 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                               ],
                             ),
                           ),
-                          SizedBox(height: 3)
+                          SizedBox(height: 3),
                         ],
                       ),
                     ),
@@ -274,6 +284,15 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
         final root = controller.jobCardData;
         final jobcard = root?['jobcard'] ?? {};
         final vehicle = jobcard['vehicle'] ?? {};
+        final String? jobLaabsJobcardno =
+            (jobcard['jobLaabsJobcardno'] ??
+                    jobcard['laabsjobCardNo'] ??
+                    jobcard['laabsJobCardNo'])
+                ?.toString();
+        final bool showLaabs =
+            jobLaabsJobcardno != null &&
+            jobLaabsJobcardno.trim().isNotEmpty &&
+            jobLaabsJobcardno.trim().toLowerCase() != 'null';
         return Container(
           decoration: BoxDecoration(
             color: ColorConstants.whiteColor,
@@ -303,7 +322,7 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                     children: [
                       RichText(
                         text: TextSpan(
-                          text: "Laabs Job Card No: ",
+                          text: "Job Card No: ",
                           style: ApptextstyleConstants.thinText(
                             fontSize: 10,
                             color: ColorConstants.blackColor,
@@ -311,7 +330,7 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                           children: [
                             TextSpan(
                               text:
-                                 "ghhghh",
+                                  "${jobcard['jobCardNo'] ?? jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
                               style: ApptextstyleConstants.thinText(
                                 fontSize: 10,
                                 color: ColorConstants.textBlueColor,
@@ -321,25 +340,27 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                         ),
                       ),
                       SizedBox(height: 3),
-                      RichText(
-                        text: TextSpan(
-                          text: "Job Card No: ",
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.blackColor,
-                          ).copyWith(fontWeight: FontWeight.bold),
-                          children: [
-                            TextSpan(
-                              text:
-                                  "${jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.textBlueColor,
+                      if (showLaabs) ...[
+                        RichText(
+                          text: TextSpan(
+                            text: "Laabs Job Card No: ",
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 10,
+                              color: ColorConstants.blackColor,
+                            ).copyWith(fontWeight: FontWeight.bold),
+                            children: [
+                              TextSpan(
+                                text: jobLaabsJobcardno,
+                                style: ApptextstyleConstants.thinText(
+                                  fontSize: 10,
+                                  color: ColorConstants.greenColor,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                        SizedBox(height: 5),
+                      ],
                       SizedBox(height: 3),
                       RichText(
                         text: TextSpan(

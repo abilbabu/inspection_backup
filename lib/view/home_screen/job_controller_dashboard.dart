@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hugeicons/hugeicons.dart';
+// import 'package:hugeicons/hugeicons.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/homeScreen_controller.dart';
@@ -111,6 +111,7 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
           return {
             "jobId": item["jobId"]?.toString() ?? "",
             "jobNo": item["jobNo"]?.toString() ?? "",
+            "jobLaabsJobcardno": (item["jobLaabsJobcardno"] ?? item["laabsjobCardNo"] ?? item["laabsJobCardNo"])?.toString() ?? "",
             "make": vehicle["vMake"] ?? "",
             "model": vehicle["vModel"] ?? "",
             "year": vehicle["vModelYear"]?.toString() ?? "",
@@ -275,12 +276,12 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
               );
             },
           ),
-          const Spacer(),
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedNotification01,
-            color: ColorConstants.whiteColor.withOpacity(0.2),
-            size: 25,
-          ),
+          // const Spacer(),
+          // HugeIcon(
+          //   icon: HugeIcons.strokeRoundedNotification01,
+          //   color: ColorConstants.whiteColor.withOpacity(0.2),
+          //   size: 25,
+          // ),
         ],
       ),
     );
@@ -418,6 +419,10 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
 
   Widget _jobCardItem(Map<String, dynamic> item) {
     final controller = Provider.of<HomescreenController>(context, listen: false);
+    final String? jobLaabsJobcardno = (item['jobLaabsJobcardno'] ?? item['laabsjobCardNo'] ?? item['laabsJobCardNo'])?.toString();
+    final bool showLaabs = jobLaabsJobcardno != null &&
+        jobLaabsJobcardno.trim().isNotEmpty &&
+        jobLaabsJobcardno.trim().toLowerCase() != 'null';
     final String jobStatusStr = item['jobStatus']?.toString().trim() ?? "";
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
     final String statusText = controller.getJobStatusText(jobStatusStr);
@@ -470,6 +475,7 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                 
                     Row(
                       children: [
                         Expanded(
@@ -515,7 +521,28 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
+                       if (showLaabs) ...[
+                      RichText(
+                        text: TextSpan(
+                          text: "Laabs Job Card No: ",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.blackColor,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text: jobLaabsJobcardno,
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.greenColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Text(
                       "Plate No : ${item['plateNo'] ?? 'N/A'}",
                       style: ApptextstyleConstants.lightText(

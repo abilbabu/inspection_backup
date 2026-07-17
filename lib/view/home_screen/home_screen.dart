@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
-import 'package:hugeicons/hugeicons.dart';
+// import 'package:hugeicons/hugeicons.dart';
 import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/homeScreen_controller.dart';
 import 'package:inspection/utils/app_theme/app_theme.dart';
@@ -123,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return {
       "jobId": item["jobId"]?.toString() ?? "",
       "jobNo": item["jobNo"]?.toString() ?? "",
+      "jobLaabsJobcardno": (item["jobLaabsJobcardno"] ?? item["laabsjobCardNo"] ?? item["laabsJobCardNo"])?.toString() ?? "",
       "make": vehicle["vMake"] ?? "",
       "model": vehicle["vModel"] ?? "",
       "year": vehicle["vModelYear"]?.toString() ?? "",
@@ -317,12 +318,12 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          const Spacer(),
-          HugeIcon(
-            icon: HugeIcons.strokeRoundedNotification01,
-            color: ColorConstants.whiteColor.withOpacity(0.2),
-            size: 25,
-          ),
+          // const Spacer(),
+          // HugeIcon(
+          //   icon: HugeIcons.strokeRoundedNotification01,
+          //   color: ColorConstants.whiteColor.withOpacity(0.2),
+          //   size: 25,
+          // ),
         ],
       ),
     );
@@ -1333,6 +1334,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final String jobStatusStr = data['jobStatus']?.toString().trim() ?? "";
     final String statusText = controller.getJobStatusText(jobStatusStr);
     final Color statusColor = controller.getJobStatusColor(jobStatusStr);
+    final String? jobLaabsJobcardno = (data['jobLaabsJobcardno'] ?? data['laabsjobCardNo'] ?? data['laabsJobCardNo'])?.toString();
+    final bool showLaabs = jobLaabsJobcardno != null &&
+        jobLaabsJobcardno.trim().isNotEmpty &&
+        jobLaabsJobcardno.trim().toLowerCase() != 'null';
     return Container(
       height: 110,
       width: 260,
@@ -1360,6 +1365,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                 
                   Row(
                     children: [
                       Expanded(
@@ -1401,6 +1407,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+                   const SizedBox(height: 5),
+                   if (showLaabs) ...[
+                    RichText(
+                      text: TextSpan(
+                        text: "Laabs Job Card No: ",
+                        style: ApptextstyleConstants.thinText(
+                          fontSize: 10,
+                          color: ColorConstants.blackColor,
+                        ).copyWith(fontWeight: FontWeight.bold),
+                        children: [
+                          TextSpan(
+                            text: jobLaabsJobcardno,
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 10,
+                              color: ColorConstants.greenColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                  ],
                   RichText(
                     text: TextSpan(
                       text: "Date: ",
@@ -1522,6 +1550,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
     final String vehicleName = "${item['make'] ?? ''} ${item['model'] ?? ''}";
     final String statusText = controller.getJobStatusText(jobStatusStr);
+    final String? jobLaabsJobcardno = (item['jobLaabsJobcardno'] ?? item['laabsjobCardNo'] ?? item['laabsJobCardNo'])?.toString();
+    final bool showLaabs = jobLaabsJobcardno != null &&
+        jobLaabsJobcardno.trim().isNotEmpty &&
+        jobLaabsJobcardno.trim().toLowerCase() != 'null';
     return GestureDetector(
       onTap: () {
         final dynamic rawJobId = item['jobId'];
@@ -1552,7 +1584,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: [        
                 Text(
                   item['jobNo'] ?? "",
                   style: ApptextstyleConstants.regularText(
@@ -1560,7 +1592,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: ColorConstants.blackColor,
                   ),
                 ),
-                const SizedBox(height: 3),
+                 const SizedBox(height: 8),
+                 if (showLaabs) ...[
+                  RichText(
+                    text: TextSpan(
+                      text: "Laabs Job Card No: ",
+                      style: ApptextstyleConstants.thinText(
+                        fontSize: 10,
+                        color: ColorConstants.blackColor,
+                      ).copyWith(fontWeight: FontWeight.bold),
+                      children: [
+                        TextSpan(
+                          text: jobLaabsJobcardno,
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.greenColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                ],
                 Text(
                   "Plate No: ${item['plateNo'] ?? ''}",
                   style: ApptextstyleConstants.lightText(
@@ -1619,6 +1672,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
     final technicianId = item["jobTechnicianId"];
     final String statusText = controller.getJobStatusText(jobStatusStr);
+    final String? jobLaabsJobcardno = (item['jobLaabsJobcardno'] ?? item['laabsjobCardNo'] ?? item['laabsJobCardNo'])?.toString();
+    final bool showLaabs = jobLaabsJobcardno != null &&
+        jobLaabsJobcardno.trim().isNotEmpty &&
+        jobLaabsJobcardno.trim().toLowerCase() != 'null';
     return GestureDetector(
       onTap: () {
         final dynamic rawJobId = item['jobId'];
@@ -1660,6 +1717,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                    
                       Row(
                         children: [
                           Expanded(
@@ -1692,6 +1750,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
+                        if (showLaabs) ...[
+                        RichText(
+                          text: TextSpan(
+                            text: "Laabs Job Card No: ",
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 10,
+                              color: ColorConstants.blackColor,
+                            ).copyWith(fontWeight: FontWeight.bold),
+                            children: [
+                              TextSpan(
+                                text: jobLaabsJobcardno,
+                                style: ApptextstyleConstants.thinText(
+                                  fontSize: 10,
+                                  color: ColorConstants.greenColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                       const SizedBox(height: 8),
                       if (technicianId != null) const SizedBox(height: 8),
                       Text(
@@ -1735,6 +1814,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
     final technicianId = item["jobTechnicianId"];
     final String statusText = controller.getJobStatusText(jobStatusStr);
+    final String? jobLaabsJobcardno = (item['jobLaabsJobcardno'] ?? item['laabsjobCardNo'] ?? item['laabsJobCardNo'])?.toString();
+    final bool showLaabs = jobLaabsJobcardno != null &&
+        jobLaabsJobcardno.trim().isNotEmpty &&
+        jobLaabsJobcardno.trim().toLowerCase() != 'null';
     return GestureDetector(
       onTap: () {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
@@ -1825,6 +1908,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
+                        if (showLaabs) ...[
+                        RichText(
+                          text: TextSpan(
+                            text: "Laabs Job Card No: ",
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 10,
+                              color: ColorConstants.blackColor,
+                            ).copyWith(fontWeight: FontWeight.bold),
+                            children: [
+                              TextSpan(
+                                text: jobLaabsJobcardno,
+                                style: ApptextstyleConstants.thinText(
+                                  fontSize: 10,
+                                  color: ColorConstants.greenColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                       if (technicianId != null) const SizedBox(height: 8),
 
                       /// PLATE

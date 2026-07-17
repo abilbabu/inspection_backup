@@ -279,8 +279,13 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
       listen: false,
     );
 
+    final String? jobLaabsJobcardno = (data['jobLaabsJobcardno'] ?? data['laabsjobCardNo'] ?? data['laabsJobCardNo'])?.toString();
+    final bool showLaabs = jobLaabsJobcardno != null &&
+        jobLaabsJobcardno.trim().isNotEmpty &&
+        jobLaabsJobcardno.trim().toLowerCase() != 'null';
+
     return Container(
-      height: 90,
+      height: showLaabs ? 110 : 90,
       width: double.infinity,
 
       decoration: BoxDecoration(
@@ -318,6 +323,7 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
                 crossAxisAlignment: CrossAxisAlignment.start,
 
                 children: [
+                
                   RichText(
                     text: TextSpan(
                       text: "Job Card No: ",
@@ -333,12 +339,33 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
 
                           style: ApptextstyleConstants.thinText(
                             fontSize: 10,
-                            color: ColorConstants.textBlueColor,
+                            color: ColorConstants.greenColor,
                           ),
                         ),
                       ],
                     ),
                   ),
+                    if (showLaabs) ...[
+                    RichText(
+                      text: TextSpan(
+                        text: "Laabs Job Card No: ",
+                        style: ApptextstyleConstants.thinText(
+                          fontSize: 10,
+                          color: ColorConstants.blackColor,
+                        ).copyWith(fontWeight: FontWeight.bold),
+                        children: [
+                          TextSpan(
+                            text: jobLaabsJobcardno,
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 10,
+                              color: ColorConstants.greenColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                  ],
 
                   RichText(
                     text: TextSpan(

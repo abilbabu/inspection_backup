@@ -78,9 +78,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
   }
 
   List<int> get _allowedStatuses {
-    if (_userDepartment == 2 ||
-        _userDepartment == 4 ||
-        _userDepartment == 5) {
+    if (_userDepartment == 2 || _userDepartment == 4 || _userDepartment == 5) {
       return [6, 9, 12, 14];
     }
     return [6, 7, 8, 9, 12, 14, 15, 16, 17, 18, 19];
@@ -121,6 +119,12 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
               return {
                 'jobId': item['jobId']?.toString() ?? '',
                 'jobNo': item['jobNo']?.toString() ?? '',
+                'jobLaabsJobcardno':
+                    (item['jobLaabsJobcardno'] ??
+                            item['laabsjobCardNo'] ??
+                            item['laabsJobCardNo'])
+                        ?.toString() ??
+                    '',
                 'jobStatus': item['jobStatus']?.toString() ?? '',
                 'jobRegNo': item['jobRegNo']?.toString() ?? '',
                 'plateNo': vehicle['vRegNo']?.toString() ?? '',
@@ -149,10 +153,9 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
   void _applyFilterAndReset() {
     final filtered = _allJobs.where((item) {
       return _searchText.isEmpty ||
-          (item['jobNo']
-                  ?.toString()
-                  .toLowerCase()
-                  .contains(_searchText.toLowerCase()) ??
+          (item['jobNo']?.toString().toLowerCase().contains(
+                _searchText.toLowerCase(),
+              ) ??
               false);
     }).toList();
 
@@ -172,10 +175,9 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
 
     final filtered = _allJobs.where((item) {
       return _searchText.isEmpty ||
-          (item['jobNo']
-                  ?.toString()
-                  .toLowerCase()
-                  .contains(_searchText.toLowerCase()) ??
+          (item['jobNo']?.toString().toLowerCase().contains(
+                _searchText.toLowerCase(),
+              ) ??
               false);
     }).toList();
 
@@ -225,8 +227,8 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
               child: _isLoading
                   ? _shimmerLoading()
                   : _jobs.isEmpty
-                      ? _emptyStateView()
-                      : _listView(),
+                  ? _emptyStateView()
+                  : _listView(),
             ),
           ),
         ],
@@ -244,15 +246,11 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
             context.go('/settings');
           }
         },
-        child: Scaffold(
-          body: bodyContent,
-        ),
+        child: Scaffold(body: bodyContent),
       );
     }
 
-    return Scaffold(
-      body: bodyContent,
-    );
+    return Scaffold(body: bodyContent);
   }
 
   Widget _headerSection() {
@@ -262,7 +260,11 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
         children: [
           if (widget.isFromSettings) ...[
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+              icon: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+                size: 20,
+              ),
               onPressed: () {
                 if (context.canPop()) {
                   context.pop();
@@ -333,8 +335,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
   Widget _listView() {
     return ListView.separated(
       controller: _scrollController,
-      padding:
-          const EdgeInsets.only(top: 8, bottom: 120, left: 12, right: 12),
+      padding: const EdgeInsets.only(top: 8, bottom: 120, left: 12, right: 12),
       itemCount: _jobs.length + (_isMoreLoading ? 1 : 0),
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
@@ -350,8 +351,19 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
   }
 
   Widget _jobCardItem(Map<String, dynamic> item) {
-    final controller =
-        Provider.of<HomescreenController>(context, listen: false);
+    final controller = Provider.of<HomescreenController>(
+      context,
+      listen: false,
+    );
+    final String? jobLaabsJobcardno =
+        (item['jobLaabsJobcardno'] ??
+                item['laabsjobCardNo'] ??
+                item['laabsJobCardNo'])
+            ?.toString();
+    final bool showLaabs =
+        jobLaabsJobcardno != null &&
+        jobLaabsJobcardno.trim().isNotEmpty &&
+        jobLaabsJobcardno.trim().toLowerCase() != 'null';
     final String jobStatusStr = item['jobStatus']?.toString().trim() ?? '';
     final int jobStatus = int.tryParse(jobStatusStr) ?? 0;
     final String statusText = controller.getJobStatusText(jobStatusStr);
@@ -363,8 +375,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
 
     return GestureDetector(
       onTap: () {
-        final int jobId =
-            int.tryParse(item['jobId']?.toString() ?? '0') ?? 0;
+        final int jobId = int.tryParse(item['jobId']?.toString() ?? '0') ?? 0;
         context.go('/jobcarddetails', extra: jobId);
       },
       child: Container(
@@ -384,10 +395,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
                   color: ColorConstants.containergreycolor,
                   shape: BoxShape.circle,
                 ),
-                child: Image.asset(
-                  'assets/image/benz.png',
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset('assets/image/benz.png', fit: BoxFit.cover),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -439,7 +447,28 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
+                    if (showLaabs) ...[
+                      RichText(
+                        text: TextSpan(
+                          text: "Laabs Job Card No: ",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 10,
+                            color: ColorConstants.blackColor,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                          children: [
+                            TextSpan(
+                              text: jobLaabsJobcardno,
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.greenColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Text(
                       'Plate No : ${item['plateNo'] ?? item['jobRegNo'] ?? 'N/A'}',
                       style: ApptextstyleConstants.lightText(
@@ -487,8 +516,11 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.receipt_long_outlined,
-                size: 64, color: Colors.grey),
+            const Icon(
+              Icons.receipt_long_outlined,
+              size: 64,
+              color: Colors.grey,
+            ),
             const SizedBox(height: 16),
             Text(
               'No Job Cards Found',
@@ -517,8 +549,12 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
       color: Colors.white,
       colorOpacity: 0.3,
       child: ListView.separated(
-        padding:
-            const EdgeInsets.only(top: 8, bottom: 120, left: 12, right: 12),
+        padding: const EdgeInsets.only(
+          top: 8,
+          bottom: 120,
+          left: 12,
+          right: 12,
+        ),
         itemCount: 5,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) => Container(

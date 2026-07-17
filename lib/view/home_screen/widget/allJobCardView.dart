@@ -351,6 +351,16 @@ class _AlljobcardviewState extends State<Alljobcardview> {
 
     final String statusText = controller.getJobStatusText(jobStatusStr);
 
+    final String? jobLaabsJobcardno =
+        (item['jobLaabsJobcardno'] ??
+                item['laabsjobCardNo'] ??
+                item['laabsJobCardNo'])
+            ?.toString();
+    final bool showLaabs =
+        jobLaabsJobcardno != null &&
+        jobLaabsJobcardno.trim().isNotEmpty &&
+        jobLaabsJobcardno.trim().toLowerCase() != 'null';
+
     return GestureDetector(
       onTap: () {
         final dynamic rawJobId = item['jobId'];
@@ -445,8 +455,28 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                           ),
                         ],
                       ),
-
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 5),
+                      if (showLaabs) ...[
+                        RichText(
+                          text: TextSpan(
+                            text: "Laabs Job Card No: ",
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 10,
+                              color: ColorConstants.blackColor,
+                            ).copyWith(fontWeight: FontWeight.bold),
+                            children: [
+                              TextSpan(
+                                text: jobLaabsJobcardno,
+                                style: ApptextstyleConstants.thinText(
+                                  fontSize: 10,
+                                  color: ColorConstants.greenColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
 
                       if (technicianId != null) const SizedBox(height: 8),
 
