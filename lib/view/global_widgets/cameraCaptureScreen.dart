@@ -59,7 +59,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     );
     _controller = CameraController(
       rearCamera,
-      ResolutionPreset.veryHigh,
+      ResolutionPreset.high,
       enableAudio: false,
     );
     await _controller.initialize();
