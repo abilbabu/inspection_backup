@@ -386,7 +386,7 @@ class InspectioncardController extends ChangeNotifier {
   Future<File> compressVideo(File videoFile) async {
     final info = await VideoCompress.compressVideo(
       videoFile.path,
-      quality: VideoQuality.MediumQuality,
+      quality: VideoQuality.Res1920x1080Quality,
       deleteOrigin: false,
       includeAudio: true,
     );

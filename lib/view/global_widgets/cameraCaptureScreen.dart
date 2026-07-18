@@ -59,7 +59,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     );
     _controller = CameraController(
       rearCamera,
-      widget.isVideo ? ResolutionPreset.medium : ResolutionPreset.high,
+      ResolutionPreset.veryHigh,
       enableAudio: false,
     );
     await _controller.initialize();
