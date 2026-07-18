@@ -158,7 +158,7 @@ class CustomerDetailsController extends ChangeNotifier {
         _lastConfirmedCountryCode != selectedCountryCode;
   }
 
-  void setBrand(String value) {
+  void setBrand(String? value) {
     _selectedBrand = value;
     _selectedModel = null;
     notifyListeners();

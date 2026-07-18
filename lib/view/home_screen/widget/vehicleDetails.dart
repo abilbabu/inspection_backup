@@ -140,6 +140,65 @@ class _VehicleDetailsState extends State<VehicleDetails> {
       final fuelMarks = vehicleCtrl.fuelMarks;
       final fuelIdx = fuelMarks.indexOf(fuelMark);
       if (fuelIdx >= 0) vehicleCtrl.fuelValue = fuelIdx.toDouble();
+
+      // Mark as existing customer/vehicle and populate vehicle fields in customerCtrl
+      customerCtrl.isAlreadyPresent = true;
+      vehicleCtrl.isAlreadyPresent = true;
+
+      String? cleanValue(String? val) {
+        if (val == null || val.trim().isEmpty || val.trim().toLowerCase() == "null") {
+          return null;
+        }
+        return val.trim();
+      }
+
+      final String? make = cleanValue(vehicle['vMake']?.toString());
+      final String? model = cleanValue(vehicle['vModel']?.toString());
+      final String? modelYear = cleanValue(vehicle['vModelYear']?.toString());
+      final String? engineNo = cleanValue(vehicle['vEng']?.toString());
+      final String? vin = cleanValue(vehicle['vVinNo']?.toString());
+      final String? odometer = cleanValue(vehicle['vOdometer']?.toString());
+      final String? vinImg = cleanValue(vehicle['vVinImg']?.toString());
+      final String? regImg = cleanValue(vehicle['vRegNoImg']?.toString());
+      final String? vIdVal = cleanValue(vehicle['vId']?.toString() ?? vehicle['vehicleId']?.toString());
+      final String? fuelTypeId = cleanValue(vehicle['vFuelTypeId']?.toString());
+      final String? transmissionTypeId = cleanValue(vehicle['vTransmissionTypeId']?.toString());
+      final String? typeId = cleanValue(vehicle['vTypeId']?.toString());
+
+      final vehicleData = {
+        "vId": vIdVal,
+        "vRegNo": plate,
+        "vMake": make,
+        "make": make,
+        "vModel": model,
+        "model": model,
+        "vModelYear": modelYear,
+        "modelYear": modelYear,
+        "vEng": engineNo,
+        "engineNo": engineNo,
+        "vVinNo": vin,
+        "vOdometer": odometer,
+        "vRegNoImg": regImg,
+        "vVinImg": vinImg,
+        "vFuelTypeId": fuelTypeId,
+        "vTransmissionTypeId": transmissionTypeId,
+        "vTypeId": typeId,
+      };
+
+      customerCtrl.filteredVehicles = [vehicleData];
+      customerCtrl.allCustomerVehicles = [vehicleData];
+      customerCtrl.selectedVehicle = vIdVal;
+
+      // Save snapshot so that customerChanged / vehicleChanged will evaluate to false if they proceed without changes
+      vehicleCtrl.saveSnapshot(
+        customerCtrl,
+        {
+          "vehicleId": vIdVal,
+          "customerId": customer['custId'],
+          "jobcardId": jobId,
+        },
+      );
+
       if (mounted) vehicleCtrl.notify();
     } catch (e) {
       debugPrint('❗ _prefillFromJobId error: $e');

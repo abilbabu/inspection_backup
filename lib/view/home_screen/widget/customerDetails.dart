@@ -77,25 +77,38 @@ class _CustomerdetailsState extends State<Customerdetails> {
         await customerController.getBrandList();
         if (!mounted) return;
         if (customerController.brandList.isNotEmpty) {
-          if (widget.make.isNotEmpty &&
-              customerController.brandList.contains(widget.make)) {
-            customerController.setBrand(widget.make);
-            await customerController.postModelList(widget.make);
+          final String resolvedMake = (widget.make.trim().toLowerCase() == "null") ? "" : widget.make.trim();
+          final String resolvedModel = (widget.model.trim().toLowerCase() == "null") ? "" : widget.model.trim();
+
+          if (resolvedMake.isNotEmpty &&
+              customerController.brandList.contains(resolvedMake)) {
+            customerController.setBrand(resolvedMake);
+            await customerController.postModelList(resolvedMake);
             if (!mounted) return;
-            if (widget.model.isNotEmpty &&
-                customerController.modelList.contains(widget.model)) {
-              customerController.setModel(widget.model);
+            if (resolvedModel.isNotEmpty &&
+                customerController.modelList.contains(resolvedModel)) {
+              customerController.setModel(resolvedModel);
             } else {
               customerController.setModel(null);
             }
-          } else if (customerController.selectedBrand == null) {
-            final String defaultBrand = customerController.brandList.first;
-            customerController.setBrand(defaultBrand);
-            await customerController.postModelList(defaultBrand);
-            if (!mounted) return;
-            customerController.setModel(null);
           } else {
-            await customerController.postModelList(customerController.selectedBrand!);
+            final bool isExistingVehicle = customerController.isAlreadyPresent &&
+                customerController.selectedVehicle != "new" &&
+                customerController.selectedVehicle != null;
+            if (isExistingVehicle) {
+              customerController.setBrand(null);
+              customerController.setModel(null);
+            } else {
+              if (customerController.selectedBrand == null) {
+                final String defaultBrand = customerController.brandList.first;
+                customerController.setBrand(defaultBrand);
+                await customerController.postModelList(defaultBrand);
+                if (!mounted) return;
+                customerController.setModel(null);
+              } else {
+                await customerController.postModelList(customerController.selectedBrand!);
+              }
+            }
           }
         }
         if (widget.engineNo.isNotEmpty) {
@@ -415,6 +428,13 @@ class _CustomerdetailsState extends State<Customerdetails> {
     return Column(
       children: [
         DropdownButtonFormField<String>(
+          hint: Text(
+            "Select the Brand",
+            style: ApptextstyleConstants.lightText(
+              fontSize: 12,
+              color: ColorConstants.greyColor,
+            ),
+          ),
           decoration: InputDecoration(
             label: RichText(
               text: TextSpan(
@@ -478,7 +498,9 @@ class _CustomerdetailsState extends State<Customerdetails> {
           }).toList(),
           onChanged: (customerController.isAlreadyPresent &&
                   customerController.selectedVehicle != "new" &&
-                  customerController.selectedVehicle != null)
+                  customerController.selectedVehicle != null &&
+                  widget.make.isNotEmpty &&
+                  widget.make.trim().toLowerCase() != "null")
               ? null
               : (value) {
                   if (value != null) {
@@ -500,7 +522,10 @@ class _CustomerdetailsState extends State<Customerdetails> {
               (customerController.isAlreadyPresent &&
                   customerController.selectedVehicle != "new" &&
                   customerController.selectedVehicle != null &&
-                  widget.model.isNotEmpty),
+                  widget.model.isNotEmpty &&
+                  widget.model.trim().toLowerCase() != "null" &&
+                  widget.make.isNotEmpty &&
+                  widget.make.trim().toLowerCase() != "null"),
           child: DropdownSearch<String>(
             key: modelKey,
             items: (filter, infiniteScrollProps) => customerController.modelList,
@@ -528,6 +553,11 @@ class _CustomerdetailsState extends State<Customerdetails> {
             ),
             decoratorProps: DropDownDecoratorProps(
               decoration: InputDecoration(
+                hintText: "Select the Model",
+                hintStyle: ApptextstyleConstants.lightText(
+                  fontSize: 12,
+                  color: ColorConstants.greyColor,
+                ),
                 label: RichText(
                   text: TextSpan(
                     text: customerController.isModelLoading ? 'Model (Loading...)' : 'Model',
