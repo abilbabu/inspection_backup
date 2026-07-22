@@ -98,6 +98,8 @@ class VehicleDetailsController with ChangeNotifier {
   bool isSuccess = false;
   bool isAlreadyPresent = false;
   List<Map<String, String>> customerTypeList = [];
+  Map<String, List<String>> emiratePlateCodesMap = {};
+  List<String> emiratesList = [];
 
   Future<void> getCustomerTypeList({String? defaultValue}) async {
     final url = Uri.parse(ApiServices.customerTypeList);
@@ -145,6 +147,44 @@ class VehicleDetailsController with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> getEmiratePlateCodes() async {
+    final url = Uri.parse(ApiServices.emiratePlateCodes);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      final response = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+      );
+      if (response.statusCode == 200) {
+        final res = json.decode(response.body);
+        if (res["data"] != null) {
+          final Map<String, dynamic> rawMap = res["data"];
+          emiratePlateCodesMap = rawMap.map(
+            (key, value) => MapEntry(key, List<String>.from(value as List)),
+          );
+          if (emiratePlateCodesMap.isNotEmpty) {
+            emiratesList = emiratePlateCodesMap.keys.toList();
+            if (!emiratesList.contains(selectedEmirate)) {
+              selectedEmirate = emiratesList.first;
+            }
+            final codes = emiratePlateCodesMap[selectedEmirate!] ?? [];
+            if (!codes.contains(selectedPlateCode)) {
+              selectedPlateCode = codes.isNotEmpty ? codes.first : null;
+            }
+          }
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint("📍 Error fetching emirate plate codes: $e");
+      debugPrint("📍 StackTrace: $stackTrace");
+    }
+    notifyListeners();
+  }
+
   void setCustomerType(String? id) {
     selectedCustomerTypeId = id;
     notifyListeners();
@@ -171,16 +211,22 @@ class VehicleDetailsController with ChangeNotifier {
   }
 
   VehicleDetailsController() {
+    emiratesList = List<String>.from(PlateDummyDB.emirates);
     selectedPlateCode = PlateDummyDB.numericCodes.first;
   }
 
   List<String> get plateCodeList {
-    return PlateDummyDB.getCodesByEmirate(selectedEmirate!);
+    if (selectedEmirate == null) return [];
+    return emiratePlateCodesMap.containsKey(selectedEmirate)
+        ? (emiratePlateCodesMap[selectedEmirate!] ?? [])
+        : PlateDummyDB.getCodesByEmirate(selectedEmirate!);
   }
 
   void setEmirate(String value) {
     selectedEmirate = value;
-    final codes = PlateDummyDB.getCodesByEmirate(value);
+    final List<String> codes = emiratePlateCodesMap.containsKey(value)
+        ? (emiratePlateCodesMap[value] ?? [])
+        : PlateDummyDB.getCodesByEmirate(value);
     selectedPlateCode = codes.isNotEmpty ? codes.first : null;
     notifyListeners();
   }
@@ -224,8 +270,10 @@ class VehicleDetailsController with ChangeNotifier {
       return;
     }
     selectedEmirate = parsed.emirate;
-    final codes = PlateDummyDB.getCodesByEmirate(parsed.emirate!);
-    selectedPlateCode = codes.contains(parsed.code) ? parsed.code : codes.first;
+    final List<String> codes = emiratePlateCodesMap.containsKey(parsed.emirate)
+        ? (emiratePlateCodesMap[parsed.emirate!] ?? [])
+        : PlateDummyDB.getCodesByEmirate(parsed.emirate!);
+    selectedPlateCode = codes.contains(parsed.code) ? parsed.code : (codes.isNotEmpty ? codes.first : null);
     plateController.text = parsed.number!;
     notifyListeners();
   }
@@ -413,7 +461,10 @@ class VehicleDetailsController with ChangeNotifier {
     odometerImage = null;
     plateImage = null;
     selectedEmirate = "AUH";
-    selectedPlateCode = PlateDummyDB.getCodesByEmirate("AUH").first;
+    final List<String> codes = emiratePlateCodesMap.containsKey("AUH")
+        ? (emiratePlateCodesMap["AUH"] ?? [])
+        : PlateDummyDB.getCodesByEmirate("AUH");
+    selectedPlateCode = codes.isNotEmpty ? codes.first : null;
     if (!keepName) {
       nameController.clear();
     }

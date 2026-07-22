@@ -15,7 +15,6 @@ import 'package:inspection/controller/vehicleDetails_controller.dart';
 import 'package:inspection/model/apiResponsModel.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
-import 'package:inspection/utils/dummyDB/Dummydb.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:provider/provider.dart';
@@ -57,6 +56,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
       if (!mounted) return;
       context.read<VehicleDetailsController>();
       await vehicleCtrl.getCustomerTypeList();
+      await vehicleCtrl.getEmiratePlateCodes();
       if (widget.jobId != null && widget.jobId! > 0) {
         await _prefillFromJobId(widget.jobId!, vehicleCtrl, customerCtrl);
       } else {
@@ -1035,7 +1035,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                 Expanded(
                   flex: 3,
                   child: DropdownSearch<String>(
-                    items: (f, infiniteScrollProps) => PlateDummyDB.emirates,
+                    items: (f, infiniteScrollProps) => controller.emiratesList,
                     selectedItem: controller.selectedEmirate,
                     popupProps: PopupProps.menu(
                       showSearchBox: true,
