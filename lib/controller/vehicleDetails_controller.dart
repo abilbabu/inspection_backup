@@ -378,6 +378,8 @@ class VehicleDetailsController with ChangeNotifier {
       "custName": nameController.text.trim(),
       "vFuelMark": fuelMarks[fuelValue.round()],
       if (jobId != null) "jobcardId": jobId,
+      if (!isNewVehicle && customerCtrl.selectedVehicle != null)
+        "vehicleId": customerCtrl.selectedVehicle,
     };
     try {
       isLoading = true;
