@@ -35,6 +35,13 @@ class _VehicleDetailsState extends State<VehicleDetails> {
   bool hasMobileError = false;
   late FocusNode plateSearchFocus;
 
+  String? _cleanImgUrl(String? val) {
+    if (val == null || val.trim().isEmpty || val.trim().toLowerCase() == "null") {
+      return null;
+    }
+    return val.trim();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -70,8 +77,8 @@ class _VehicleDetailsState extends State<VehicleDetails> {
         vehicleCtrl.vinController.text = data["vVinNo"] ?? "";
         vehicleCtrl.restorePlateFromApiSmart(data["vRegNo"] ?? "");
         vehicleCtrl.odometerController.clear();
-        vehicleCtrl.vinImageUrl = data["vVinImg"];
-        vehicleCtrl.plateImageUrl = data["vRegNoImg"];
+        vehicleCtrl.vinImageUrl = _cleanImgUrl(data["vVinImg"]?.toString());
+        vehicleCtrl.plateImageUrl = _cleanImgUrl(data["vRegNoImg"]?.toString());
       } else {
         vehicleCtrl.vinController.clear();
         vehicleCtrl.plateController.clear();
@@ -133,8 +140,8 @@ class _VehicleDetailsState extends State<VehicleDetails> {
       if (plate.isNotEmpty) {
         vehicleCtrl.restorePlateFromApiSmart(plate);
       }
-      vehicleCtrl.vinImageUrl = vehicle['vVinImg']?.toString();
-      vehicleCtrl.plateImageUrl = vehicle['vRegNoImg']?.toString();
+      vehicleCtrl.vinImageUrl = _cleanImgUrl(vehicle['vVinImg']?.toString());
+      vehicleCtrl.plateImageUrl = _cleanImgUrl(vehicle['vRegNoImg']?.toString());
       // Fuel level
       final fuelMark = vehicle['vFuelMark']?.toString() ?? 'E';
       final fuelMarks = vehicleCtrl.fuelMarks;
@@ -999,6 +1006,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
   Widget _buildRegistrationPlateRow(BuildContext context) {
     return Consumer<VehicleDetailsController>(
       builder: (context, controller, _) {
+        final String? validPlateUrl = _cleanImgUrl(controller.plateImageUrl);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1107,8 +1115,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                 ),
               ],
             ),
-            if (controller.plateDisplayImage != null ||
-                controller.plateImageUrl != null)
+            if (controller.plateDisplayImage != null || validPlateUrl != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Stack(
@@ -1123,7 +1130,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                               fit: BoxFit.cover,
                             )
                           : Image.network(
-                              controller.plateImageUrl!,
+                              validPlateUrl!,
                               height: 90,
                               width: double.infinity,
                               fit: BoxFit.cover,
@@ -1143,7 +1150,8 @@ class _VehicleDetailsState extends State<VehicleDetails> {
     required VehicleDetailsController controller,
     required BuildContext context,
   }) {
-    final bool isReadonlyImage = controller.plateImageUrl != null;
+    final String? validPlateUrl = _cleanImgUrl(controller.plateImageUrl);
+    final bool hasImage = controller.plateDisplayImage != null || validPlateUrl != null;
     return TextFormField(
       key: controller.regKey,
       controller: controller.plateController,
@@ -1195,47 +1203,39 @@ class _VehicleDetailsState extends State<VehicleDetails> {
             width: 1.2,
           ),
         ),
-        suffixIcon: isReadonlyImage
-            ? null
-            : IconButton(
-                icon:
-                    (controller.plateDisplayImage == null &&
-                        controller.plateImageUrl == null)
-                    ? SvgPicture.asset(
-                        'assets/svg/scanner_logo.svg',
-                        width: 22,
-                        height: 22,
-                        color: ColorConstants.blackColor,
-                      )
-                    : SvgPicture.asset(
-                        'assets/svg/repeat.svg',
-                        width: 22,
-                        height: 22,
-                        color: ColorConstants.blackColor,
-                      ),
-                tooltip:
-                    (controller.plateDisplayImage == null &&
-                        controller.plateImageUrl == null)
-                    ? "Scan"
-                    : "Retake",
-                onPressed: () async {
-                  final dynamic result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const CameraCaptureScreen(isVideo: false),
-                    ),
-                  );
-                  if (result != null &&
-                      result is Map &&
-                      result['file'] != null) {
-                    controller.processCapturedImage(
-                      image: result['file'],
-                      controller: controller.plateController,
-                      filterType: 'plate',
-                    );
-                  }
-                },
+        suffixIcon: IconButton(
+          icon: hasImage
+              ? SvgPicture.asset(
+                  'assets/svg/repeat.svg',
+                  width: 22,
+                  height: 22,
+                  color: ColorConstants.blackColor,
+                )
+              : SvgPicture.asset(
+                  'assets/svg/scanner_logo.svg',
+                  width: 22,
+                  height: 22,
+                  color: ColorConstants.blackColor,
+                ),
+          tooltip: hasImage ? "Retake" : "Scan",
+          onPressed: () async {
+            final dynamic result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CameraCaptureScreen(isVideo: false),
               ),
+            );
+            if (result != null &&
+                result is Map &&
+                result['file'] != null) {
+              controller.processCapturedImage(
+                image: result['file'],
+                controller: controller.plateController,
+                filterType: 'plate',
+              );
+            }
+          },
+        ),
       ),
     );
   }
@@ -1665,8 +1665,8 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                 vehicleCtrl.restorePlateFromApiSmart(
                                   data["vRegNo"] ?? "",
                                 );
-                                vehicleCtrl.vinImageUrl = data["vVinImg"];
-                                vehicleCtrl.plateImageUrl = data["vRegNoImg"];
+                                 vehicleCtrl.vinImageUrl = _cleanImgUrl(data["vVinImg"]?.toString());
+                                vehicleCtrl.plateImageUrl = _cleanImgUrl(data["vRegNoImg"]?.toString());
                                 ctrl.vehiclePlateController.text =
                                     data["vRegNo"] ?? "";
                               }
@@ -1817,7 +1817,8 @@ class _VehicleDetailsState extends State<VehicleDetails> {
     String? Function(String?)? validator,
     bool showClearIcon = true,
   }) {
-    final bool isReadonlyImage = imageUrl != null;
+    final String? validUrl = _cleanImgUrl(imageUrl);
+    final bool hasImage = imageFile != null || validUrl != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1884,31 +1885,27 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                 width: 1.2,
               ),
             ),
-            suffixIcon: isReadonlyImage
-                ? null
-                : IconButton(
-                    onPressed: onScan,
-                    tooltip: (imageFile == null && imageUrl == null)
-                        ? "Scan"
-                        : "Retake",
-                    icon: (imageFile == null && imageUrl == null)
-                        ? SvgPicture.asset(
-                            'assets/svg/scanner_logo.svg',
-                            width: 25,
-                            height: 25,
-                            color: ColorConstants.blackColor,
-                          )
-                        : SvgPicture.asset(
-                            'assets/svg/repeat.svg',
-                            width: 25,
-                            height: 25,
-                            color: ColorConstants.blackColor,
-                          ),
-                  ),
+            suffixIcon: IconButton(
+              onPressed: onScan,
+              tooltip: hasImage ? "Retake" : "Scan",
+              icon: hasImage
+                  ? SvgPicture.asset(
+                      'assets/svg/repeat.svg',
+                      width: 25,
+                      height: 25,
+                      color: ColorConstants.blackColor,
+                    )
+                  : SvgPicture.asset(
+                      'assets/svg/scanner_logo.svg',
+                      width: 25,
+                      height: 25,
+                      color: ColorConstants.blackColor,
+                    ),
+            ),
           ),
         ),
         const SizedBox(height: 5),
-        if (imageFile != null || imageUrl != null)
+        if (hasImage)
           Stack(
             children: [
               ClipRRect(
@@ -1921,7 +1918,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                         fit: BoxFit.cover,
                       )
                     : Image.network(
-                        imageUrl!,
+                        validUrl!,
                         height: 100,
                         width: double.infinity,
                         fit: BoxFit.cover,

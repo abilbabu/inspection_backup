@@ -265,7 +265,6 @@ class VehicleDetailsController with ChangeNotifier {
       plateController.text = plate;
       selectedEmirate = null;
       selectedPlateCode = null;
-      plateImageUrl = null;
       notifyListeners();
       return;
     }
@@ -341,11 +340,17 @@ class VehicleDetailsController with ChangeNotifier {
 
   bool hasAllMandatoryImages() {
     final bool hasVin =
-        vinImage != null || vinDisplayImage != null || vinImageUrl != null;
+        vinImage != null ||
+        vinDisplayImage != null ||
+        (vinImageUrl != null &&
+            vinImageUrl!.trim().isNotEmpty &&
+            vinImageUrl!.trim().toLowerCase() != "null");
     final bool hasPlate =
         plateImage != null ||
         plateDisplayImage != null ||
-        plateImageUrl != null;
+        (plateImageUrl != null &&
+            plateImageUrl!.trim().isNotEmpty &&
+            plateImageUrl!.trim().toLowerCase() != "null");
     final bool hasOdometer =
         odometerImage != null || odometerDisplayImage != null;
     return hasVin && hasPlate && hasOdometer;
@@ -386,37 +391,30 @@ class VehicleDetailsController with ChangeNotifier {
       notifyListeners();
       final prefs = await SharedPreferences.getInstance();
       final userToken = prefs.getString('userToken');
-      if (isNewVehicle) {
-        if (vinImage != null) {
-          vinMultipart = await MultipartFile.fromFile(vinImage!.path);
-          payload["vVinImgfile"] = vinMultipart;
-        }
-        if (plateImage != null) {
-          regMultipart = await MultipartFile.fromFile(plateImage!.path);
-          payload["vRegNoImgfile"] = regMultipart;
-        }
-        if (odometerImage != null) {
-          odoMultipart = await MultipartFile.fromFile(odometerImage!.path);
-          payload["vOdometerImgfile"] = odoMultipart;
-        }
-      } else {
-        if (vinImage != null) {
-          vinMultipart = await MultipartFile.fromFile(vinImage!.path);
-          payload["vVinImgfile"] = vinMultipart;
-        } else if (vinDisplayImage != null) {
-          payload["existingVinImgUrl"] = vinImageUrl;
-        }
-        if (plateImage != null) {
-          regMultipart = await MultipartFile.fromFile(plateImage!.path);
-          payload["vRegNoImgfile"] = regMultipart;
-        } else if (plateDisplayImage != null) {
-          payload["existingRegImgUrl"] = plateImageUrl;
-        }
-        if (odometerImage != null) {
-          odoMultipart = await MultipartFile.fromFile(odometerImage!.path);
-          payload["vOdometerImgfile"] = odoMultipart;
-        }
+
+      if (vinImage != null) {
+        vinMultipart = await MultipartFile.fromFile(vinImage!.path);
+        payload["vVinImgfile"] = vinMultipart;
+      } else if (vinImageUrl != null &&
+          vinImageUrl!.trim().isNotEmpty &&
+          vinImageUrl!.trim().toLowerCase() != "null") {
+        payload["existingVinImgUrl"] = vinImageUrl;
       }
+
+      if (plateImage != null) {
+        regMultipart = await MultipartFile.fromFile(plateImage!.path);
+        payload["vRegNoImgfile"] = regMultipart;
+      } else if (plateImageUrl != null &&
+          plateImageUrl!.trim().isNotEmpty &&
+          plateImageUrl!.trim().toLowerCase() != "null") {
+        payload["existingRegImgUrl"] = plateImageUrl;
+      }
+
+      if (odometerImage != null) {
+        odoMultipart = await MultipartFile.fromFile(odometerImage!.path);
+        payload["vOdometerImgfile"] = odoMultipart;
+      }
+
       final dio = Dio();
       dio.options.headers.remove("Content-Type");
       dio.options.headers["Authorization"] = "Bearer $userToken";
@@ -452,10 +450,6 @@ class VehicleDetailsController with ChangeNotifier {
   }
 
   void clearAll(BuildContext context, {bool keepName = false}) {
-    final customerCtrl = Provider.of<CustomerDetailsController>(
-      context,
-      listen: false,
-    );
     vinController.clear();
     odometerController.clear();
     plateController.clear();
@@ -598,13 +592,18 @@ class VehicleDetailsController with ChangeNotifier {
   void clearField(String type) {
     if (type == 'vin') {
       vinController.clear();
+      vinImage = null;
       vinDisplayImage = null;
+      vinImageUrl = null;
     } else if (type == 'odometer') {
       odometerController.clear();
+      odometerImage = null;
       odometerDisplayImage = null;
     } else if (type == 'plate') {
       plateController.clear();
+      plateImage = null;
       plateDisplayImage = null;
+      plateImageUrl = null;
     }
     notifyListeners();
   }
