@@ -427,11 +427,29 @@ class VehicleDetailsController with ChangeNotifier {
       isLoading = false;
       notifyListeners();
       if (response.statusCode == 200) {
+        final resData = response.data['data'];
+        if (resData != null) {
+          final String? newVin = resData['vVinImg']?.toString() ?? resData['vehicle']?['vVinImg']?.toString();
+          final String? newPlate = resData['vRegNoImg']?.toString() ?? resData['vehicle']?['vRegNoImg']?.toString();
+          if (newVin != null &&
+              newVin.trim().isNotEmpty &&
+              newVin.trim().toLowerCase() != "null") {
+            _vinImageUrl = newVin.trim();
+          }
+          if (newPlate != null &&
+              newPlate.trim().isNotEmpty &&
+              newPlate.trim().toLowerCase() != "null") {
+            _plateImageUrl = newPlate.trim();
+          }
+        }
+        vinImage = null;
+        vinDisplayImage = null;
+        plateImage = null;
+        plateDisplayImage = null;
+        odometerImage = null;
+        odometerDisplayImage = null;
         saveSnapshot(customerCtrl, response.data['data']);
         customerCtrl.markCustomerConfirmed();
-        vinImage = null;
-        plateImage = null;
-        odometerImage = null;
         notifyListeners();
         return ApiResponse(
           success: true,
