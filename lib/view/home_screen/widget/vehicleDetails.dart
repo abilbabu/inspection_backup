@@ -1165,7 +1165,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
         if (value == null || value.isEmpty) {
           return "Registration number is required";
         }
-        if (!RegExp(r'^\d{2,5}$').hasMatch(value)) {
+        if (!RegExp(r'^\d{0,5}$').hasMatch(value)) {
           return "Enter exactly 5 digits";
         }
         return null;
