@@ -69,6 +69,10 @@ class _FullScreenVideosState extends State<FullScreenVideos> {
                 child: VideoPlayer(widget.controller),
               ),
             ),
+            if (widget.controller.value.isBuffering)
+              const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
             Center(
               child: IconButton(
                 iconSize: 70,

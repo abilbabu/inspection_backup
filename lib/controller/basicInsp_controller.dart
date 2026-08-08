@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
+import 'package:inspection/model/upload_queue_model.dart';
+import 'package:inspection/utils/local_upload_storage_service.dart';
+import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:inspection/view/basicInspection_screen/widget/carDiagram_screen.dart';
 import 'package:inspection/view/basicInspection_screen/widget/signature_screen.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
@@ -54,6 +57,7 @@ class BasicinspController extends ChangeNotifier {
   String notes = '';
   Timer? silenceTimer;
   Map<String, dynamic>? currentSectionData;
+  String lastErrorMessage = "";
   File? _capturedVideo;
   File? get capturedVideo => _capturedVideo;
   List<File?> _capturedImages = [];
@@ -359,16 +363,21 @@ class BasicinspController extends ChangeNotifier {
   }
 
   Future<File> compressVideo(File videoFile) async {
-    final info = await VideoCompress.compressVideo(
-      videoFile.path,
-      quality: VideoQuality.Res1280x720Quality,
-      deleteOrigin: false,
-      includeAudio: false,
-    );
-    if (info == null || info.file == null) {
+    try {
+      final info = await VideoCompress.compressVideo(
+        videoFile.path,
+        quality: VideoQuality.Res1280x720Quality,
+        deleteOrigin: false,
+        includeAudio: false,
+      );
+      if (info == null || info.file == null) {
+        return videoFile;
+      }
+      return info.file!;
+    } catch (e) {
+      debugPrint("Video compression error: $e");
       return videoFile;
     }
-    return info.file!;
   }
 
   void _safeSortImages(List images) {
@@ -560,28 +569,23 @@ class BasicinspController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    int lastProcessedIndex = -1;
+    int resumeIndex = steps.length;
     for (int i = 0; i < steps.length; i++) {
       final step = steps[i];
       final id = step['id'];
-      bool isCompleted = false;
-      if (completedImageIds.contains(id)) {
-        isCompleted = true;
-      }
+      bool isCompleted = completedImageIds.contains(id);
       if (lastcompleteId != null) {
-        if (id == lastcompleteId) {
-          isCompleted = true;
-        } else if (id == -20 && lastcompleteId == 2) {
-          isCompleted = true;
-        } else if (id == -10 && lastcompleteId == 1) {
+        if (id == lastcompleteId ||
+            (id == -20 && lastcompleteId == 2) ||
+            (id == -10 && lastcompleteId == 1)) {
           isCompleted = true;
         }
       }
-      if (isCompleted) {
-        lastProcessedIndex = i;
+      if (!isCompleted) {
+        resumeIndex = i;
+        break;
       }
     }
-    final resumeIndex = lastProcessedIndex + 1;
     if (resumeIndex < steps.length) {
       final resumeStep = steps[resumeIndex];
       currentStage = resumeStep['stage'];
@@ -832,7 +836,15 @@ class BasicinspController extends ChangeNotifier {
 
   Future<void> skipStep(BuildContext context) async {
     if (currentItem != null) {
-      completedImageIds.add(currentItem!['id']);
+      final int skippedId = currentItem!['id'];
+      completedImageIds.add(skippedId);
+      await LocalUploadStorageService.saveSkippedImageId(jobId, skippedId);
+    } else if (currentStage == InspectionStage.internal360) {
+      completedImageIds.add(-20);
+      await LocalUploadStorageService.saveSkippedImageId(jobId, -20);
+    } else if (currentStage == InspectionStage.external360) {
+      completedImageIds.add(-10);
+      await LocalUploadStorageService.saveSkippedImageId(jobId, -10);
     }
     _moveToNextIncompleteImage(context);
   }
@@ -915,8 +927,13 @@ class BasicinspController extends ChangeNotifier {
         return false;
       }
     }
+    final hasNet = await NetworkSyncManager().checkInternetConnection();
+
     isUploading = true;
+    lastErrorMessage = "";
     notifyListeners();
+    String imageId = "";
+    List<Map<String, dynamic>> mediaItems = [];
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('userToken');
@@ -936,9 +953,7 @@ class BasicinspController extends ChangeNotifier {
       } else if (currentStage == InspectionStage.external360) {
         imageIdVal = firstExternalImageId;
       }
-      final String imageId = imageIdVal != 0 ? imageIdVal.toString() : "";
-
-      List<Map<String, dynamic>> mediaItems = [];
+      imageId = imageIdVal != 0 ? imageIdVal.toString() : "";
       if (is360Stage) {
         if (_capturedVideo != null && await _capturedVideo!.exists()) {
           mediaItems.add({
@@ -967,6 +982,62 @@ class BasicinspController extends ChangeNotifier {
             "is360": false,
           });
         }
+      }
+
+      if (!hasNet) {
+        print("🌐 [BasicInspController] Device is offline. Saving inspection step locally...");
+        List<MediaItemQueue> queueMediaItems = [];
+        for (var m in mediaItems) {
+          final File fileObj = m["file"];
+          final String typeVal = m["type"] ?? "0";
+          final bool is360Val = m["is360"] ?? false;
+          final int imgIndex = m["imgIndex"] ?? 0;
+          queueMediaItems.add(MediaItemQueue(
+            filePath: fileObj.path,
+            type: typeVal,
+            is360: is360Val,
+            imgIndex: imgIndex,
+          ));
+        }
+
+        final fields = <String, String>{
+          "jobId": jobId.toString(),
+          "job_id": jobId.toString(),
+          "inspectionImageId": imageId.toString(),
+          "inspection_image_id": imageId.toString(),
+          "status": status.toString(),
+          "inspectionNote": inspectionNote,
+          "additionalComment": additionalComment,
+          "attachType": currentAttachType.toString(),
+        };
+
+        await LocalUploadStorageService.enqueueOfflineTask(
+          jobId: jobId,
+          endpointUrl: ApiServices.basicInspection,
+          mediaItems: queueMediaItems,
+          fields: fields,
+        );
+
+        await NetworkSyncManager().refreshPendingCount();
+
+        if (!is360Stage && item != null) {
+          completedImageIds.add(item['id']);
+        }
+        if (currentStage == InspectionStage.external360) {
+          completedImageIds.add(-10);
+        }
+        if (currentStage == InspectionStage.internal360) {
+          completedImageIds.add(-20);
+        }
+        if (currentStage == InspectionStage.diagram) {
+          completedImageIds.add(-30);
+        }
+        if (currentStage == InspectionStage.signature) {
+          completedImageIds.add(-40);
+        }
+
+        print("💾 [BasicInspController] Saved inspection step locally for job $jobId.");
+        return true;
       }
 
       if (mediaItems.isEmpty) {
@@ -1011,6 +1082,10 @@ class BasicinspController extends ChangeNotifier {
           if (currentStage == InspectionStage.signature) {
             completedImageIds.add(-40);
           }
+
+          // Clear any offline queue task & local media cache after successful online save
+          await LocalUploadStorageService.removeTaskByImageId(jobId, imageId);
+          await NetworkSyncManager().refreshPendingCount();
           return true;
         }
         notifyListeners();
@@ -1098,13 +1173,78 @@ class BasicinspController extends ChangeNotifier {
         if (currentStage == InspectionStage.signature) {
           completedImageIds.add(-40);
         }
+
+        // Clear any offline queue task & local media cache after successful online save
+        for (var m in mediaItems) {
+          final File? fileObj = m["file"];
+          if (fileObj != null) {
+            await LocalUploadStorageService.cleanupFile(fileObj.path);
+          }
+        }
+        await LocalUploadStorageService.removeTaskByImageId(jobId, imageId);
+        await NetworkSyncManager().refreshPendingCount();
         return true;
       }
-    } on DioException catch (e) {
-      return false;
     } catch (e) {
-      print("❌ [BasicInspController] Generic exception in proceedStep: $e");
-      return false;
+      print("📡 [BasicInspController] Network/Offline exception during upload: $e. Enqueuing task to local storage...");
+      try {
+        List<MediaItemQueue> queueMediaItems = [];
+        for (var m in mediaItems) {
+          final File fileObj = m["file"];
+          final String typeVal = m["type"] ?? "0";
+          final bool is360Val = m["is360"] ?? false;
+          final int imgIndex = m["imgIndex"] ?? 0;
+          queueMediaItems.add(MediaItemQueue(
+            filePath: fileObj.path,
+            type: typeVal,
+            is360: is360Val,
+            imgIndex: imgIndex,
+          ));
+        }
+
+        final fields = <String, String>{
+          "jobId": jobId.toString(),
+          "job_id": jobId.toString(),
+          "inspectionImageId": imageId.toString(),
+          "inspection_image_id": imageId.toString(),
+          "status": status.toString(),
+          "inspectionNote": inspectionNote,
+          "additionalComment": additionalComment,
+          "attachType": currentAttachType.toString(),
+        };
+
+        await LocalUploadStorageService.enqueueOfflineTask(
+          jobId: jobId,
+          endpointUrl: ApiServices.basicInspection,
+          mediaItems: queueMediaItems,
+          fields: fields,
+        );
+
+        await NetworkSyncManager().refreshPendingCount();
+
+        if (!is360Stage && item != null) {
+          completedImageIds.add(item['id']);
+        }
+        if (currentStage == InspectionStage.external360) {
+          completedImageIds.add(-10);
+        }
+        if (currentStage == InspectionStage.internal360) {
+          completedImageIds.add(-20);
+        }
+        if (currentStage == InspectionStage.diagram) {
+          completedImageIds.add(-30);
+        }
+        if (currentStage == InspectionStage.signature) {
+          completedImageIds.add(-40);
+        }
+
+        print("💾 [BasicInspController] Saved inspection step locally for job $jobId.");
+        return true;
+      } catch (err) {
+        print("❌ [BasicInspController] Error saving task offline: $err");
+        lastErrorMessage = "Failed to save media locally. Please try again.";
+        return false;
+      }
     } finally {
       isUploading = false;
       notifyListeners();
@@ -1171,6 +1311,43 @@ class BasicinspController extends ChangeNotifier {
       if (grouped["signature"] != null) {
         completedImageIds.add(-40);
       }
+
+      // Include pending offline local queue items so offline progress is maintained across app returns
+      try {
+        final pendingQueue = await LocalUploadStorageService.getPendingTasks();
+        for (var task in pendingQueue) {
+          if (task.jobId == jobId) {
+            final imgIdStr = task.fields["inspectionImageId"] ?? task.fields["inspection_image_id"];
+            if (imgIdStr != null && imgIdStr.isNotEmpty) {
+              final parsedId = int.tryParse(imgIdStr);
+              if (parsedId != null && parsedId != 0) {
+                completedImageIds.add(parsedId);
+              }
+            }
+            for (var item in task.mediaItems) {
+              if (item.is360) {
+                final attachType = task.fields["attachType"];
+                if (attachType == "0") {
+                  completedImageIds.add(-10);
+                } else {
+                  completedImageIds.add(-20);
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        debugPrint("Error merging offline queue ids: $err");
+      }
+
+      // Include skipped image IDs so skipped items are remembered offline
+      try {
+        final skippedIds = await LocalUploadStorageService.getSkippedImageIds(jobId);
+        completedImageIds.addAll(skippedIds);
+      } catch (err) {
+        debugPrint("Error merging skipped image ids: $err");
+      }
+
       isResumeLoaded = true;
     } catch (e) {
       debugPrint("Resume error: $e");

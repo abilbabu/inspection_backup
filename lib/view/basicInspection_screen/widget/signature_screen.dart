@@ -18,6 +18,9 @@ import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/network_sync_manager.dart';
+import 'package:inspection/utils/local_upload_storage_service.dart';
+import 'package:inspection/view/widgets/offline_sync_status_badge.dart';
 
 class SignatureScreen extends StatefulWidget {
   final int jobId;
@@ -88,11 +91,29 @@ class _SignatureScreenState extends State<SignatureScreen> {
             }
           },
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        body: Column(
+          children: [
+            const OfflineSyncStatusBadge(),
+            Expanded(
+              child: RefreshIndicator(
+                color: ColorConstants.syanColor,
+                onRefresh: () async {
+                  await NetworkSyncManager().syncIfConnected();
+                  if (mounted) {
+                    await context
+                        .read<BasicInspectionReportController>()
+                        .getBasicInspection(widget.jobId, forceRefresh: true);
+                    await context
+                        .read<BasicinspController>()
+                        .getBasicInspection(widget.jobId);
+                  }
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
               BasicInspectionPreview(jobId: widget.jobId),
               const SizedBox(height: 12),
               Padding(
@@ -246,6 +267,25 @@ class _SignatureScreenState extends State<SignatureScreen> {
                     builder: (context, controller, _) {
                       final reportLoading =
                           context.watch<BasicInspectionReportController>().isLoading;
+                      if (controller.isUploading || controller.isLoading || reportLoading) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _inspectionShimmer(),
+                            const SizedBox(height: 8),
+                            CustomButtonWidget(
+                              text: controller.isUploading
+                                  ? "Saving media..."
+                                  : "Loading inspection...",
+                              textSize: 16,
+                              textColor: Colors.white,
+                              isDisabled: true,
+                              showLoader: true,
+                              onPressed: null,
+                            ),
+                          ],
+                        );
+                      }
                       return CustomButtonWidget(
                         text: controller.isUploading
                             ? "Please wait..."
@@ -312,6 +352,10 @@ class _SignatureScreenState extends State<SignatureScreen> {
           ),
         ),
       ),
+    ),
+  ],
+),
+      ),
     );
   }
 
@@ -362,6 +406,9 @@ class _SignatureScreenState extends State<SignatureScreen> {
   }
 
   void _clearAllData(BuildContext context) {
+    final basicCtrl = context.read<BasicinspController>();
+    LocalUploadStorageService.clearJobCache(basicCtrl.jobId);
+
     final customerCtrl = context.read<CustomerDetailsController>();
     final jobCtrl = context.read<JobcarddetailsController>();
     final vehicleCtrl = context.read<VehicleDetailsController>();
@@ -398,5 +445,37 @@ class _SignatureScreenState extends State<SignatureScreen> {
           ),
         ) ??
         false;
+  }
+
+  
+  Widget _inspectionShimmer() {
+    return Shimmer(
+      duration: const Duration(seconds: 15),
+      interval: const Duration(seconds: 500),
+      color: Colors.white,
+      colorOpacity: 0.3,
+      enabled: true,
+      direction: const ShimmerDirection.fromLTRB(),
+      child: Container(
+        height: 150,
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: Colors.grey.shade300,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(height: 14, width: 150, color: Colors.grey.shade400),
+            const SizedBox(height: 10),
+            Container(height: 12, width: double.infinity, color: Colors.grey),
+            const SizedBox(height: 6),
+            Container(height: 12, width: 200, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
   }
 }

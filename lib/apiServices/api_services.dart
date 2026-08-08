@@ -46,6 +46,7 @@ class ApiServices {
   static String fuelList = "${baseUrl}settings/fuelTypeList";
   static String transmissionList = "${baseUrl}settings/transmissionTypeList";
   static String customerTypeList = "${baseUrl}settings/customerTypeList";
+  static String emiratePlateCodes = "${baseUrl}settings/emiratePlateCodes";
   static String serviceTypeList = "${baseUrl}settings/serviceTypeList";
   static String getvehicleEssentialList =
       "${baseUrl}settings/vehicleEssentialList";

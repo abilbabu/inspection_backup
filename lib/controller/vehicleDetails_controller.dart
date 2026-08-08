@@ -98,6 +98,8 @@ class VehicleDetailsController with ChangeNotifier {
   bool isSuccess = false;
   bool isAlreadyPresent = false;
   List<Map<String, String>> customerTypeList = [];
+  Map<String, List<String>> emiratePlateCodesMap = {};
+  List<String> emiratesList = [];
 
   Future<void> getCustomerTypeList({String? defaultValue}) async {
     final url = Uri.parse(ApiServices.customerTypeList);
@@ -145,6 +147,44 @@ class VehicleDetailsController with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> getEmiratePlateCodes() async {
+    final url = Uri.parse(ApiServices.emiratePlateCodes);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      final response = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+      );
+      if (response.statusCode == 200) {
+        final res = json.decode(response.body);
+        if (res["data"] != null) {
+          final Map<String, dynamic> rawMap = res["data"];
+          emiratePlateCodesMap = rawMap.map(
+            (key, value) => MapEntry(key, List<String>.from(value as List)),
+          );
+          if (emiratePlateCodesMap.isNotEmpty) {
+            emiratesList = emiratePlateCodesMap.keys.toList();
+            if (!emiratesList.contains(selectedEmirate)) {
+              selectedEmirate = emiratesList.first;
+            }
+            final codes = emiratePlateCodesMap[selectedEmirate!] ?? [];
+            if (!codes.contains(selectedPlateCode)) {
+              selectedPlateCode = codes.isNotEmpty ? codes.first : null;
+            }
+          }
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint("📍 Error fetching emirate plate codes: $e");
+      debugPrint("📍 StackTrace: $stackTrace");
+    }
+    notifyListeners();
+  }
+
   void setCustomerType(String? id) {
     selectedCustomerTypeId = id;
     notifyListeners();
@@ -171,16 +211,22 @@ class VehicleDetailsController with ChangeNotifier {
   }
 
   VehicleDetailsController() {
+    emiratesList = List<String>.from(PlateDummyDB.emirates);
     selectedPlateCode = PlateDummyDB.numericCodes.first;
   }
 
   List<String> get plateCodeList {
-    return PlateDummyDB.getCodesByEmirate(selectedEmirate!);
+    if (selectedEmirate == null) return [];
+    return emiratePlateCodesMap.containsKey(selectedEmirate)
+        ? (emiratePlateCodesMap[selectedEmirate!] ?? [])
+        : PlateDummyDB.getCodesByEmirate(selectedEmirate!);
   }
 
   void setEmirate(String value) {
     selectedEmirate = value;
-    final codes = PlateDummyDB.getCodesByEmirate(value);
+    final List<String> codes = emiratePlateCodesMap.containsKey(value)
+        ? (emiratePlateCodesMap[value] ?? [])
+        : PlateDummyDB.getCodesByEmirate(value);
     selectedPlateCode = codes.isNotEmpty ? codes.first : null;
     notifyListeners();
   }
@@ -219,13 +265,14 @@ class VehicleDetailsController with ChangeNotifier {
       plateController.text = plate;
       selectedEmirate = null;
       selectedPlateCode = null;
-      plateImageUrl = null;
       notifyListeners();
       return;
     }
     selectedEmirate = parsed.emirate;
-    final codes = PlateDummyDB.getCodesByEmirate(parsed.emirate!);
-    selectedPlateCode = codes.contains(parsed.code) ? parsed.code : codes.first;
+    final List<String> codes = emiratePlateCodesMap.containsKey(parsed.emirate)
+        ? (emiratePlateCodesMap[parsed.emirate!] ?? [])
+        : PlateDummyDB.getCodesByEmirate(parsed.emirate!);
+    selectedPlateCode = codes.contains(parsed.code) ? parsed.code : (codes.isNotEmpty ? codes.first : null);
     plateController.text = parsed.number!;
     notifyListeners();
   }
@@ -293,11 +340,17 @@ class VehicleDetailsController with ChangeNotifier {
 
   bool hasAllMandatoryImages() {
     final bool hasVin =
-        vinImage != null || vinDisplayImage != null || vinImageUrl != null;
+        vinImage != null ||
+        vinDisplayImage != null ||
+        (vinImageUrl != null &&
+            vinImageUrl!.trim().isNotEmpty &&
+            vinImageUrl!.trim().toLowerCase() != "null");
     final bool hasPlate =
         plateImage != null ||
         plateDisplayImage != null ||
-        plateImageUrl != null;
+        (plateImageUrl != null &&
+            plateImageUrl!.trim().isNotEmpty &&
+            plateImageUrl!.trim().toLowerCase() != "null");
     final bool hasOdometer =
         odometerImage != null || odometerDisplayImage != null;
     return hasVin && hasPlate && hasOdometer;
@@ -330,43 +383,38 @@ class VehicleDetailsController with ChangeNotifier {
       "custName": nameController.text.trim(),
       "vFuelMark": fuelMarks[fuelValue.round()],
       if (jobId != null) "jobcardId": jobId,
+      if (!isNewVehicle && customerCtrl.selectedVehicle != null)
+        "vehicleId": customerCtrl.selectedVehicle,
     };
     try {
       isLoading = true;
       notifyListeners();
       final prefs = await SharedPreferences.getInstance();
       final userToken = prefs.getString('userToken');
-      if (isNewVehicle) {
-        if (vinImage != null) {
-          vinMultipart = await MultipartFile.fromFile(vinImage!.path);
-          payload["vVinImgfile"] = vinMultipart;
-        }
-        if (plateImage != null) {
-          regMultipart = await MultipartFile.fromFile(plateImage!.path);
-          payload["vRegNoImgfile"] = regMultipart;
-        }
-        if (odometerImage != null) {
-          odoMultipart = await MultipartFile.fromFile(odometerImage!.path);
-          payload["vOdometerImgfile"] = odoMultipart;
-        }
-      } else {
-        if (vinImage != null) {
-          vinMultipart = await MultipartFile.fromFile(vinImage!.path);
-          payload["vVinImgfile"] = vinMultipart;
-        } else if (vinDisplayImage != null) {
-          payload["existingVinImgUrl"] = vinImageUrl;
-        }
-        if (plateImage != null) {
-          regMultipart = await MultipartFile.fromFile(plateImage!.path);
-          payload["vRegNoImgfile"] = regMultipart;
-        } else if (plateDisplayImage != null) {
-          payload["existingRegImgUrl"] = plateImageUrl;
-        }
-        if (odometerImage != null) {
-          odoMultipart = await MultipartFile.fromFile(odometerImage!.path);
-          payload["vOdometerImgfile"] = odoMultipart;
-        }
+
+      if (vinImage != null) {
+        vinMultipart = await MultipartFile.fromFile(vinImage!.path);
+        payload["vVinImgfile"] = vinMultipart;
+      } else if (vinImageUrl != null &&
+          vinImageUrl!.trim().isNotEmpty &&
+          vinImageUrl!.trim().toLowerCase() != "null") {
+        payload["existingVinImgUrl"] = vinImageUrl;
       }
+
+      if (plateImage != null) {
+        regMultipart = await MultipartFile.fromFile(plateImage!.path);
+        payload["vRegNoImgfile"] = regMultipart;
+      } else if (plateImageUrl != null &&
+          plateImageUrl!.trim().isNotEmpty &&
+          plateImageUrl!.trim().toLowerCase() != "null") {
+        payload["existingRegImgUrl"] = plateImageUrl;
+      }
+
+      if (odometerImage != null) {
+        odoMultipart = await MultipartFile.fromFile(odometerImage!.path);
+        payload["vOdometerImgfile"] = odoMultipart;
+      }
+
       final dio = Dio();
       dio.options.headers.remove("Content-Type");
       dio.options.headers["Authorization"] = "Bearer $userToken";
@@ -379,11 +427,29 @@ class VehicleDetailsController with ChangeNotifier {
       isLoading = false;
       notifyListeners();
       if (response.statusCode == 200) {
+        final resData = response.data['data'];
+        if (resData != null) {
+          final String? newVin = resData['vVinImg']?.toString() ?? resData['vehicle']?['vVinImg']?.toString();
+          final String? newPlate = resData['vRegNoImg']?.toString() ?? resData['vehicle']?['vRegNoImg']?.toString();
+          if (newVin != null &&
+              newVin.trim().isNotEmpty &&
+              newVin.trim().toLowerCase() != "null") {
+            _vinImageUrl = newVin.trim();
+          }
+          if (newPlate != null &&
+              newPlate.trim().isNotEmpty &&
+              newPlate.trim().toLowerCase() != "null") {
+            _plateImageUrl = newPlate.trim();
+          }
+        }
+        vinImage = null;
+        vinDisplayImage = null;
+        plateImage = null;
+        plateDisplayImage = null;
+        odometerImage = null;
+        odometerDisplayImage = null;
         saveSnapshot(customerCtrl, response.data['data']);
         customerCtrl.markCustomerConfirmed();
-        vinImage = null;
-        plateImage = null;
-        odometerImage = null;
         notifyListeners();
         return ApiResponse(
           success: true,
@@ -402,10 +468,6 @@ class VehicleDetailsController with ChangeNotifier {
   }
 
   void clearAll(BuildContext context, {bool keepName = false}) {
-    final customerCtrl = Provider.of<CustomerDetailsController>(
-      context,
-      listen: false,
-    );
     vinController.clear();
     odometerController.clear();
     plateController.clear();
@@ -413,7 +475,10 @@ class VehicleDetailsController with ChangeNotifier {
     odometerImage = null;
     plateImage = null;
     selectedEmirate = "AUH";
-    selectedPlateCode = PlateDummyDB.getCodesByEmirate("AUH").first;
+    final List<String> codes = emiratePlateCodesMap.containsKey("AUH")
+        ? (emiratePlateCodesMap["AUH"] ?? [])
+        : PlateDummyDB.getCodesByEmirate("AUH");
+    selectedPlateCode = codes.isNotEmpty ? codes.first : null;
     if (!keepName) {
       nameController.clear();
     }
@@ -545,13 +610,18 @@ class VehicleDetailsController with ChangeNotifier {
   void clearField(String type) {
     if (type == 'vin') {
       vinController.clear();
+      vinImage = null;
       vinDisplayImage = null;
+      vinImageUrl = null;
     } else if (type == 'odometer') {
       odometerController.clear();
+      odometerImage = null;
       odometerDisplayImage = null;
     } else if (type == 'plate') {
       plateController.clear();
+      plateImage = null;
       plateDisplayImage = null;
+      plateImageUrl = null;
     }
     notifyListeners();
   }

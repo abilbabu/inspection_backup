@@ -8,6 +8,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:inspection/apiServices/api_services.dart';
+import 'package:inspection/model/upload_queue_model.dart';
+import 'package:inspection/utils/local_upload_storage_service.dart';
+import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:inspection/controller/inspectionFormController.dart';
 import 'package:inspection/model/apiResponsModel.dart';
 import 'package:inspection/model/inspectionTaskModel.dart';
@@ -384,16 +387,21 @@ class InspectioncardController extends ChangeNotifier {
   }
 
   Future<File> compressVideo(File videoFile) async {
-    final info = await VideoCompress.compressVideo(
-      videoFile.path,
-      quality: VideoQuality.Res1280x720Quality,
-      deleteOrigin: false,
-      includeAudio: true,
-    );
-    if (info == null || info.file == null) {
+    try {
+      final info = await VideoCompress.compressVideo(
+        videoFile.path,
+        quality: VideoQuality.Res1280x720Quality,
+        deleteOrigin: false,
+        includeAudio: true,
+      );
+      if (info == null || info.file == null) {
+        return videoFile;
+      }
+      return info.file!;
+    } catch (e) {
+      debugPrint("Video compression error: $e");
       return videoFile;
     }
-    return info.file!;
   }
 
   Future<void> loadExistingTask({
@@ -695,6 +703,16 @@ class InspectioncardController extends ChangeNotifier {
           ? jsonDecode(response.data)
           : response.data;
       if (response.statusCode == 200) {
+        // Clean up local temporary media files after successful upload & database confirmation
+        for (final img in _capturedImages) {
+          if (img != null) await LocalUploadStorageService.cleanupFile(img.path);
+        }
+        if (_capturedVideo != null) {
+          await LocalUploadStorageService.cleanupFile(_capturedVideo!.path);
+        }
+        if (recordedFilePath != null) {
+          await LocalUploadStorageService.cleanupFile(recordedFilePath);
+        }
         return ApiResponse(
           success: true,
           data: decoded?['data'],
@@ -709,7 +727,74 @@ class InspectioncardController extends ChangeNotifier {
         statusCode: response.statusCode,
       );
     } catch (e) {
-      return ApiResponse(success: false, status: "Unexpected Error");
+      print("📡 [InspectionCardController] Offline/Network exception during single save: $e. Saving task locally...");
+      try {
+        List<MediaItemQueue> queueItems = [];
+        for (int i = 0; i < _capturedImages.length; i++) {
+          final File? img = _capturedImages[i];
+          if (img != null && img.existsSync()) {
+            queueItems.add(MediaItemQueue(
+              filePath: img.path,
+              type: "0",
+              imgIndex: i,
+            ));
+          }
+        }
+        if (_capturedVideo != null && _capturedVideo!.existsSync()) {
+          queueItems.add(MediaItemQueue(
+            filePath: _capturedVideo!.path,
+            type: "1",
+          ));
+        }
+        if (recordedFilePath != null && File(recordedFilePath!).existsSync()) {
+          queueItems.add(MediaItemQueue(
+            filePath: recordedFilePath!,
+            type: "2",
+          ));
+        }
+
+        Map<String, dynamic> payload = {
+          "vimJobId": jobId,
+          "vimIfMasterId": (formId == 0) ? null : formId,
+          "viTaskId": taskId,
+          "viGood": isGood,
+          "viRepair": isRepair,
+          "viPoor": isPoor,
+          "viReplace": isReplace,
+          "viNotApplicable": isNotApplicable,
+          "viDescription": descriptionController.text,
+          "viNote": noteController.text,
+          "status": status,
+          "inserted": false,
+        };
+        if (viReInspection != null) payload["viReInspection"] = viReInspection;
+        if (vimAdditionalComments != null) payload["vimAdditionalComments"] = vimAdditionalComments;
+        if (vimInspectionType != null) payload["vimInspectionType"] = vimInspectionType;
+
+        final fields = <String, String>{
+          "data": jsonEncode(payload),
+        };
+
+        await LocalUploadStorageService.enqueueOfflineTask(
+          jobId: jobId,
+          endpointUrl: ApiServices.inspectionSingleSave,
+          mediaItems: queueItems,
+          fields: fields,
+        );
+
+        await NetworkSyncManager().refreshPendingCount();
+
+        print("💾 [InspectionCardController] Saved single inspection payload locally for job $jobId.");
+        return ApiResponse(
+          success: true,
+          status: "Saved Offline",
+          statusCode: 200,
+          data: {"offline": true},
+        );
+      } catch (err) {
+        print("❌ [InspectionCardController] Error saving task offline: $err");
+        return ApiResponse(success: false, status: "Unexpected Error");
+      }
     }
   }
 

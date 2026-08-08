@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
+import 'package:inspection/model/upload_queue_model.dart';
+import 'package:inspection/utils/local_upload_storage_service.dart';
+import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
 import 'package:path/path.dart' as path;
@@ -277,12 +280,54 @@ class VehicleessentialController extends ChangeNotifier {
         ),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
+        if (essentinalImage != null) {
+          await LocalUploadStorageService.cleanupFile(essentinalImage.path);
+        }
         return true;
       } else {
         return false;
       }
     } catch (e) {
-      return false;
+      print("📡 [VehicleessentialController] Offline/Network exception during submit: $e. Enqueuing task to local storage...");
+      try {
+        final essentinalImage = _capturedImages[0];
+        List<MediaItemQueue> queueMediaItems = [];
+        if (essentinalImage != null && essentinalImage.existsSync()) {
+          queueMediaItems.add(MediaItemQueue(
+            filePath: essentinalImage.path,
+            type: "0",
+          ));
+        }
+
+        Map<String, dynamic> payload = {
+          "jobId": jobId,
+          "vId": vId,
+          "type": 0,
+          "note": notes,
+          "docType": selectedDocumentTypeId,
+          "status": 2,
+          "veId": getSelectedIds(),
+        };
+
+        final fields = <String, String>{
+          "payload": jsonEncode(payload),
+        };
+
+        await LocalUploadStorageService.enqueueOfflineTask(
+          jobId: jobId,
+          endpointUrl: ApiServices.submitVehicleEssential,
+          mediaItems: queueMediaItems,
+          fields: fields,
+        );
+
+        await NetworkSyncManager().refreshPendingCount();
+
+        print("💾 [VehicleessentialController] Saved vehicle essential payload locally for job $jobId.");
+        return true;
+      } catch (err) {
+        print("❌ [VehicleessentialController] Error saving task offline: $err");
+        return false;
+      }
     } finally {
       isLoading = false;
       notifyListeners();

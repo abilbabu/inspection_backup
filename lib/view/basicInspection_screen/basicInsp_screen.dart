@@ -241,9 +241,26 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                                     jobId: widget.jobId,
                                     status: 2,
                                   );
+                                  if (!context.mounted) return;
                                   if (success) {
                                     controller.nextStep(context);
                                     controller.notesController.clear();
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor:
+                                            ColorConstants.errorcolor,
+                                        content: Text(
+                                          controller.lastErrorMessage.isNotEmpty
+                                              ? controller.lastErrorMessage
+                                              : "Failed to process inspection item.",
+                                          style: ApptextstyleConstants.thinText(
+                                            color: ColorConstants.whiteColor,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    );
                                   }
                                 },
                               ),

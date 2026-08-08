@@ -10,6 +10,7 @@ import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
+import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:provider/provider.dart';
 
 class VehicleEssentialScreen extends StatefulWidget {
@@ -142,8 +143,8 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                                 text: controller.isLoading
                                     ? "Please wait..."
                                     : isSuccess
-                                    ? "COMPLETED"
-                                    : "START BASIC INSPECTION",
+                                        ? "COMPLETED"
+                                        : "START BASIC INSPECTION",
                                 textSize: 16,
                                 isDisabled: controller.isLoading || isSuccess,
                                 showLoader: controller.isLoading,

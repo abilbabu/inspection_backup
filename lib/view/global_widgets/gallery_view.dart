@@ -366,6 +366,8 @@ class _GroupVideoPlayerState extends State<GroupVideoPlayer> {
                         ),
                       ),
                     ),
+                    if (_controller.value.isBuffering)
+                      const Center(child: CircularProgressIndicator()),
                     Center(
                       child: IconButton(
                         iconSize: 52,
