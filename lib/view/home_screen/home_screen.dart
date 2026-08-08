@@ -360,7 +360,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _inspectionModeCard(
                     title: "Quick",
                     icon: Icons.flash_on,
-                    enabled: false,
+                    enabled: true,
+                    onTap: () => context.go("/vehicledetails", extra: {"isQuick": true}),
                   ),
                 ),
                 const SizedBox(width: 8),

@@ -115,7 +115,38 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                                 ],
                               ),
                             ),
-                            SizedBox(height: 3),
+                            const SizedBox(height: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: jobcard["inspectionType"] == "QUICK"
+                                    ? Colors.blue.shade50
+                                    : Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: jobcard["inspectionType"] == "QUICK"
+                                      ? Colors.blue.shade300
+                                      : Colors.green.shade300,
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                jobcard["inspectionType"] == "QUICK"
+                                    ? "QUICK INSPECTION"
+                                    : "GENERAL INSPECTION",
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color: jobcard["inspectionType"] == "QUICK"
+                                      ? Colors.blue.shade800
+                                      : Colors.green.shade800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
                           ],
                           RichText(
                             text: TextSpan(
@@ -339,7 +370,38 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                           ],
                         ),
                       ),
-                      SizedBox(height: 3),
+                      const SizedBox(height: 3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: jobcard["inspectionType"] == "QUICK"
+                              ? Colors.blue.shade50
+                              : Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: jobcard["inspectionType"] == "QUICK"
+                                ? Colors.blue.shade300
+                                : Colors.green.shade300,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          jobcard["inspectionType"] == "QUICK"
+                              ? "QUICK INSPECTION"
+                              : "GENERAL INSPECTION",
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            color: jobcard["inspectionType"] == "QUICK"
+                                ? Colors.blue.shade800
+                                : Colors.green.shade800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
                       if (showLaabs) ...[
                         RichText(
                           text: TextSpan(

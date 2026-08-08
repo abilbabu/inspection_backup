@@ -41,6 +41,7 @@ class BasicInspectionReportController with ChangeNotifier {
   Duration externalVideoDuration = Duration.zero;
   Duration internalVideoPosition = Duration.zero;
   Duration internalVideoDuration = Duration.zero;
+  String? jobInspectionType;
 
   Future<void> initializeExternalVideo(String url) async {
     externalVideoController?.dispose();
@@ -186,6 +187,7 @@ class BasicInspectionReportController with ChangeNotifier {
       final result = jsonDecode(response.body);
       final data = result["data"];
       vimDocType = data["vimDocType"];
+      jobInspectionType = data["jobInspectionType"];
       note = (data["note"] ?? "").toString().trim();
       essentialImageUrl = data["essentinalImage"];
       String fuelMark = (data["vFuelMark"] ?? "E").toString();

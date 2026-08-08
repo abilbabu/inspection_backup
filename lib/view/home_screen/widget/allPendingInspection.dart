@@ -345,6 +345,34 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
                       ],
                     ),
                   ),
+                  Container(
+                    margin: const EdgeInsets.only(top: 4, bottom: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: data["inspectionType"] == "QUICK"
+                          ? Colors.blue.shade50
+                          : Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: data["inspectionType"] == "QUICK"
+                            ? Colors.blue.shade300
+                            : Colors.green.shade300,
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Text(
+                      data["inspectionType"] == "QUICK"
+                          ? "QUICK"
+                          : "GENERAL",
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        color: data["inspectionType"] == "QUICK"
+                            ? Colors.blue.shade800
+                            : Colors.green.shade800,
+                      ),
+                    ),
+                  ),
                     if (showLaabs) ...[
                     RichText(
                       text: TextSpan(

@@ -40,9 +40,9 @@ class _GalleryViewState extends State<GalleryView> {
       },
       child: Scaffold(
         appBar: CustomAppBar(
-          title: widget.type == 'external'
-              ? "External Images"
-              : "Internal Images",
+          title: widget.type == 'all'
+              ? "Inspection Images"
+              : (widget.type == 'external' ? "External Images" : "Internal Images"),
           onBackPress: () {
             context.pop();
           },
@@ -52,9 +52,11 @@ class _GalleryViewState extends State<GalleryView> {
             if (controller.isLoading) {
               return inspectionShimmerList();
             }
-            List<Map<String, dynamic>> groups = widget.type == 'external'
-                ? controller.externalGroups
-                : controller.internalGroups;
+            List<Map<String, dynamic>> groups = widget.type == 'all'
+                ? [...controller.externalGroups, ...controller.internalGroups]
+                : (widget.type == 'external'
+                    ? controller.externalGroups
+                    : controller.internalGroups);
             if (groups.isEmpty) {
               return const Center(child: Text("No images available"));
             }

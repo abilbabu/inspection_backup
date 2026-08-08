@@ -456,6 +456,34 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                         ],
                       ),
                       const SizedBox(height: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: item["inspectionType"] == "QUICK"
+                              ? Colors.blue.shade50
+                              : Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: item["inspectionType"] == "QUICK"
+                                ? Colors.blue.shade300
+                                : Colors.green.shade300,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          item["inspectionType"] == "QUICK"
+                              ? "QUICK"
+                              : "GENERAL",
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            color: item["inspectionType"] == "QUICK"
+                                ? Colors.blue.shade800
+                                : Colors.green.shade800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
                       if (showLaabs) ...[
                         RichText(
                           text: TextSpan(

@@ -41,6 +41,7 @@ class VehicleessentialController extends ChangeNotifier {
   Timer? silenceTimer;
 
   TextEditingController notesController = TextEditingController();
+  final TextEditingController complaintController = TextEditingController();
 
   bool isImageLoading = false;
 
@@ -100,6 +101,32 @@ class VehicleessentialController extends ChangeNotifier {
       }
       notes = notesController.text;
       notifyListeners();
+    }
+  }
+
+  Future<void> fetchCustomerComplaint(int jobId) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      final url = Uri.parse(ApiServices.getCustomerVehicleByJobId);
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+        body: jsonEncode({"jobId": jobId}),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final jobcard = decoded['data']?['jobcard'];
+        if (jobcard != null && jobcard['customerComplaint'] != null) {
+          complaintController.text = jobcard['customerComplaint'].toString();
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching complaint: $e");
     }
   }
 
@@ -257,6 +284,7 @@ class VehicleessentialController extends ChangeNotifier {
         "docType": selectedDocumentTypeId,
         "status": 2,
         "veId": getSelectedIds(),
+        "customerComplaint": complaintController.text.trim(),
       };
       FormData formData = FormData.fromMap({
         "payload": MultipartFile.fromString(
@@ -307,6 +335,7 @@ class VehicleessentialController extends ChangeNotifier {
           "docType": selectedDocumentTypeId,
           "status": 2,
           "veId": getSelectedIds(),
+          "customerComplaint": complaintController.text.trim(),
         };
 
         final fields = <String, String>{
@@ -341,6 +370,7 @@ class VehicleessentialController extends ChangeNotifier {
     checkBoxType.clear();
     notes = '';
     notesController.clear();
+    complaintController.clear();
     selectedDocumentTypeId = null;
     _capturedImages[0] = null;
     silenceTimer?.cancel();

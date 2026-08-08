@@ -63,6 +63,7 @@ class VehicleDetailsController with ChangeNotifier {
   final TextEditingController odometerController = TextEditingController();
   final TextEditingController plateController = TextEditingController();
   final TextEditingController nameController = TextEditingController();
+  final TextEditingController complaintController = TextEditingController();
   final GlobalKey<FormFieldState<String>> regKey =
       GlobalKey<FormFieldState<String>>();
   final GlobalKey<FormFieldState<String>> vinKey =
@@ -359,6 +360,7 @@ class VehicleDetailsController with ChangeNotifier {
   Future<ApiResponse> postVehicleDetails({
     required BuildContext context,
     required int? customerId,
+    bool isQuick = false,
   }) async {
     final customerCtrl = Provider.of<CustomerDetailsController>(
       context,
@@ -382,6 +384,8 @@ class VehicleDetailsController with ChangeNotifier {
       "custLanguage": selectedLanguages,
       "custName": nameController.text.trim(),
       "vFuelMark": fuelMarks[fuelValue.round()],
+      "inspectionType": isQuick ? "QUICK" : "GENERAL",
+      "customerComplaint": complaintController.text.trim(),
       if (jobId != null) "jobcardId": jobId,
       if (!isNewVehicle && customerCtrl.selectedVehicle != null)
         "vehicleId": customerCtrl.selectedVehicle,
@@ -479,6 +483,7 @@ class VehicleDetailsController with ChangeNotifier {
         ? (emiratePlateCodesMap["AUH"] ?? [])
         : PlateDummyDB.getCodesByEmirate("AUH");
     selectedPlateCode = codes.isNotEmpty ? codes.first : null;
+    complaintController.clear();
     if (!keepName) {
       nameController.clear();
     }

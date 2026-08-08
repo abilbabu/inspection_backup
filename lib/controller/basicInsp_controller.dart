@@ -18,6 +18,7 @@ import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_scree
 import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -29,6 +30,7 @@ enum MediaType { image, video }
 
 enum InspectionStage {
   externalImages,
+  additionalImages,
   external360,
   internalImages,
   internal360,
@@ -68,6 +70,7 @@ class BasicinspController extends ChangeNotifier {
   bool isNotApplicable = false;
   bool isSuccess = false;
   InspectionStage currentStage = InspectionStage.externalImages;
+  bool isQuick = false;
   String? carDiagramPath;
   String? signaturePath;
   bool isUploading = false;
@@ -209,6 +212,16 @@ class BasicinspController extends ChangeNotifier {
     }
     if (is360Stage) {
       if (_capturedVideo == null) {
+        showValidation = true;
+        notifyListeners();
+        return false;
+      }
+      showValidation = false;
+      return true;
+    }
+    if (currentStage == InspectionStage.additionalImages) {
+      bool hasImage = _capturedImages.any((img) => img != null);
+      if (!hasImage) {
         showValidation = true;
         notifyListeners();
         return false;
@@ -401,7 +414,11 @@ class BasicinspController extends ChangeNotifier {
   Future<void> getBasicimageList() async {
     isLoading = true;
     notifyListeners();
-    final url = Uri.parse(ApiServices.basicimageSettingList);
+    await getBasicInspection(jobId);
+    final String urlStr = isQuick 
+        ? ApiServices.quickImageSettingsMobile 
+        : ApiServices.basicimageSettingList;
+    final url = Uri.parse(urlStr);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
@@ -427,7 +444,6 @@ class BasicinspController extends ChangeNotifier {
           _safeSortImages(images);
           internalImageList.first['images'] = images;
         }
-        await getBasicInspection(jobId);
         _calculateResumeStep();
         isLoading = false;
         notifyListeners();
@@ -509,7 +525,7 @@ class BasicinspController extends ChangeNotifier {
 
   List<Map<String, dynamic>> buildFlowSteps() {
     List<Map<String, dynamic>> steps = [];
-    if (internalImageList.isNotEmpty) {
+    if (!isQuick && internalImageList.isNotEmpty) {
       final section = internalImageList.first;
       final images = List.from(section['images'] ?? []);
       _safeSortImages(images);
@@ -537,14 +553,25 @@ class BasicinspController extends ChangeNotifier {
           'stage': InspectionStage.externalImages,
           'index': i,
           'id': images[i]['id'],
-          'isMandatory': images[i]['imageMandatory'] ?? false,
+          'isMandatory': isQuick ? false : (images[i]['imageMandatory'] ?? false),
         });
+      }
+      if (isQuick) {
+        final int additionalCount = section['additionalImages'] ?? 0;
+        for (int i = 0; i < additionalCount; i++) {
+          steps.add({
+            'stage': InspectionStage.additionalImages,
+            'index': i,
+            'id': -100 - i,
+            'isMandatory': false,
+          });
+        }
       }
       steps.add({
         'stage': InspectionStage.external360,
         'index': null,
         'id': -10,
-        'isMandatory': true,
+        'isMandatory': isQuick ? false : true,
       });
     }
     steps.add({
@@ -553,12 +580,14 @@ class BasicinspController extends ChangeNotifier {
       'id': -30,
       'isMandatory': true,
     });
-    steps.add({
-      'stage': InspectionStage.signature,
-      'index': null,
-      'id': -40,
-      'isMandatory': true,
-    });
+    if (!isQuick) {
+      steps.add({
+        'stage': InspectionStage.signature,
+        'index': null,
+        'id': -40,
+        'isMandatory': true,
+      });
+    }
     return steps;
   }
 
@@ -611,6 +640,12 @@ class BasicinspController extends ChangeNotifier {
         currentStep = resumeStep['index'];
         isExternalSelected = true;
         _initializeCaptureList();
+      } else if (currentStage == InspectionStage.additionalImages) {
+        currentSectionData = externalImageList.first;
+        currentImages = [];
+        currentStep = resumeStep['index'];
+        isExternalSelected = true;
+        _initializeCaptureList();
       } else if (currentStage == InspectionStage.external360) {
         currentSectionData = externalImageList.first;
         currentImages = [];
@@ -648,6 +683,7 @@ class BasicinspController extends ChangeNotifier {
   }
 
   bool get isCurrentMandatory {
+    if (isQuick) return false;
     final item = currentItem;
     if (item == null) return false;
     return item['imageMandatory'] ?? false;
@@ -657,6 +693,9 @@ class BasicinspController extends ChangeNotifier {
       currentStage == InspectionStage.external360 ||
       currentStage == InspectionStage.internal360;
   bool get isCurrentStageCompleted {
+    if (currentStage == InspectionStage.additionalImages) {
+      return completedImageIds.contains(-100 - currentStep);
+    }
     if (currentStage == InspectionStage.external360) {
       return completedImageIds.contains(-10);
     }
@@ -682,7 +721,7 @@ class BasicinspController extends ChangeNotifier {
       return false;
     }
     if (currentStage == InspectionStage.external360) {
-      return false;
+      return isQuick;
     }
     if (currentStage == InspectionStage.internal360) {
       return true;
@@ -694,6 +733,7 @@ class BasicinspController extends ChangeNotifier {
     switch (currentStage) {
       case InspectionStage.externalImages:
       case InspectionStage.internalImages:
+      case InspectionStage.additionalImages:
         return 0;
       case InspectionStage.external360:
       case InspectionStage.internal360:
@@ -708,8 +748,13 @@ class BasicinspController extends ChangeNotifier {
   }
 
   void _initializeCaptureList({bool reset = true}) {
-    final item = currentItem;
-    int imageCount = item?['imageCount'] ?? 0;
+    int imageCount = 0;
+    if (currentStage == InspectionStage.additionalImages) {
+      imageCount = 1;
+    } else {
+      final item = currentItem;
+      imageCount = item?['imageCount'] ?? 0;
+    }
     if (reset || _capturedImages.length != imageCount) {
       _capturedImages = List<File?>.filled(imageCount, null);
       capturedStatus = List.generate(imageCount, (_) => false);
@@ -721,6 +766,32 @@ class BasicinspController extends ChangeNotifier {
 
   void nextStep(BuildContext context) {
     showValidation = false;
+    if (currentStage == InspectionStage.additionalImages) {
+      completedImageIds.add(-100 - currentStep);
+      final int additionalCount = externalImageList.isNotEmpty 
+          ? (externalImageList.first['additionalImages'] ?? 0)
+          : 0;
+      if (currentStep + 1 < additionalCount) {
+        currentStep = currentStep + 1;
+        _initializeCaptureList();
+        notifyListeners();
+        return;
+      }
+      if (externalImageList.isNotEmpty &&
+          externalImageList.first['inspection360Duration'] != null) {
+        currentStage = InspectionStage.external360;
+        currentSectionData = externalImageList.first;
+        currentImages = [];
+        _capturedVideo = null;
+        _initializeCaptureList();
+        notifyListeners();
+        return;
+      }
+      currentStage = InspectionStage.diagram;
+      notifyListeners();
+      openCarDiagram(context);
+      return;
+    }
     if (currentStage == InspectionStage.externalImages ||
         currentStage == InspectionStage.internalImages) {
       if (currentItem != null) {
@@ -741,12 +812,26 @@ class BasicinspController extends ChangeNotifier {
         return;
       }
       if (currentStage == InspectionStage.externalImages) {
+        if (isQuick) {
+          final int additionalCount = externalImageList.isNotEmpty 
+              ? (externalImageList.first['additionalImages'] ?? 0)
+              : 0;
+          if (additionalCount > 0) {
+            currentStage = InspectionStage.additionalImages;
+            currentImages = [];
+            currentStep = 0;
+            _initializeCaptureList();
+            notifyListeners();
+            return;
+          }
+        }
         if (externalImageList.isNotEmpty &&
             externalImageList.first['inspection360Duration'] != null) {
           currentStage = InspectionStage.external360;
           currentSectionData = externalImageList.first;
           currentImages = [];
           _capturedVideo = null;
+          _initializeCaptureList();
           notifyListeners();
           return;
         }
@@ -758,6 +843,7 @@ class BasicinspController extends ChangeNotifier {
           currentSectionData = internalImageList.first;
           currentImages = [];
           _capturedVideo = null;
+          _initializeCaptureList();
           notifyListeners();
           return;
         }
@@ -793,9 +879,38 @@ class BasicinspController extends ChangeNotifier {
       return;
     }
     if (currentStage == InspectionStage.externalImages) {
+      if (isQuick) {
+        final int additionalCount = externalImageList.isNotEmpty 
+            ? (externalImageList.first['additionalImages'] ?? 0)
+            : 0;
+        if (additionalCount > 0) {
+          currentStage = InspectionStage.additionalImages;
+          currentImages = [];
+          currentStep = 0;
+          _initializeCaptureList();
+          notifyListeners();
+          return;
+        }
+      }
       currentStage = InspectionStage.external360;
       _capturedVideo = null;
       notifyListeners();
+      return;
+    }
+    if (currentStage == InspectionStage.additionalImages) {
+      if (externalImageList.isNotEmpty &&
+          externalImageList.first['inspection360Duration'] != null) {
+        currentStage = InspectionStage.external360;
+        currentSectionData = externalImageList.first;
+        currentImages = [];
+        _capturedVideo = null;
+        _initializeCaptureList();
+        notifyListeners();
+        return;
+      }
+      currentStage = InspectionStage.diagram;
+      notifyListeners();
+      openCarDiagram(context);
       return;
     }
     if (currentStage == InspectionStage.external360) {
@@ -805,6 +920,16 @@ class BasicinspController extends ChangeNotifier {
       return;
     }
     if (currentStage == InspectionStage.diagram) {
+      if (isQuick) {
+        currentStage = InspectionStage.completed;
+        notifyListeners();
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (context.mounted) {
+            context.go('/quickInspectionSummary', extra: jobId);
+          }
+        });
+        return;
+      }
       currentStage = InspectionStage.signature;
       notifyListeners();
       openSignature(context);
@@ -818,6 +943,19 @@ class BasicinspController extends ChangeNotifier {
   }
 
   void _moveToNextIncompleteImage(BuildContext context) {
+    if (currentStage == InspectionStage.additionalImages) {
+      final int additionalCount = externalImageList.isNotEmpty 
+          ? (externalImageList.first['additionalImages'] ?? 0)
+          : 0;
+      if (currentStep + 1 < additionalCount) {
+        currentStep = currentStep + 1;
+        _initializeCaptureList();
+        notifyListeners();
+        return;
+      }
+      _moveToNextStage(context);
+      return;
+    }
     if (currentImages.isEmpty) {
       _moveToNextStage(context);
       return;
@@ -839,6 +977,9 @@ class BasicinspController extends ChangeNotifier {
       final int skippedId = currentItem!['id'];
       completedImageIds.add(skippedId);
       await LocalUploadStorageService.saveSkippedImageId(jobId, skippedId);
+    } else if (currentStage == InspectionStage.additionalImages) {
+      completedImageIds.add(-100 - currentStep);
+      await LocalUploadStorageService.saveSkippedImageId(jobId, -100 - currentStep);
     } else if (currentStage == InspectionStage.internal360) {
       completedImageIds.add(-20);
       await LocalUploadStorageService.saveSkippedImageId(jobId, -20);
@@ -862,7 +1003,17 @@ class BasicinspController extends ChangeNotifier {
     if (result != null) {
       carDiagramPath = result;
       notifyListeners();
-      openSignature(context);
+      if (isQuick) {
+        currentStage = InspectionStage.completed;
+        notifyListeners();
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (context.mounted) {
+            context.go('/quickInspectionSummary', extra: jobId);
+          }
+        });
+      } else {
+        openSignature(context);
+      }
     }
   }
 
@@ -909,11 +1060,12 @@ class BasicinspController extends ChangeNotifier {
     if (item == null &&
         currentStage != InspectionStage.diagram &&
         currentStage != InspectionStage.signature &&
+        currentStage != InspectionStage.additionalImages &&
         !is360Stage) {
       return false;
     }
-    bool isMandatory = item?['imageMandatory'] ?? false;
-    int imageCount = item?['imageCount'] ?? 0;
+    bool isMandatory = currentStage == InspectionStage.additionalImages ? false : (item?['imageMandatory'] ?? false);
+    int imageCount = currentStage == InspectionStage.additionalImages ? 1 : (item?['imageCount'] ?? 0);
     showValidation = isMandatory;
     final String inspectionNote = notesController.text.trim();
     if (isMandatory && imageCount > 0) {
@@ -1161,6 +1313,9 @@ class BasicinspController extends ChangeNotifier {
         if (!is360Stage && item != null) {
           completedImageIds.add(item['id']);
         }
+        if (currentStage == InspectionStage.additionalImages) {
+          completedImageIds.add(-100 - currentStep);
+        }
         if (currentStage == InspectionStage.external360) {
           completedImageIds.add(-10);
         }
@@ -1225,6 +1380,9 @@ class BasicinspController extends ChangeNotifier {
         if (!is360Stage && item != null) {
           completedImageIds.add(item['id']);
         }
+        if (currentStage == InspectionStage.additionalImages) {
+          completedImageIds.add(-100 - currentStep);
+        }
         if (currentStage == InspectionStage.external360) {
           completedImageIds.add(-10);
         }
@@ -1266,6 +1424,11 @@ class BasicinspController extends ChangeNotifier {
       final result = jsonDecode(response.body);
       final data = result["data"];
       if (data == null) return;
+      if (data["jobInspectionType"] == "QUICK") {
+        isQuick = true;
+      } else {
+        isQuick = false;
+      }
       if (data["lastcompleteId"] != null) {
         lastcompleteId = int.tryParse(data["lastcompleteId"].toString());
       } else if (data["lastCompletedId"] != null) {

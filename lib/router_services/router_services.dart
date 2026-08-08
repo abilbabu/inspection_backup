@@ -6,6 +6,7 @@ import 'package:inspection/view/authentication_screen/login_screen.dart';
 import 'package:inspection/view/basicInspection_screen/basicInsp_screen.dart';
 import 'package:inspection/view/basicInspection_screen/basicinspection_previw.dart';
 import 'package:inspection/view/basicInspection_screen/vehicleEssential_screen.dart';
+import 'package:inspection/view/basicInspection_screen/quickInspectionSummary.dart';
 import 'package:inspection/view/bottomnavbar_screen/bottomnavbar_screen.dart';
 import 'package:inspection/view/global_widgets/fullScreenImage.dart';
 import 'package:inspection/view/global_widgets/gallery_view.dart';
@@ -100,7 +101,8 @@ final GoRouter router = GoRouter(
       builder: (BuildContext context, GoRouterState state) {
         final extra = state.extra as Map<String, dynamic>?;
         final int? jobId = extra?['jobId'] as int?;
-        return VehicleDetails(jobId: jobId);
+        final bool isQuick = extra?['isQuick'] as bool? ?? false;
+        return VehicleDetails(jobId: jobId, isQuick: isQuick);
       },
     ),
 
@@ -232,6 +234,15 @@ final GoRouter router = GoRouter(
         return BasicinspScreen(jobId: jobId);
       },
       // builder: (context, state) => const BasicinspectionScreen(),
+    ),
+
+    GoRoute(
+      path: '/quickInspectionSummary',
+      name: 'Quick Inspection Summary',
+      builder: (BuildContext context, GoRouterState state) {
+        final jobId = state.extra as int;
+        return QuickInspectionSummaryPage(jobId: jobId);
+      },
     ),
 
     GoRoute(

@@ -36,6 +36,9 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
       final controller = context.read<VehicleessentialController>();
       controller.getvehicleEssentialList();
       controller.initSpeech();
+      if (widget.jobId != null) {
+        controller.fetchCustomerComplaint(widget.jobId!);
+      }
     });
   }
 
@@ -134,6 +137,8 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                             _checkEssentialsSection(controller),
                             SizedBox(height: 12),
                             _contentsNotesSection(controller, context),
+                            SizedBox(height: 12),
+                            _customerComplaintSection(controller, context),
                             SizedBox(height: 12),
                             Container(child: imageBox(0)),
                             SizedBox(height: 20),
@@ -235,6 +240,56 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
               )
             : const Center(child: Icon(Icons.camera_alt, size: 40)),
       ),
+    );
+  }
+
+  Widget _customerComplaintSection(
+    VehicleessentialController controller,
+    BuildContext context,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              "Customer Complaint",
+              style: ApptextstyleConstants.lightText(
+                color: ColorConstants.blackColor,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 12),
+        TextField(
+          controller: controller.complaintController,
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(
+            hintText: "Customer Complaint",
+            hintStyle: ApptextstyleConstants.thinText(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade400),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: ColorConstants.activecolor,
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

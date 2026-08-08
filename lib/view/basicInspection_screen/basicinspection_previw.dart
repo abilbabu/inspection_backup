@@ -214,6 +214,153 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
           )
           .join(' ');
     }
+    final bool isQuick = controller.jobInspectionType == "QUICK";
+    if (isQuick) {
+      final allGroups = [...controller.externalGroups, ...controller.internalGroups]
+          .where((group) => (group["images"] as List? ?? []).isNotEmpty)
+          .toList();
+      return Container(
+        decoration: BoxDecoration(
+          color: ColorConstants.whiteColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: ColorConstants.dashboardboxShadow,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 12),
+              Row(
+                children: [
+                  Text(
+                    "Inspection Images",
+                    style: ApptextstyleConstants.mediumText(
+                      fontSize: 14,
+                      color: ColorConstants.blackColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (allGroups.isNotEmpty)
+                    InkWell(
+                      onTap: () {
+                        context.push(
+                          '/galleryview',
+                          extra: {'jobId': widget.jobId, 'type': 'all'},
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ColorConstants.syanColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          "View All",
+                          style: ApptextstyleConstants.mediumText(
+                            fontSize: 12,
+                            color: ColorConstants.syanColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  SizedBox(width: 10),
+                ],
+              ),
+              SizedBox(height: 12),
+              if (allGroups.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Text(
+                      "No images available",
+                      style: ApptextstyleConstants.thinText(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 180,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: allGroups.length > 5 ? 5 : allGroups.length,
+                    itemBuilder: (context, index) {
+                      final group = allGroups[index];
+                      final images = group["images"] as List? ?? [];
+                      final firstImage = images.first;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: InkWell(
+                          onTap: () {
+                            context.push(
+                              '/fullScreenImage',
+                              extra: {
+                                'imageUrl': images.first["url"] ?? "",
+                                'label': group["label"] ?? "",
+                              },
+                            );
+                          },
+                          child: Container(
+                            width: 120,
+                            decoration: BoxDecoration(
+                              color: ColorConstants.toastgrey,
+                              border: Border.all(
+                                color: ColorConstants.activecolor,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    firstImage["url"] ?? "",
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 8,
+                                  left: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      toTitleCase(group["label"] ?? ""),
+                                      style: ApptextstyleConstants.thinText(
+                                        fontSize: 12,
+                                        color: ColorConstants.whiteColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              SizedBox(height: 12),
+            ],
+          ),
+        ),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: ColorConstants.whiteColor,

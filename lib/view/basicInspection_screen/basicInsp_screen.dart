@@ -125,17 +125,24 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                   int imageCount = item?['imageCount'] ?? 0;
                   bool videoFlag = item?['videoFlag'] ?? false;
                   int videoDuration = item?['videoDuration'] ?? 0;
-                  final String title = controller.isExternalSelected
-                      ? "External Image"
-                      : "Internal Image";
+                  if (controller.currentStage == InspectionStage.additionalImages) {
+                    imageCount = 1;
+                    videoFlag = false;
+                    videoDuration = 0;
+                  }
+                  final String title = controller.currentStage == InspectionStage.additionalImages
+                      ? "Additional Image"
+                      : (controller.isExternalSelected ? "External Image" : "Internal Image");
                   final String label =
                       controller.currentStage == InspectionStage.external360
                       ? "External 360 Video"
                       : controller.currentStage == InspectionStage.internal360
                       ? "Internal 360 Video"
+                      : controller.currentStage == InspectionStage.additionalImages
+                      ? "Additional Image ${controller.currentStep + 1}"
                       : (item?['imageLabel'] ?? "");
 
-                  final bool isMandatory = item?['imageMandatory'] ?? false;
+                  final bool isMandatory = controller.currentStage == InspectionStage.additionalImages ? false : (item?['imageMandatory'] ?? false);
                   return Padding(
                     padding: const EdgeInsets.symmetric(
                       vertical: 25,
@@ -212,7 +219,8 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                                 isDisabled:
                                     controller.isUploading ||
                                     controller.isVideoLoading ||
-                                    (!controller.isCurrentMandatory &&
+                                    (controller.currentStage != InspectionStage.additionalImages &&
+                                        !controller.isCurrentMandatory &&
                                         !controller.hasAnyMedia),
                                 showLoader: controller.isUploading,
                                 onPressed: () async {
@@ -605,10 +613,12 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
       );
     }
 
+    final isAdditionalStage =
+        controller.currentStage == InspectionStage.additionalImages;
     if (is360Stage) {
       return videoBox(height: largeBoxHeight);
     }
-    if (imageCount == 1 && !videoFlag) {
+    if (isAdditionalStage || (imageCount == 1 && !videoFlag)) {
       return imageBox(0, height: h(0.60, 0.75));
     }
     if (imageCount == 1 && videoFlag) {

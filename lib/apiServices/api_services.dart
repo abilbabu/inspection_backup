@@ -52,6 +52,7 @@ class ApiServices {
       "${baseUrl}settings/vehicleEssentialList";
   static String taskCategoryList = "${baseUrl}settings/taskCategoryList";
   static String basicimageSettingList = "${baseUrl}settings/imageSettingsList";
+  static String quickImageSettingsMobile = "${baseUrl}settings/quickImageSettingsMobile";
   static String componentList = "${baseUrl}settings/componentList";
   static String componentSearch = "${baseUrl}settings/componentList/search";
   static String technicianJobsPaginated = "${baseUrl}jobcard/getTechnicianJobsPaginated";

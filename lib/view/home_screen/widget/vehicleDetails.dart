@@ -23,7 +23,8 @@ import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 
 class VehicleDetails extends StatefulWidget {
   final int? jobId;
-  const VehicleDetails({super.key, this.jobId});
+  final bool isQuick;
+  const VehicleDetails({super.key, this.jobId, this.isQuick = false});
 
   @override
   State<VehicleDetails> createState() => _VehicleDetailsState();
@@ -112,6 +113,9 @@ class _VehicleDetailsState extends State<VehicleDetails> {
       final decoded = jsonDecode(response.body);
       final jobcard = decoded['data']?['jobcard'];
       if (jobcard == null) return;
+      if (jobcard['customerComplaint'] != null) {
+        vehicleCtrl.complaintController.text = jobcard['customerComplaint'].toString();
+      }
       final customer = jobcard['customer'] ?? {};
       final vehicle = jobcard['vehicle'] ?? {};
       // --- Customer fields ---
@@ -401,7 +405,50 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                     controller.clearField('odometer'),
                               ),
                               _buildFuelMark(context),
-                              SizedBox(height: 15),
+                              if (widget.isQuick) ...[
+                                const SizedBox(height: 15),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    "Customer Complaint",
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 12,
+                                      color: ColorConstants.blackColor,
+                                    ).copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: controller.complaintController,
+                                  maxLines: 4,
+                                  decoration: InputDecoration(
+                                    hintText: "Enter customer complaint",
+                                    hintStyle: ApptextstyleConstants.thinText(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(
+                                        color: ColorConstants.greenColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 15),
                             ],
                           ),
                         ),
@@ -496,6 +543,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                     .postVehicleDetails(
                                       context: context,
                                       customerId: customerId,
+                                      isQuick: widget.isQuick,
                                     );
                                 if (!mounted) {
                                   return;
@@ -508,6 +556,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                     extra: {
                                       "apiData": result.data,
                                       "customerId": result.data["customerId"],
+                                      "isQuick": widget.isQuick,
                                       "mobileNumber": customerController
                                           .mobileNumController
                                           .text
