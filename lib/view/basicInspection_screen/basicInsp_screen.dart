@@ -132,7 +132,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                   }
                   final String title = controller.currentStage == InspectionStage.additionalImages
                       ? "Additional Image"
-                      : (controller.isExternalSelected ? "External Image" : "Internal Image");
+                      : (controller.isQuick ? "Quick Inspection Image" : (controller.isExternalSelected ? "External Image" : "Internal Image"));
                   final String label =
                       controller.currentStage == InspectionStage.external360
                       ? "External 360 Video"

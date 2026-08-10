@@ -62,6 +62,8 @@ class _CustomerdetailsState extends State<Customerdetails> {
   void initState() {
     super.initState();
     final customerController = context.read<CustomerDetailsController>();
+    final vehicleController = context.read<VehicleDetailsController>();
+    customerController.complaintController.text = vehicleController.complaintController.text;
     final String resolvedCountryCode =
         widget.initialCountryCode ?? widget.data?['countryCode'] ?? "";
     final String resolvedMobileNumber =
@@ -175,6 +177,9 @@ class _CustomerdetailsState extends State<Customerdetails> {
       canPop: false,
       onPopInvoked: (didPop) {
         _resetVehicleTempState(context);
+        final customerController = context.read<CustomerDetailsController>();
+        final vehicleController = context.read<VehicleDetailsController>();
+        vehicleController.complaintController.text = customerController.complaintController.text;
         context.go('/vehicledetails');
       },
       child: Scaffold(
@@ -182,6 +187,9 @@ class _CustomerdetailsState extends State<Customerdetails> {
           title: "Vehicle Details",
           onBackPress: () {
             _resetVehicleTempState(context);
+            final customerController = context.read<CustomerDetailsController>();
+            final vehicleController = context.read<VehicleDetailsController>();
+            vehicleController.complaintController.text = customerController.complaintController.text;
             context.go('/vehicledetails');
           },
         ),
@@ -207,10 +215,53 @@ class _CustomerdetailsState extends State<Customerdetails> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: 20),
-                                _vechicleDetailsSection(customerController),
-                                _serviceTypeSection(customerController),
-                                SizedBox(height: 20),
+                                 SizedBox(height: 20),
+                                 _vechicleDetailsSection(customerController),
+                                 _serviceTypeSection(customerController),
+                                 if (widget.data?['isQuick'] == true) ...[
+                                   const SizedBox(height: 15),
+                                   Align(
+                                     alignment: Alignment.centerLeft,
+                                     child: Text(
+                                       "Customer Complaint",
+                                       style: ApptextstyleConstants.thinText(
+                                         fontSize: 12,
+                                         color: ColorConstants.blackColor,
+                                       ).copyWith(fontWeight: FontWeight.bold),
+                                     ),
+                                   ),
+                                   const SizedBox(height: 8),
+                                   TextFormField(
+                                     controller: customerController.complaintController,
+                                     maxLines: 4,
+                                     decoration: InputDecoration(
+                                       hintText: "Enter customer complaint",
+                                       hintStyle: ApptextstyleConstants.thinText(
+                                         fontSize: 12,
+                                         color: Colors.grey,
+                                       ),
+                                       border: OutlineInputBorder(
+                                         borderRadius: BorderRadius.circular(8),
+                                         borderSide: BorderSide(
+                                           color: Colors.grey.shade300,
+                                         ),
+                                       ),
+                                       enabledBorder: OutlineInputBorder(
+                                         borderRadius: BorderRadius.circular(8),
+                                         borderSide: BorderSide(
+                                           color: Colors.grey.shade300,
+                                         ),
+                                       ),
+                                       focusedBorder: OutlineInputBorder(
+                                         borderRadius: BorderRadius.circular(8),
+                                         borderSide: BorderSide(
+                                           color: ColorConstants.greenColor,
+                                         ),
+                                       ),
+                                     ),
+                                   ),
+                                 ],
+                                 SizedBox(height: 20),
                                 SizedBox(
                                   width: double.infinity,
                                   child: CustomButtonWidget(

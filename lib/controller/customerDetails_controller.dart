@@ -40,6 +40,7 @@ class CustomerDetailsController extends ChangeNotifier {
   final TextEditingController mobileNumController = TextEditingController();
   TextEditingController vehiclePlateController = TextEditingController();
   final TextEditingController engineController = TextEditingController();
+  final TextEditingController complaintController = TextEditingController();
 
   List<String> brandList = [];
   List<String> modelList = [];
@@ -683,6 +684,7 @@ class CustomerDetailsController extends ChangeNotifier {
         "vTransmissionTypeId": selectedTransmissionId,
         "vTypeId": selectedServiceTypeId,
         "status": 1,
+        "customerComplaint": complaintController.text.trim(),
       };
       final url = Uri.parse(ApiServices.updateOpenJobcard);
       final response = await http.post(
@@ -746,6 +748,7 @@ class CustomerDetailsController extends ChangeNotifier {
     customerCtrl.filteredVehicles.clear();
     customerCtrl.allCustomerVehicles.clear();
     customerCtrl.customerStatusLabel = "";
+    customerCtrl.complaintController.clear();
     customerCtrl.resetForNewCustomer();
     vehicleCtrl.clearAll(context);
   }
@@ -754,6 +757,7 @@ class CustomerDetailsController extends ChangeNotifier {
   void dispose() {
     _debounce?.cancel();
     vehiclePlateController.dispose();
+    complaintController.dispose();
     super.dispose();
   }
 }

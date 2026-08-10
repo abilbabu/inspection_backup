@@ -42,7 +42,11 @@ class _GalleryViewState extends State<GalleryView> {
         appBar: CustomAppBar(
           title: widget.type == 'all'
               ? "Inspection Images"
-              : (widget.type == 'external' ? "External Images" : "Internal Images"),
+              : (widget.type == 'quick'
+                  ? "Quick Inspection Images"
+                  : (widget.type == 'additional'
+                      ? "Additional Images"
+                      : (widget.type == 'external' ? "External Images" : "Internal Images"))),
           onBackPress: () {
             context.pop();
           },
@@ -52,11 +56,23 @@ class _GalleryViewState extends State<GalleryView> {
             if (controller.isLoading) {
               return inspectionShimmerList();
             }
-            List<Map<String, dynamic>> groups = widget.type == 'all'
-                ? [...controller.externalGroups, ...controller.internalGroups]
-                : (widget.type == 'external'
-                    ? controller.externalGroups
-                    : controller.internalGroups);
+            final bool isQuick = controller.jobInspectionType == "QUICK";
+            List<Map<String, dynamic>> groups;
+            if (isQuick) {
+              if (widget.type == 'quick') {
+                groups = controller.quickInspectionGroups;
+              } else if (widget.type == 'additional') {
+                groups = controller.additionalImageGroups;
+              } else {
+                groups = [...controller.quickInspectionGroups, ...controller.additionalImageGroups];
+              }
+            } else {
+              groups = widget.type == 'all'
+                  ? [...controller.externalGroups, ...controller.internalGroups]
+                  : (widget.type == 'external'
+                      ? controller.externalGroups
+                      : controller.internalGroups);
+            }
             if (groups.isEmpty) {
               return const Center(child: Text("No images available"));
             }

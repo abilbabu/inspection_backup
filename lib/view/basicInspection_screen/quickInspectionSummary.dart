@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
 import 'package:http/http.dart' as http;
+import 'package:hugeicons/hugeicons.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/apiServices/api_services.dart';
@@ -142,71 +143,94 @@ class _QuickInspectionSummaryPageState extends State<QuickInspectionSummaryPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "Customer Complaint",
-                            style: ApptextstyleConstants.mediumText(
-                              fontSize: 14,
-                              color: ColorConstants.blackColor,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: _complaintController,
-                            maxLines: 3,
-                            decoration: InputDecoration(
-                              hintText: "Customer Complaint",
-                              hintStyle: ApptextstyleConstants.thinText(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(color: Colors.grey.shade400),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color: ColorConstants.activecolor,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            "Customer Signature",
-                            style: ApptextstyleConstants.mediumText(
-                              fontSize: 14,
-                              color: ColorConstants.blackColor,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade400),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Signature(
-                              controller: _signatureController,
-                              height: 160,
-                              backgroundColor: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: () {
-                                _signatureController.clear();
-                              },
-                              icon: const Icon(Icons.clear, color: Colors.red, size: 16),
-                              label: const Text(
-                                "Clear Signature",
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
+                           Container(
+                             width: double.infinity,
+                             decoration: BoxDecoration(
+                               borderRadius: BorderRadius.circular(15),
+                               color: ColorConstants.whiteColor,
+                               boxShadow: ColorConstants.dashboardboxShadow,
+                             ),
+                             child: Padding(
+                               padding: const EdgeInsets.all(12.0),
+                               child: Column(
+                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                 children: [
+                                   Text(
+                                     "Customer Complaint",
+                                     style: ApptextstyleConstants.mediumText(
+                                       fontSize: 14,
+                                       color: ColorConstants.blackColor,
+                                     ),
+                                   ),
+                                   const SizedBox(height: 8),
+                                   TextField(
+                                     controller: _complaintController,
+                                     maxLines: 3,
+                                     decoration: InputDecoration(
+                                       hintText: "Customer Complaint",
+                                       hintStyle: ApptextstyleConstants.thinText(
+                                         color: Colors.grey,
+                                         fontSize: 14,
+                                       ),
+                                       enabledBorder: OutlineInputBorder(
+                                         borderRadius: BorderRadius.circular(8),
+                                         borderSide: BorderSide(color: Colors.grey.shade400),
+                                       ),
+                                       focusedBorder: OutlineInputBorder(
+                                         borderRadius: BorderRadius.circular(8),
+                                         borderSide: BorderSide(
+                                           color: ColorConstants.activecolor,
+                                           width: 1.5,
+                                         ),
+                                       ),
+                                     ),
+                                   ),
+                                 ],
+                               ),
+                             ),
+                           ),
+                           const SizedBox(height: 20),
+                           Text(
+                             "Service Advisor Signature",
+                             style: ApptextstyleConstants.mediumText(
+                               fontSize: 14,
+                               color: ColorConstants.blackColor,
+                             ),
+                           ),
+                           const SizedBox(height: 8),
+                           Stack(
+                             children: [
+                               Container(
+                                 decoration: BoxDecoration(
+                                   border: Border.all(color: Colors.grey.shade400),
+                                   borderRadius: BorderRadius.circular(8),
+                                 ),
+                                 child: Signature(
+                                   controller: _signatureController,
+                                   height: 160,
+                                   backgroundColor: Colors.white,
+                                 ),
+                               ),
+                               Positioned(
+                                 bottom: 12,
+                                 right: 12,
+                                 child: IconButton(
+                                   onPressed: _signatureController.clear,
+                                   icon: ShaderMask(
+                                     shaderCallback: (bounds) => const LinearGradient(
+                                       colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                     ).createShader(bounds),
+                                     blendMode: BlendMode.srcIn,
+                                     child: const HugeIcon(
+                                       icon: HugeIcons.strokeRoundedEraser,
+                                       size: 28,
+                                     ),
+                                   ),
+                                 ),
+                               ),
+                             ],
+                           ),
+                           const SizedBox(height: 20),
                           SizedBox(
                             width: double.infinity,
                             height: 48,

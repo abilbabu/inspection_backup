@@ -730,6 +730,14 @@ class BasicinspController extends ChangeNotifier {
   }
 
   int get currentAttachType {
+    if (isQuick) {
+      if (currentStage == InspectionStage.additionalImages) {
+        return 15;
+      }
+      if (currentStage == InspectionStage.externalImages || currentStage == InspectionStage.internalImages) {
+        return 14;
+      }
+    }
     switch (currentStage) {
       case InspectionStage.externalImages:
       case InspectionStage.internalImages:

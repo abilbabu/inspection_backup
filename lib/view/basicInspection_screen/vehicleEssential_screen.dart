@@ -28,6 +28,7 @@ class VehicleEssentialScreen extends StatefulWidget {
 
 class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
   bool isSuccess = false;
+  bool isCheckingSettings = false;
 
   @override
   void initState() {
@@ -146,62 +147,91 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                               width: double.infinity,
                               child: CustomButtonWidget(
                                 text: controller.isLoading
-                                    ? "Please wait..."
-                                    : isSuccess
-                                        ? "COMPLETED"
-                                        : "START BASIC INSPECTION",
-                                textSize: 16,
-                                isDisabled: controller.isLoading || isSuccess,
-                                showLoader: controller.isLoading,
-                                textColor: ColorConstants.whiteColor,
-                                onPressed: () async {
-                                  final vehicleCtrl = context
-                                      .read<VehicleessentialController>();
-                                  if (vehicleCtrl.isLoading) return;
-                                  if (vehicleCtrl.selectedDocumentTypeId ==
-                                      null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        backgroundColor:
-                                            ColorConstants.errorcolor,
-                                        content: Text(
-                                          "Select Document Type",
-                                          style: TextStyle(
-                                            color: ColorConstants.whiteColor,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  final success = await vehicleCtrl
-                                      .submitVehicleEssential(
-                                        jobId: widget.jobId!,
-                                        vId: widget.vId,
-                                      );
-                                  if (!mounted) return;
-                                  if (success) {
-                                    vehicleCtrl.clearData();
-                                    setState(() => isSuccess = true);
-                                    context.go(
-                                      '/basicinspection',
-                                      extra: widget.jobId,
-                                    );
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        backgroundColor:
-                                            ColorConstants.errorcolor,
-                                        content: Text(
-                                          "Failed to save vehicle essentials",
-                                          style: TextStyle(
-                                            color: ColorConstants.whiteColor,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
+                                     ? "Please wait..."
+                                     : isSuccess
+                                         ? "COMPLETED"
+                                         : "START BASIC INSPECTION",
+                                 textSize: 16,
+                                 isDisabled: controller.isLoading || isCheckingSettings || isSuccess,
+                                 showLoader: controller.isLoading || isCheckingSettings,
+                                 textColor: ColorConstants.whiteColor,
+                                 onPressed: () async {
+                                   final vehicleCtrl = context
+                                       .read<VehicleessentialController>();
+                                   if (vehicleCtrl.isLoading || isCheckingSettings) return;
+                                   if (vehicleCtrl.selectedDocumentTypeId ==
+                                       null) {
+                                     ScaffoldMessenger.of(context).showSnackBar(
+                                       const SnackBar(
+                                         backgroundColor:
+                                             ColorConstants.errorcolor,
+                                         content: Text(
+                                           "Select Document Type",
+                                           style: TextStyle(
+                                             color: ColorConstants.whiteColor,
+                                           ),
+                                         ),
+                                       ),
+                                     );
+                                     return;
+                                   }
+
+                                   if (vehicleCtrl.inspectionType == 'QUICK') {
+                                     setState(() {
+                                       isCheckingSettings = true;
+                                     });
+                                     final bool isConfigured = await vehicleCtrl.checkQuickSettingsConfigured();
+                                     setState(() {
+                                       isCheckingSettings = false;
+                                     });
+                                     if (!isConfigured) {
+                                       if (mounted) {
+                                         ScaffoldMessenger.of(context).showSnackBar(
+                                           SnackBar(
+                                             backgroundColor: ColorConstants.errorcolor,
+                                             duration: const Duration(seconds: 4),
+                                             content: Text(
+                                               "Quick Inspection settings have not been configured. Please contact the administrator to configure the Quick Inspection settings before proceeding.",
+                                               style: ApptextstyleConstants.thinText(
+                                                 color: ColorConstants.whiteColor,
+                                                 fontSize: 12,
+                                               ),
+                                             ),
+                                           ),
+                                         );
+                                       }
+                                       return;
+                                     }
+                                   }
+
+                                   final success = await vehicleCtrl
+                                       .submitVehicleEssential(
+                                         jobId: widget.jobId!,
+                                         vId: widget.vId,
+                                       );
+                                   if (!mounted) return;
+                                   if (success) {
+                                     vehicleCtrl.clearData();
+                                     setState(() => isSuccess = true);
+                                     context.go(
+                                       '/basicinspection',
+                                       extra: widget.jobId,
+                                     );
+                                   } else {
+                                     ScaffoldMessenger.of(context).showSnackBar(
+                                       const SnackBar(
+                                         backgroundColor:
+                                             ColorConstants.errorcolor,
+                                         content: Text(
+                                           "Failed to save vehicle essentials",
+                                           style: TextStyle(
+                                             color: ColorConstants.whiteColor,
+                                           ),
+                                         ),
+                                       ),
+                                     );
+                                   }
+                                 },
                               ),
                             ),
                           ],

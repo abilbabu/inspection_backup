@@ -23,6 +23,7 @@ class VehicleessentialController extends ChangeNotifier {
   Map<int, bool> selectedCheckBox = {};
   Map<int, String> checkBoxType = {};
   String notes = '';
+  String? inspectionType;
 
   final Map<int, String> documentTypes = {
     0: "Soft Copy",
@@ -108,6 +109,29 @@ class VehicleessentialController extends ChangeNotifier {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
+
+      try {
+        final basicInspUrl = Uri.parse(ApiServices.getBasicInspection);
+        final basicResponse = await http.post(
+          basicInspUrl,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer $userToken",
+          },
+          body: jsonEncode({"jobId": jobId}),
+        );
+        if (basicResponse.statusCode == 200) {
+          final basicDecoded = jsonDecode(basicResponse.body);
+          final basicData = basicDecoded['data'];
+          if (basicData != null && basicData['jobInspectionType'] != null) {
+            inspectionType = basicData['jobInspectionType'].toString();
+            debugPrint("DEBUG: inspectionType set from getBasicInspectionByJobId: $inspectionType");
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching basic inspection type: $e");
+      }
+
       final url = Uri.parse(ApiServices.getCustomerVehicleByJobId);
       final response = await http.post(
         url,
@@ -120,13 +144,43 @@ class VehicleessentialController extends ChangeNotifier {
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         final jobcard = decoded['data']?['jobcard'];
-        if (jobcard != null && jobcard['customerComplaint'] != null) {
-          complaintController.text = jobcard['customerComplaint'].toString();
+        if (jobcard != null) {
+          if (inspectionType == null) {
+            inspectionType = jobcard['inspectionType']?.toString();
+          }
+          if (jobcard['customerComplaint'] != null) {
+            complaintController.text = jobcard['customerComplaint'].toString();
+          }
           notifyListeners();
         }
       }
     } catch (e) {
       debugPrint("Error fetching complaint: $e");
+    }
+  }
+
+  Future<bool> checkQuickSettingsConfigured() async {
+    final url = Uri.parse(ApiServices.quickImageSettingsMobile);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      final response = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+      ).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final res = jsonDecode(response.body);
+        final data = res['data'];
+        final externalList = data?['externalList'] as List? ?? [];
+        return externalList.isNotEmpty;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error checking quick settings: $e");
+      return false;
     }
   }
 

@@ -19,6 +19,8 @@ class BasicInspectionReportController with ChangeNotifier {
   List<String> fuelMarks = ["E", "1/4", "1/2", "3/4", "F"];
   List<Map<String, dynamic>> externalGroups = [];
   List<Map<String, dynamic>> internalGroups = [];
+  List<Map<String, dynamic>> quickInspectionGroups = [];
+  List<Map<String, dynamic>> additionalImageGroups = [];
   String? external360Video;
   String? internal360Video;
   String? external360Comment;
@@ -172,6 +174,8 @@ class BasicInspectionReportController with ChangeNotifier {
       internal360Comment = null;
       externalGroups.clear();
       internalGroups.clear();
+      quickInspectionGroups.clear();
+      additionalImageGroups.clear();
       diagram = null;
       signature = null;
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -266,6 +270,68 @@ class BasicInspectionReportController with ChangeNotifier {
             }
           }
           internalGroups.add({
+            "label": label,
+            "images": imageList,
+            "videoUrl": normalVideoUrl,
+            "comment": comment,
+            "videoDuration": videoDuration,
+            "videoFlag": videoFlag,
+          });
+        }
+        List quick = attachments["quickInspectionImages"] ?? [];
+        List additional = attachments["additionalImages"] ?? [];
+        for (var group in quick) {
+          String label = group["label"] ?? "";
+          bool videoFlag = group["videoFlag"] ?? false;
+          int? videoDuration = group["videoDuration"];
+          List attachList = group["attachments"] ?? [];
+          List<Map<String, dynamic>> imageList = [];
+          String? normalVideoUrl;
+          String? comment;
+          for (var item in attachList) {
+            int? iaType = item["iaType"];
+            int? iaImageType = item["iaImageType"];
+            String url = item["iaUrl"];
+            if (iaType == 0 && iaImageType == 14) {
+              imageList.add({"url": url});
+              comment ??= item["iaInspectionNote"];
+            }
+            if (iaType == 2 && iaImageType == 14) {
+              normalVideoUrl = url;
+              comment ??= item["iaInspectionNote"];
+            }
+          }
+          quickInspectionGroups.add({
+            "label": label,
+            "images": imageList,
+            "videoUrl": normalVideoUrl,
+            "comment": comment,
+            "videoDuration": videoDuration,
+            "videoFlag": videoFlag,
+          });
+        }
+        for (var group in additional) {
+          String label = group["label"] ?? "";
+          bool videoFlag = group["videoFlag"] ?? false;
+          int? videoDuration = group["videoDuration"];
+          List attachList = group["attachments"] ?? [];
+          List<Map<String, dynamic>> imageList = [];
+          String? normalVideoUrl;
+          String? comment;
+          for (var item in attachList) {
+            int? iaType = item["iaType"];
+            int? iaImageType = item["iaImageType"];
+            String url = item["iaUrl"];
+            if (iaType == 0 && iaImageType == 15) {
+              imageList.add({"url": url});
+              comment ??= item["iaInspectionNote"];
+            }
+            if (iaType == 2 && iaImageType == 15) {
+              normalVideoUrl = url;
+              comment ??= item["iaInspectionNote"];
+            }
+          }
+          additionalImageGroups.add({
             "label": label,
             "images": imageList,
             "videoUrl": normalVideoUrl,

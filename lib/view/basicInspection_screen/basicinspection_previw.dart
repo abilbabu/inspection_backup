@@ -216,7 +216,10 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
     }
     final bool isQuick = controller.jobInspectionType == "QUICK";
     if (isQuick) {
-      final allGroups = [...controller.externalGroups, ...controller.internalGroups]
+      final quickGroups = controller.quickInspectionGroups
+          .where((group) => (group["images"] as List? ?? []).isNotEmpty)
+          .toList();
+      final additionalGroups = controller.additionalImageGroups
           .where((group) => (group["images"] as List? ?? []).isNotEmpty)
           .toList();
       return Container(
@@ -231,130 +234,274 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(height: 12),
-              Row(
-                children: [
-                  Text(
-                    "Inspection Images",
-                    style: ApptextstyleConstants.mediumText(
-                      fontSize: 14,
-                      color: ColorConstants.blackColor,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (allGroups.isNotEmpty)
-                    InkWell(
-                      onTap: () {
-                        context.push(
-                          '/galleryview',
-                          extra: {'jobId': widget.jobId, 'type': 'all'},
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: ColorConstants.syanColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          "View All",
-                          style: ApptextstyleConstants.mediumText(
-                            fontSize: 12,
-                            color: ColorConstants.syanColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  SizedBox(width: 10),
-                ],
+              Text(
+                "Inspection Images",
+                style: ApptextstyleConstants.mediumText(
+                  fontSize: 14,
+                  color: ColorConstants.blackColor,
+                ),
               ),
               SizedBox(height: 12),
-              if (allGroups.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Center(
-                    child: Text(
-                      "No images available",
-                      style: ApptextstyleConstants.thinText(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: allGroups.length > 5 ? 5 : allGroups.length,
-                    itemBuilder: (context, index) {
-                      final group = allGroups[index];
-                      final images = group["images"] as List? ?? [];
-                      final firstImage = images.first;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: InkWell(
-                          onTap: () {
-                            context.push(
-                              '/fullScreenImage',
-                              extra: {
-                                'imageUrl': images.first["url"] ?? "",
-                                'label': group["label"] ?? "",
-                              },
-                            );
-                          },
-                          child: Container(
-                            width: 120,
-                            decoration: BoxDecoration(
-                              color: ColorConstants.toastgrey,
-                              border: Border.all(
-                                color: ColorConstants.activecolor,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Stack(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(
-                                    firstImage["url"] ?? "",
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 8,
-                                  left: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.6),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      toTitleCase(group["label"] ?? ""),
-                                      style: ApptextstyleConstants.thinText(
-                                        fontSize: 12,
-                                        color: ColorConstants.whiteColor,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    child: Row(
+                      children: [
+                        Text(
+                          "Quick Inspection Images",
+                          style: ApptextstyleConstants.boldItalicText(
+                            fontSize: 14,
+                            color: ColorConstants.blackColor,
                           ),
                         ),
-                      );
-                    },
+                        const Spacer(),
+                        if (quickGroups.isNotEmpty)
+                          InkWell(
+                            onTap: () {
+                              context.push(
+                                '/galleryview',
+                                extra: {'jobId': widget.jobId, 'type': 'quick'},
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ColorConstants.syanColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                "View All",
+                                style: ApptextstyleConstants.mediumText(
+                                  fontSize: 12,
+                                  color: ColorConstants.syanColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        SizedBox(width: 10),
+                      ],
+                    ),
                   ),
-                ),
+                  SizedBox(height: 12),
+                  if (quickGroups.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Center(
+                        child: Text(
+                          "No quick inspection images available",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: 180,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: quickGroups.length > 5 ? 5 : quickGroups.length,
+                        itemBuilder: (context, index) {
+                          final group = quickGroups[index];
+                          final images = group["images"] as List? ?? [];
+                          final firstImage = images.first;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: InkWell(
+                              onTap: () {
+                                context.push(
+                                  '/fullScreenImage',
+                                  extra: {
+                                    'imageUrl': images.first["url"] ?? "",
+                                    'label': group["label"] ?? "",
+                                  },
+                                );
+                              },
+                              child: Container(
+                                width: 120,
+                                decoration: BoxDecoration(
+                                  color: ColorConstants.toastgrey,
+                                  border: Border.all(
+                                    color: ColorConstants.activecolor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        firstImage["url"] ?? "",
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 8,
+                                      left: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.6),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          toTitleCase(group["label"] ?? ""),
+                                          style: ApptextstyleConstants.thinText(
+                                            fontSize: 12,
+                                            color: ColorConstants.whiteColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    child: Row(
+                      children: [
+                        Text(
+                          "Additional Images",
+                          style: ApptextstyleConstants.boldItalicText(
+                            fontSize: 14,
+                            color: ColorConstants.blackColor,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (additionalGroups.isNotEmpty)
+                          InkWell(
+                            onTap: () {
+                              context.push(
+                                '/galleryview',
+                                extra: {'jobId': widget.jobId, 'type': 'additional'},
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ColorConstants.syanColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                "View All",
+                                style: ApptextstyleConstants.mediumText(
+                                  fontSize: 12,
+                                  color: ColorConstants.syanColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        SizedBox(width: 10),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  if (additionalGroups.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Center(
+                        child: Text(
+                          "No additional images available",
+                          style: ApptextstyleConstants.thinText(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: 180,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: additionalGroups.length > 5 ? 5 : additionalGroups.length,
+                        itemBuilder: (context, index) {
+                          final group = additionalGroups[index];
+                          final images = group["images"] as List? ?? [];
+                          final firstImage = images.first;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: InkWell(
+                              onTap: () {
+                                context.push(
+                                  '/fullScreenImage',
+                                  extra: {
+                                    'imageUrl': images.first["url"] ?? "",
+                                    'label': group["label"] ?? "",
+                                  },
+                                );
+                              },
+                              child: Container(
+                                width: 120,
+                                decoration: BoxDecoration(
+                                  color: ColorConstants.toastgrey,
+                                  border: Border.all(
+                                    color: ColorConstants.activecolor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        firstImage["url"] ?? "",
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 8,
+                                      left: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.6),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          toTitleCase(group["label"] ?? ""),
+                                          style: ApptextstyleConstants.thinText(
+                                            fontSize: 12,
+                                            color: ColorConstants.whiteColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
               SizedBox(height: 12),
             ],
           ),
