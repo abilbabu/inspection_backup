@@ -12,6 +12,7 @@ import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:provider/provider.dart';
+import 'package:inspection/controller/signatureSpeech_controller .dart';
 
 class VehicleEssentialScreen extends StatefulWidget {
   final int? jobId;
@@ -291,33 +292,60 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
             ),
           ],
         ),
-        SizedBox(height: 12),
-        TextField(
-          controller: controller.complaintController,
-          maxLines: 3,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(
-            hintText: "Customer Complaint",
-            hintStyle: ApptextstyleConstants.thinText(
-              color: Colors.grey,
-              fontSize: 14,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey.shade400),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: ColorConstants.activecolor,
-                width: 1.5,
-              ),
-            ),
-          ),
+        const SizedBox(height: 12),
+        Consumer<SignatureSpeechController>(
+          builder: (context, speechCtrl, _) {
+            final isThisListening = speechCtrl.isListening && speechCtrl.activeController == controller.complaintController;
+            return Stack(
+              alignment: Alignment.centerRight,
+              children: [
+                TextField(
+                  controller: controller.complaintController,
+                  maxLines: 3,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: "Customer Complaint",
+                    hintStyle: ApptextstyleConstants.thinText(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
+                    contentPadding: const EdgeInsets.only(
+                      left: 12,
+                      right: 60,
+                      top: 12,
+                      bottom: 12,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey.shade400),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: ColorConstants.activecolor,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: isThisListening
+                      ? _buildWaveMicForSpeech(speechCtrl)
+                      : IconButton(
+                          icon: Icon(
+                            Icons.mic_none,
+                            color: ColorConstants.greenColor,
+                          ),
+                          onPressed: () => speechCtrl.startListening(
+                            controller: controller.complaintController,
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -526,6 +554,53 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                     if (controller.isListening) {
                       setState(() {});
                     }
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: controller.stopListening,
+            child: const Icon(Icons.close, color: Colors.red, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWaveMicForSpeech(SignatureSpeechController controller) {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 30,
+            width: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                4,
+                (index) => TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 6, end: 20),
+                  duration: Duration(milliseconds: 400 + (index * 150)),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: 4,
+                      height: controller.isListening ? value : 6,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
                   },
                 ),
               ),

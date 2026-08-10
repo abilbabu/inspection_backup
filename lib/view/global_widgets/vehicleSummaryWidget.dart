@@ -67,205 +67,194 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
             jobLaabsJobcardno != null &&
             jobLaabsJobcardno.trim().isNotEmpty &&
             jobLaabsJobcardno.trim().toLowerCase() != 'null';
+
+        final String typeStr = (jobcard["inspectionType"] ?? jobcard["jobInspectionType"] ?? "").toString().trim().toUpperCase();
+        final bool isQuick = typeStr == "QUICK" || typeStr.contains("QUICK") || jobcard["isQuick"] == true;
+
         return Container(
           decoration: BoxDecoration(
             color: ColorConstants.whiteColor,
             borderRadius: BorderRadius.circular(12),
             boxShadow: ColorConstants.dashboardboxShadow,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: ColorConstants.containergreycolor,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Image.asset(
-                        "assets/image/benz.png",
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (showLaabs) ...[
-                            RichText(
-                              text: TextSpan(
-                                text: "Laabs Job Card No: ",
-                                style: ApptextstyleConstants.thinText(
-                                  fontSize: 10,
-                                  color: ColorConstants.blackColor,
-                                ).copyWith(fontWeight: FontWeight.bold),
-                                children: [
-                                  TextSpan(
-                                    text: jobLaabsJobcardno,
-                                    style: ApptextstyleConstants.thinText(
-                                      fontSize: 10,
-                                      color: ColorConstants.textBlueColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: jobcard["inspectionType"] == "QUICK"
-                                    ? Colors.blue.shade50
-                                    : Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: jobcard["inspectionType"] == "QUICK"
-                                      ? Colors.blue.shade300
-                                      : Colors.green.shade300,
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Text(
-                                jobcard["inspectionType"] == "QUICK"
-                                    ? "QUICK INSPECTION"
-                                    : "GENERAL INSPECTION",
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                  color: jobcard["inspectionType"] == "QUICK"
-                                      ? Colors.blue.shade800
-                                      : Colors.green.shade800,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                          ],
-                          RichText(
-                            text: TextSpan(
-                              text: "Job Card No: ",
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.blackColor,
-                              ).copyWith(fontWeight: FontWeight.bold),
-                              children: [
-                                TextSpan(
-                                  text:
-                                      "${jobcard['jobCardNo'] ?? jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
-                                  style: ApptextstyleConstants.thinText(
-                                    fontSize: 10,
-                                    color: ColorConstants.textBlueColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          RichText(
-                            text: TextSpan(
-                              text: "Plate No:  ",
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.blackColor,
-                              ).copyWith(fontWeight: FontWeight.bold),
-                              children: [
-                                TextSpan(
-                                  text: vehicle['vRegNo']?.toString() ?? '',
-                                  style: ApptextstyleConstants.thinText(
-                                    fontSize: 10,
-                                    color: ColorConstants.textBlueColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          RichText(
-                            text: TextSpan(
-                              text: "Vin number:  ",
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.blackColor,
-                              ).copyWith(fontWeight: FontWeight.bold),
-                              children: [
-                                TextSpan(
-                                  text: vehicle["vVinNo"]?.toString() ?? '',
-                                  style: ApptextstyleConstants.thinText(
-                                    fontSize: 10,
-                                    color: ColorConstants.textBlueColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Consumer<BasicInspectionReportController>(
-                  builder: (context, basicController, child) {
-                    final comments =
-                        basicController.additionalCommentsController.text;
-                    final complaintList = comments
-                        .split('\n')
-                        .where((e) => e.trim().isNotEmpty)
-                        .toList();
-                    return Container(
-                      width: double.infinity,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 5,
+                    color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
+                  ),
+                  Expanded(
+                    child: Padding(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: ColorConstants.errorcolor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: ColorConstants.errorcolor),
-                      ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "Customer Complaint:",
-                            style: ApptextstyleConstants.thinText(
-                              fontSize: 10,
-                              color: ColorConstants.blackColor,
-                            ).copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 6),
-                          if (complaintList.isEmpty)
-                            Text(
-                              "No Comments Recorded",
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.blackColor,
-                              ),
-                            )
-                          else
-                            ...complaintList.map(
-                              (item) => Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Text(
-                                  "• $item",
-                                  style: ApptextstyleConstants.thinText(
-                                    fontSize: 10,
-                                    color: ColorConstants.blackColor,
-                                  ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: ColorConstants.containergreycolor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Image.asset(
+                                  "assets/image/benz.png",
+                                  fit: BoxFit.cover,
                                 ),
                               ),
-                            ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (showLaabs) ...[
+                                      RichText(
+                                        text: TextSpan(
+                                          text: "Laabs Job Card No: ",
+                                          style: ApptextstyleConstants.thinText(
+                                            fontSize: 10,
+                                            color: ColorConstants.blackColor,
+                                          ).copyWith(fontWeight: FontWeight.bold),
+                                          children: [
+                                            TextSpan(
+                                              text: jobLaabsJobcardno,
+                                              style: ApptextstyleConstants.thinText(
+                                                fontSize: 10,
+                                                color: ColorConstants.textBlueColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                    ],
+                                    RichText(
+                                      text: TextSpan(
+                                        text: "Job Card No: ",
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.blackColor,
+                                        ).copyWith(fontWeight: FontWeight.bold),
+                                        children: [
+                                          TextSpan(
+                                            text:
+                                                "${jobcard['jobCardNo'] ?? jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
+                                            style: ApptextstyleConstants.thinText(
+                                              fontSize: 10,
+                                              color: ColorConstants.textBlueColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(height: 3),
+                                    RichText(
+                                      text: TextSpan(
+                                        text: "Plate No:  ",
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.blackColor,
+                                        ).copyWith(fontWeight: FontWeight.bold),
+                                        children: [
+                                          TextSpan(
+                                            text: vehicle['vRegNo']?.toString() ?? '',
+                                            style: ApptextstyleConstants.thinText(
+                                              fontSize: 10,
+                                              color: ColorConstants.textBlueColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(height: 3),
+                                    RichText(
+                                      text: TextSpan(
+                                        text: "Vin number:  ",
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.blackColor,
+                                        ).copyWith(fontWeight: FontWeight.bold),
+                                        children: [
+                                          TextSpan(
+                                            text: vehicle["vVinNo"]?.toString() ?? '',
+                                            style: ApptextstyleConstants.thinText(
+                                              fontSize: 10,
+                                              color: ColorConstants.textBlueColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(height: 3),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 10),
+                          Consumer<BasicInspectionReportController>(
+                            builder: (context, basicController, child) {
+                              final comments =
+                                  basicController.additionalCommentsController.text;
+                              final complaintList = comments
+                                  .split('\n')
+                                  .where((e) => e.trim().isNotEmpty)
+                                  .toList();
+                              return Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: ColorConstants.errorcolor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: ColorConstants.errorcolor),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Customer Complaint:",
+                                      style: ApptextstyleConstants.thinText(
+                                        fontSize: 10,
+                                        color: ColorConstants.blackColor,
+                                      ).copyWith(fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    if (complaintList.isEmpty)
+                                      Text(
+                                        "No Comments Recorded",
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.blackColor,
+                                        ),
+                                      )
+                                    else
+                                      ...complaintList.map(
+                                        (item) => Padding(
+                                          padding: const EdgeInsets.only(bottom: 4),
+                                          child: Text(
+                                            "• $item",
+                                            style: ApptextstyleConstants.thinText(
+                                              fontSize: 10,
+                                              color: ColorConstants.blackColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       ),
-                    );
-                  },
-                ),
-              ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -324,147 +313,136 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
             jobLaabsJobcardno != null &&
             jobLaabsJobcardno.trim().isNotEmpty &&
             jobLaabsJobcardno.trim().toLowerCase() != 'null';
+
+        final String typeStr = (jobcard["inspectionType"] ?? jobcard["jobInspectionType"] ?? "").toString().trim().toUpperCase();
+        final bool isQuick = typeStr == "QUICK" || typeStr.contains("QUICK") || jobcard["isQuick"] == true;
+
         return Container(
           decoration: BoxDecoration(
             color: ColorConstants.whiteColor,
             borderRadius: BorderRadius.circular(12),
             boxShadow: ColorConstants.dashboardboxShadow,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: ColorConstants.containergreycolor,
-                    shape: BoxShape.circle,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 5,
+                    color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
                   ),
-                  child: Image.asset(
-                    "assets/image/benz.png",
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      RichText(
-                        text: TextSpan(
-                          text: "Job Card No: ",
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.blackColor,
-                          ).copyWith(fontWeight: FontWeight.bold),
-                          children: [
-                            TextSpan(
-                              text:
-                                  "${jobcard['jobCardNo'] ?? jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.textBlueColor,
-                              ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: ColorConstants.containergreycolor,
+                              shape: BoxShape.circle,
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: jobcard["inspectionType"] == "QUICK"
-                              ? Colors.blue.shade50
-                              : Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: jobcard["inspectionType"] == "QUICK"
-                                ? Colors.blue.shade300
-                                : Colors.green.shade300,
-                            width: 0.5,
+                            child: Image.asset(
+                              "assets/image/benz.png",
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          jobcard["inspectionType"] == "QUICK"
-                              ? "QUICK INSPECTION"
-                              : "GENERAL INSPECTION",
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                            color: jobcard["inspectionType"] == "QUICK"
-                                ? Colors.blue.shade800
-                                : Colors.green.shade800,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      if (showLaabs) ...[
-                        RichText(
-                          text: TextSpan(
-                            text: "Laabs Job Card No: ",
-                            style: ApptextstyleConstants.thinText(
-                              fontSize: 10,
-                              color: ColorConstants.blackColor,
-                            ).copyWith(fontWeight: FontWeight.bold),
-                            children: [
-                              TextSpan(
-                                text: jobLaabsJobcardno,
-                                style: ApptextstyleConstants.thinText(
-                                  fontSize: 10,
-                                  color: ColorConstants.greenColor,
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                RichText(
+                                  text: TextSpan(
+                                    text: "Job Card No: ",
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 10,
+                                      color: ColorConstants.blackColor,
+                                    ).copyWith(fontWeight: FontWeight.bold),
+                                    children: [
+                                      TextSpan(
+                                        text:
+                                            "${jobcard['jobCardNo'] ?? jobcard['jobNo'] ?? ''} ( ${formatDateTime(jobcard['jobCreatedOn'])} )",
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.textBlueColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 3),
+                                if (showLaabs) ...[
+                                  RichText(
+                                    text: TextSpan(
+                                      text: "Laabs Job Card No: ",
+                                      style: ApptextstyleConstants.thinText(
+                                        fontSize: 10,
+                                        color: ColorConstants.blackColor,
+                                      ).copyWith(fontWeight: FontWeight.bold),
+                                      children: [
+                                        TextSpan(
+                                          text: jobLaabsJobcardno,
+                                          style: ApptextstyleConstants.thinText(
+                                            fontSize: 10,
+                                            color: ColorConstants.greenColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(height: 5),
+                                ],
+                                SizedBox(height: 3),
+                                RichText(
+                                  text: TextSpan(
+                                    text: "Plate No:  ",
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 10,
+                                      color: ColorConstants.blackColor,
+                                    ).copyWith(fontWeight: FontWeight.bold),
+                                    children: [
+                                      TextSpan(
+                                        text: vehicle['vRegNo']?.toString() ?? '',
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.textBlueColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 3),
+                                RichText(
+                                  text: TextSpan(
+                                    text: "Vin number:  ",
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 10,
+                                      color: ColorConstants.blackColor,
+                                    ).copyWith(fontWeight: FontWeight.bold),
+                                    children: [
+                                      TextSpan(
+                                        text: vehicle["vVinNo"]?.toString() ?? '',
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.textBlueColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 5),
-                      ],
-                      SizedBox(height: 3),
-                      RichText(
-                        text: TextSpan(
-                          text: "Plate No:  ",
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.blackColor,
-                          ).copyWith(fontWeight: FontWeight.bold),
-                          children: [
-                            TextSpan(
-                              text: vehicle['vRegNo']?.toString() ?? '',
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.textBlueColor,
-                              ),
-                            ),
-                          ],
-                        ),
+                        ],
                       ),
-                      SizedBox(height: 3),
-                      RichText(
-                        text: TextSpan(
-                          text: "Vin number:  ",
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.blackColor,
-                          ).copyWith(fontWeight: FontWeight.bold),
-                          children: [
-                            TextSpan(
-                              text: vehicle["vVinNo"]?.toString() ?? '',
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.textBlueColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

@@ -135,8 +135,54 @@ class _HomeScreenState extends State<HomeScreen> {
       "jobCreatedOn": item["jobCreatedOn"] ?? "",
       "jobTechnicianId": item["jobTechnicianId"],
       "userDepartment": item["userDepartment"],
+      "inspectionType": (item["inspectionType"] ?? item["jobInspectionType"])?.toString() ?? "",
       if (includeInspections) "inspections": item["inspections"] ?? [],
     };
+  }
+
+  bool _isQuickInspection(Map<String, dynamic> item) {
+    final typeStr = (item["inspectionType"] ?? item["jobInspectionType"] ?? "").toString().trim().toUpperCase();
+    if (typeStr == "QUICK" || typeStr.contains("QUICK")) {
+      return true;
+    }
+    if (item["isQuick"] == true) {
+      return true;
+    }
+    final inspections = item["inspections"];
+    if (inspections is List && inspections.isNotEmpty) {
+      final first = inspections.first;
+      if (first is Map && first["master"] != null) {
+        final vimType = first["master"]["vimInspectionType"]?.toString();
+        final typeName = first["master"]["vimInspectionTypeName"]?.toString().toUpperCase() ?? "";
+        if (vimType == "1" || typeName.contains("QUICK")) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  Widget _buildInspectionTypeBadge(Map<String, dynamic> item) {
+    final bool isQuick = _isQuickInspection(item);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: isQuick ? Colors.amber.shade50 : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isQuick ? Colors.amber.shade400 : Colors.green.shade300,
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        isQuick ? "QUICK INSPECTION" : "GENERAL INSPECTION",
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          color: isQuick ? Colors.amber.shade900 : Colors.green.shade800,
+        ),
+      ),
+    );
   }
 
   Future<void> getInspectionListByUserId() async {
@@ -352,6 +398,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: "General",
                     icon: Icons.car_repair,
                     enabled: true,
+                    underlineColor: Colors.green.shade600,
                     onTap: () => context.go("/vehicledetails"),
                   ),
                 ),
@@ -361,6 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: "Quick",
                     icon: Icons.flash_on,
                     enabled: true,
+                    underlineColor: Colors.amber.shade700,
                     onTap: () => context.go("/vehicledetails", extra: {"isQuick": true}),
                   ),
                 ),
@@ -370,6 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: "Jobcard",
                     icon: Icons.assignment,
                     enabled: false,
+                    underlineColor: Colors.grey,
                   ),
                 ),
               ],
@@ -385,7 +434,15 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required bool enabled,
     VoidCallback? onTap,
+    Color? underlineColor,
   }) {
+    Color effectiveUnderlineColor = underlineColor ??
+        (title.toLowerCase().contains("general")
+            ? Colors.green.shade600
+            : title.toLowerCase().contains("quick")
+                ? Colors.amber.shade700
+                : ColorConstants.blackColor);
+
     return GestureDetector(
       onTap: enabled ? onTap : () => _showComingSoon(context),
       child: Container(
@@ -421,6 +478,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: enabled ? ColorConstants.blackColor : Colors.grey,
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 3,
+                    width: 32,
+                    decoration: BoxDecoration(
+                      color: effectiveUnderlineColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -434,7 +500,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange,
+                    color: Colors.blue,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
@@ -1339,6 +1405,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool showLaabs = jobLaabsJobcardno != null &&
         jobLaabsJobcardno.trim().isNotEmpty &&
         jobLaabsJobcardno.trim().toLowerCase() != 'null';
+    final bool isQuick = _isQuickInspection(data);
     return Container(
       height: 110,
       width: 260,
@@ -1347,126 +1414,136 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(10),
         boxShadow: ColorConstants.dashboardboxShadow,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
         child: Row(
           children: [
             Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: ColorConstants.containergreycolor,
-                shape: BoxShape.circle,
-              ),
-              child: Image.asset("assets/image/benz.png", fit: BoxFit.cover),
+              width: 5,
+              color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
             ),
-            SizedBox(width: 10),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: RichText(
-                          text: TextSpan(
-                            text: "Job Card No: ",
-                            style: ApptextstyleConstants.thinText(
-                              fontSize: 10,
-                              color: ColorConstants.blackColor,
-                            ).copyWith(fontWeight: FontWeight.bold),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: ColorConstants.containergreycolor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Image.asset("assets/image/benz.png", fit: BoxFit.cover),
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              TextSpan(
-                                text: data["jobNo"],
-                                style: ApptextstyleConstants.thinText(
-                                  fontSize: 10,
-                                  color: ColorConstants.textBlueColor,
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    text: "Job Card No: ",
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 10,
+                                      color: ColorConstants.blackColor,
+                                    ).copyWith(fontWeight: FontWeight.bold),
+                                    children: [
+                                      TextSpan(
+                                        text: data["jobNo"],
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.textBlueColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  statusText,
+                                  style: ApptextstyleConstants.thinText(
+                                    fontSize: 8,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          statusText,
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 8,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                   const SizedBox(height: 5),
-                   if (showLaabs) ...[
-                    RichText(
-                      text: TextSpan(
-                        text: "Laabs Job Card No: ",
-                        style: ApptextstyleConstants.thinText(
-                          fontSize: 10,
-                          color: ColorConstants.blackColor,
-                        ).copyWith(fontWeight: FontWeight.bold),
-                        children: [
-                          TextSpan(
-                            text: jobLaabsJobcardno,
-                            style: ApptextstyleConstants.thinText(
-                              fontSize: 10,
-                              color: ColorConstants.greenColor,
+                          // const SizedBox(height: 2),
+                          // _buildInspectionTypeBadge(data),
+                          const SizedBox(height: 3),
+                          if (showLaabs) ...[
+                            RichText(
+                              text: TextSpan(
+                                text: "Laabs Job Card No: ",
+                                style: ApptextstyleConstants.thinText(
+                                  fontSize: 10,
+                                  color: ColorConstants.blackColor,
+                                ).copyWith(fontWeight: FontWeight.bold),
+                                children: [
+                                  TextSpan(
+                                    text: jobLaabsJobcardno,
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 10,
+                                      color: ColorConstants.greenColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                          ],
+                          RichText(
+                            text: TextSpan(
+                              text: "Date: ",
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.blackColor,
+                              ).copyWith(fontWeight: FontWeight.bold),
+                              children: [
+                                TextSpan(
+                                  text: controller.formatDateTime(data["jobCreatedOn"]),
+                                  style: ApptextstyleConstants.thinText(
+                                    fontSize: 10,
+                                    color: ColorConstants.textBlueColor,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                  ],
-                  RichText(
-                    text: TextSpan(
-                      text: "Date: ",
-                      style: ApptextstyleConstants.thinText(
-                        fontSize: 10,
-                        color: ColorConstants.blackColor,
-                      ).copyWith(fontWeight: FontWeight.bold),
-                      children: [
-                        TextSpan(
-                          text: controller.formatDateTime(data["jobCreatedOn"]),
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.textBlueColor,
+                          RichText(
+                            text: TextSpan(
+                              text: "Vehicle: ",
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.blackColor,
+                              ).copyWith(fontWeight: FontWeight.bold),
+                              children: [
+                                TextSpan(
+                                  text: "${data["make"]} ${data["model"]}",
+                                  style: ApptextstyleConstants.thinText(
+                                    fontSize: 10,
+                                    color: ColorConstants.blackColor,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  RichText(
-                    text: TextSpan(
-                      text: "Vehicle: ",
-                      style: ApptextstyleConstants.thinText(
-                        fontSize: 10,
-                        color: ColorConstants.blackColor,
-                      ).copyWith(fontWeight: FontWeight.bold),
-                      children: [
-                        TextSpan(
-                          text: "${data["make"]} ${data["model"]}",
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.blackColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  RichText(
+                          RichText(
                     text: TextSpan(
                       text: "Odometer: ",
                       style: ApptextstyleConstants.thinText(
@@ -1508,7 +1585,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-    );
+    ),
+  ],
+),
+),
+);
   }
 
   Widget _buildDotsIndicator(int length) {
@@ -1555,6 +1636,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool showLaabs = jobLaabsJobcardno != null &&
         jobLaabsJobcardno.trim().isNotEmpty &&
         jobLaabsJobcardno.trim().toLowerCase() != 'null';
+    final bool isQuick = _isQuickInspection(item);
     return GestureDetector(
       onTap: () {
         final dynamic rawJobId = item['jobId'];
@@ -1580,83 +1662,101 @@ class _HomeScreenState extends State<HomeScreen> {
             gradient: ColorConstants.containergradientColor,
             boxShadow: ColorConstants.dashboardboxShadow,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [        
-                Text(
-                  item['jobNo'] ?? "",
-                  style: ApptextstyleConstants.regularText(
-                    fontSize: 16,
-                    color: ColorConstants.blackColor,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 5,
+                    color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
                   ),
-                ),
-                 const SizedBox(height: 8),
-                 if (showLaabs) ...[
-                  RichText(
-                    text: TextSpan(
-                      text: "Laabs Job Card No: ",
-                      style: ApptextstyleConstants.thinText(
-                        fontSize: 10,
-                        color: ColorConstants.blackColor,
-                      ).copyWith(fontWeight: FontWeight.bold),
-                      children: [
-                        TextSpan(
-                          text: jobLaabsJobcardno,
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.greenColor,
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            item['jobNo'] ?? "",
+                            style: ApptextstyleConstants.regularText(
+                              fontSize: 16,
+                              color: ColorConstants.blackColor,
+                            ),
                           ),
-                        ),
-                      ],
+                          // const SizedBox(height: 4),
+                          // _buildInspectionTypeBadge(item),
+                          const SizedBox(height: 6),
+                          if (showLaabs) ...[
+                            RichText(
+                              text: TextSpan(
+                                text: "Laabs Job Card No: ",
+                                style: ApptextstyleConstants.thinText(
+                                  fontSize: 10,
+                                  color: ColorConstants.blackColor,
+                                ).copyWith(fontWeight: FontWeight.bold),
+                                children: [
+                                  TextSpan(
+                                    text: jobLaabsJobcardno,
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 10,
+                                      color: ColorConstants.greenColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                          ],
+                          Text(
+                            "Plate No: ${item['plateNo'] ?? ''}",
+                            style: ApptextstyleConstants.lightText(
+                              fontSize: 15,
+                              color: ColorConstants.blackColor,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            "Vin No: ${item['vinNo'] ?? ''}",
+                            maxLines: 1,
+                            style: ApptextstyleConstants.lightText(
+                              fontSize: 12,
+                              color: ColorConstants.blackColor,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            vehicleName,
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 12,
+                              color: ColorConstants.blackColor,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            statusText,
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 12,
+                              color: controller.getJobStatusColor(jobStatus.toString()),
+                            ),
+                          ),
+                          const Spacer(),
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: Image.asset(
+                              "assets/image/benz_logo.png",
+                              width: 60,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 5),
                 ],
-                Text(
-                  "Plate No: ${item['plateNo'] ?? ''}",
-                  style: ApptextstyleConstants.lightText(
-                    fontSize: 15,
-                    color: ColorConstants.blackColor,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  "Vin No: ${item['vinNo'] ?? ''}",
-                  maxLines: 1,
-                  style: ApptextstyleConstants.lightText(
-                    fontSize: 12,
-                    color: ColorConstants.blackColor,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  vehicleName,
-                  style: ApptextstyleConstants.thinText(
-                    fontSize: 12,
-                    color: ColorConstants.blackColor,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  statusText,
-                  style: ApptextstyleConstants.thinText(
-                    fontSize: 12,
-                    color: controller.getJobStatusColor(jobStatus.toString()),
-                  ),
-                ),
-                const Spacer(),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: Image.asset(
-                    "assets/image/benz_logo.png",
-                    width: 60,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -1677,6 +1777,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool showLaabs = jobLaabsJobcardno != null &&
         jobLaabsJobcardno.trim().isNotEmpty &&
         jobLaabsJobcardno.trim().toLowerCase() != 'null';
+    final bool isQuick = _isQuickInspection(item);
     return GestureDetector(
       onTap: () {
         final dynamic rawJobId = item['jobId'];
@@ -1697,105 +1798,123 @@ class _HomeScreenState extends State<HomeScreen> {
             color: ColorConstants.whiteColor,
             boxShadow: ColorConstants.dashboardboxShadow,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: ColorConstants.containergreycolor,
-                    shape: BoxShape.circle,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 5,
+                    color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
                   ),
-                  child: Image.asset(
-                    "assets/image/benz.png",
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                    
-                      Row(
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
                         children: [
-                          Expanded(
-                            child: Text(
-                              item['jobNo'] ?? "",
-                              style: ApptextstyleConstants.regularText(
-                                fontSize: 16,
-                                color: ColorConstants.blackColor,
-                              ),
+                          Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: ColorConstants.containergreycolor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Image.asset(
+                              "assets/image/benz.png",
+                              fit: BoxFit.cover,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: controller.getJobStatusColor(
-                                jobStatus.toString(),
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              statusText,
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: Colors.white,
-                              ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item['jobNo'] ?? "",
+                                        style: ApptextstyleConstants.regularText(
+                                          fontSize: 16,
+                                          color: ColorConstants.blackColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: controller.getJobStatusColor(
+                                          jobStatus.toString(),
+                                        ),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        statusText,
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                // const SizedBox(height: 4),
+                                // _buildInspectionTypeBadge(item),
+                                const SizedBox(height: 4),
+                                if (showLaabs) ...[
+                                  RichText(
+                                    text: TextSpan(
+                                      text: "Laabs Job Card No: ",
+                                      style: ApptextstyleConstants.thinText(
+                                        fontSize: 10,
+                                        color: ColorConstants.blackColor,
+                                      ).copyWith(fontWeight: FontWeight.bold),
+                                      children: [
+                                        TextSpan(
+                                          text: jobLaabsJobcardno,
+                                          style: ApptextstyleConstants.thinText(
+                                            fontSize: 10,
+                                            color: ColorConstants.greenColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
+                                const SizedBox(height: 4),
+                                if (technicianId != null) const SizedBox(height: 4),
+                                Text(
+                                  "Plate No : ${item['plateNo'] ?? ''}",
+                                  style: ApptextstyleConstants.lightText(
+                                    fontSize: 13,
+                                    color: ColorConstants.blackColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Vin No: ${item['vinNo'] ?? ''}",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: ApptextstyleConstants.lightText(
+                                    fontSize: 12,
+                                    color: ColorConstants.blackColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                        if (showLaabs) ...[
-                        RichText(
-                          text: TextSpan(
-                            text: "Laabs Job Card No: ",
-                            style: ApptextstyleConstants.thinText(
-                              fontSize: 10,
-                              color: ColorConstants.blackColor,
-                            ).copyWith(fontWeight: FontWeight.bold),
-                            children: [
-                              TextSpan(
-                                text: jobLaabsJobcardno,
-                                style: ApptextstyleConstants.thinText(
-                                  fontSize: 10,
-                                  color: ColorConstants.greenColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                      const SizedBox(height: 8),
-                      if (technicianId != null) const SizedBox(height: 8),
-                      Text(
-                        "Plate No : ${item['plateNo'] ?? ''}",
-                        style: ApptextstyleConstants.lightText(
-                          fontSize: 13,
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Vin No: ${item['vinNo'] ?? ''}",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ApptextstyleConstants.lightText(
-                          fontSize: 12,
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1819,6 +1938,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool showLaabs = jobLaabsJobcardno != null &&
         jobLaabsJobcardno.trim().isNotEmpty &&
         jobLaabsJobcardno.trim().toLowerCase() != 'null';
+    final bool isQuick = _isQuickInspection(item);
     return GestureDetector(
       onTap: () {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
@@ -1854,107 +1974,123 @@ class _HomeScreenState extends State<HomeScreen> {
             color: ColorConstants.whiteColor,
             boxShadow: ColorConstants.dashboardboxShadow,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                /// IMAGE
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: ColorConstants.containergreycolor,
-                    shape: BoxShape.circle,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 5,
+                    color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
                   ),
-                  child: Image.asset(
-                    "assets/image/benz.png",
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
                         children: [
-                          Expanded(
-                            child: Text(
-                              item['jobNo'] ?? "",
-                              style: ApptextstyleConstants.regularText(
-                                fontSize: 16,
-                                color: ColorConstants.blackColor,
-                              ),
+                          /// IMAGE
+                          Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: ColorConstants.containergreycolor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Image.asset(
+                              "assets/image/benz.png",
+                              fit: BoxFit.cover,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: controller.getJobStatusColor(
-                                jobStatus.toString(),
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              statusText,
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: Colors.white,
-                              ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item['jobNo'] ?? "",
+                                        style: ApptextstyleConstants.regularText(
+                                          fontSize: 16,
+                                          color: ColorConstants.blackColor,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: controller.getJobStatusColor(
+                                          jobStatus.toString(),
+                                        ),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        statusText,
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                // const SizedBox(height: 4),
+                                // _buildInspectionTypeBadge(item),
+                                const SizedBox(height: 4),
+                                if (showLaabs) ...[
+                                  RichText(
+                                    text: TextSpan(
+                                      text: "Laabs Job Card No: ",
+                                      style: ApptextstyleConstants.thinText(
+                                        fontSize: 10,
+                                        color: ColorConstants.blackColor,
+                                      ).copyWith(fontWeight: FontWeight.bold),
+                                      children: [
+                                        TextSpan(
+                                          text: jobLaabsJobcardno,
+                                          style: ApptextstyleConstants.thinText(
+                                            fontSize: 10,
+                                            color: ColorConstants.greenColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                ],
+                                if (technicianId != null) const SizedBox(height: 4),
+                                Text(
+                                  "Plate No : ${item['plateNo'] ?? ''}",
+                                  style: ApptextstyleConstants.lightText(
+                                    fontSize: 13,
+                                    color: ColorConstants.blackColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Vin No: ${item['vinNo'] ?? ''}",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: ApptextstyleConstants.lightText(
+                                    fontSize: 12,
+                                    color: ColorConstants.blackColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                        if (showLaabs) ...[
-                        RichText(
-                          text: TextSpan(
-                            text: "Laabs Job Card No: ",
-                            style: ApptextstyleConstants.thinText(
-                              fontSize: 10,
-                              color: ColorConstants.blackColor,
-                            ).copyWith(fontWeight: FontWeight.bold),
-                            children: [
-                              TextSpan(
-                                text: jobLaabsJobcardno,
-                                style: ApptextstyleConstants.thinText(
-                                  fontSize: 10,
-                                  color: ColorConstants.greenColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                      if (technicianId != null) const SizedBox(height: 8),
-
-                      /// PLATE
-                      Text(
-                        "Plate No : ${item['plateNo'] ?? ''}",
-                        style: ApptextstyleConstants.lightText(
-                          fontSize: 13,
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Vin No: ${item['vinNo'] ?? ''}",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ApptextstyleConstants.lightText(
-                          fontSize: 12,
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

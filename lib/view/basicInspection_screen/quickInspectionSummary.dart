@@ -20,16 +20,19 @@ import 'package:hugeicons/hugeicons.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/apiServices/api_services.dart';
+import 'package:inspection/controller/signatureSpeech_controller .dart';
 
 class QuickInspectionSummaryPage extends StatefulWidget {
   final int jobId;
   const QuickInspectionSummaryPage({super.key, required this.jobId});
 
   @override
-  State<QuickInspectionSummaryPage> createState() => _QuickInspectionSummaryPageState();
+  State<QuickInspectionSummaryPage> createState() =>
+      _QuickInspectionSummaryPageState();
 }
 
-class _QuickInspectionSummaryPageState extends State<QuickInspectionSummaryPage> {
+class _QuickInspectionSummaryPageState
+    extends State<QuickInspectionSummaryPage> {
   late SignatureController _signatureController;
   late TextEditingController _complaintController;
   bool _isLoading = false;
@@ -143,99 +146,163 @@ class _QuickInspectionSummaryPageState extends State<QuickInspectionSummaryPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                           Container(
-                             width: double.infinity,
-                             decoration: BoxDecoration(
-                               borderRadius: BorderRadius.circular(15),
-                               color: ColorConstants.whiteColor,
-                               boxShadow: ColorConstants.dashboardboxShadow,
-                             ),
-                             child: Padding(
-                               padding: const EdgeInsets.all(12.0),
-                               child: Column(
-                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                 children: [
-                                   Text(
-                                     "Customer Complaint",
-                                     style: ApptextstyleConstants.mediumText(
-                                       fontSize: 14,
-                                       color: ColorConstants.blackColor,
-                                     ),
-                                   ),
-                                   const SizedBox(height: 8),
-                                   TextField(
-                                     controller: _complaintController,
-                                     maxLines: 3,
-                                     decoration: InputDecoration(
-                                       hintText: "Customer Complaint",
-                                       hintStyle: ApptextstyleConstants.thinText(
-                                         color: Colors.grey,
-                                         fontSize: 14,
-                                       ),
-                                       enabledBorder: OutlineInputBorder(
-                                         borderRadius: BorderRadius.circular(8),
-                                         borderSide: BorderSide(color: Colors.grey.shade400),
-                                       ),
-                                       focusedBorder: OutlineInputBorder(
-                                         borderRadius: BorderRadius.circular(8),
-                                         borderSide: BorderSide(
-                                           color: ColorConstants.activecolor,
-                                           width: 1.5,
-                                         ),
-                                       ),
-                                     ),
-                                   ),
-                                 ],
-                               ),
-                             ),
-                           ),
-                           const SizedBox(height: 20),
-                           Text(
-                             "Service Advisor Signature",
-                             style: ApptextstyleConstants.mediumText(
-                               fontSize: 14,
-                               color: ColorConstants.blackColor,
-                             ),
-                           ),
-                           const SizedBox(height: 8),
-                           Stack(
-                             children: [
-                               Container(
-                                 decoration: BoxDecoration(
-                                   border: Border.all(color: Colors.grey.shade400),
-                                   borderRadius: BorderRadius.circular(8),
-                                 ),
-                                 child: Signature(
-                                   controller: _signatureController,
-                                   height: 160,
-                                   backgroundColor: Colors.white,
-                                 ),
-                               ),
-                               Positioned(
-                                 bottom: 12,
-                                 right: 12,
-                                 child: IconButton(
-                                   onPressed: _signatureController.clear,
-                                   icon: ShaderMask(
-                                     shaderCallback: (bounds) => const LinearGradient(
-                                       colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                                     ).createShader(bounds),
-                                     blendMode: BlendMode.srcIn,
-                                     child: const HugeIcon(
-                                       icon: HugeIcons.strokeRoundedEraser,
-                                       size: 28,
-                                     ),
-                                   ),
-                                 ),
-                               ),
-                             ],
-                           ),
-                           const SizedBox(height: 20),
+                          Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(15),
+                              color: ColorConstants.whiteColor,
+                              boxShadow: ColorConstants.dashboardboxShadow,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Customer Complaint",
+                                    style: ApptextstyleConstants.mediumText(
+                                      fontSize: 14,
+                                      color: ColorConstants.blackColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Consumer<SignatureSpeechController>(
+                                    builder: (context, speechCtrl, _) {
+                                      final isThisListening = speechCtrl.isListening && speechCtrl.activeController == _complaintController;
+                                      return Stack(
+                                        alignment: Alignment.centerRight,
+                                        children: [
+                                          TextField(
+                                            controller: _complaintController,
+                                            maxLines: 3,
+                                            textCapitalization: TextCapitalization.sentences,
+                                            decoration: InputDecoration(
+                                              hintText: "Customer Complaint",
+                                              hintStyle: ApptextstyleConstants.thinText(
+                                                color: Colors.grey,
+                                                fontSize: 14,
+                                              ),
+                                              contentPadding: const EdgeInsets.only(
+                                                left: 12,
+                                                right: 60,
+                                                top: 12,
+                                                bottom: 12,
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(
+                                                  color: Colors.grey.shade400,
+                                                ),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(
+                                                  color: ColorConstants.activecolor,
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            right: 8,
+                                            top: 8,
+                                            child: isThisListening
+                                                ? _buildWaveMic(speechCtrl)
+                                                : IconButton(
+                                                    icon: Icon(
+                                                      Icons.mic_none,
+                                                      color: ColorConstants.greenColor,
+                                                    ),
+                                                    onPressed: () => speechCtrl.startListening(
+                                                      controller: _complaintController,
+                                                    ),
+                                                  ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                Text(
+                                  "Service Advisor Signature ",
+                                  style: ApptextstyleConstants.mediumText(
+                                    color: ColorConstants.blackColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  "*",
+                                  style: ApptextstyleConstants.boldText(
+                                    color: ColorConstants.errorcolor,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.30,
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      boxShadow:
+                                          ColorConstants.dashboardboxShadow,
+                                      border: Border.all(
+                                        color: ColorConstants.syanColor,
+                                        width: 1.5,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Signature(
+                                      controller: _signatureController,
+                                      backgroundColor: Colors.white,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 12,
+                                    right: 12,
+                                    child: IconButton(
+                                      onPressed: _signatureController.clear,
+                                      icon: ShaderMask(
+                                        shaderCallback: (bounds) =>
+                                            const LinearGradient(
+                                              colors: [
+                                                Color(0xFF0066A6),
+                                                Color(0xFF00BFA6),
+                                              ],
+                                            ).createShader(bounds),
+                                        blendMode: BlendMode.srcIn,
+                                        child: const HugeIcon(
+                                          icon: HugeIcons.strokeRoundedEraser,
+                                          size: 28,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
                           SizedBox(
                             width: double.infinity,
                             height: 48,
                             child: CustomButtonWidget(
-                              text: _isLoading ? "Please wait..." : "Complete Quick Inspection",
+                              text: _isLoading
+                                  ? "Please wait..."
+                                  : "Complete Quick Inspection",
                               textSize: 16,
                               isDisabled: _isLoading || basicCtrl.isUploading,
                               showLoader: _isLoading,
@@ -243,35 +310,52 @@ class _QuickInspectionSummaryPageState extends State<QuickInspectionSummaryPage>
                                 final file = await _saveSignature();
                                 if (file == null) return;
                                 setState(() {
-                                    _isLoading = true;
+                                  _isLoading = true;
                                 });
                                 bool success = false;
                                 try {
-                                  basicCtrl.currentStage = InspectionStage.signature;
+                                  basicCtrl.currentStage =
+                                      InspectionStage.signature;
                                   basicCtrl.setSignatureFile(file);
                                   success = await basicCtrl.proceedStep(
                                     jobId: widget.jobId,
                                     status: 3,
-                                    additionalComment: _complaintController.text.trim(),
+                                    additionalComment: _complaintController.text
+                                        .trim(),
                                   );
                                   if (success) {
                                     _clearAllCache(context);
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
-                                          content: Text("Quick inspection completed successfully"),
-                                          backgroundColor: ColorConstants.greenColor,
+                                          content: Text(
+                                            "Quick inspection completed successfully",
+                                          ),
+                                          backgroundColor:
+                                              ColorConstants.greenColor,
                                         ),
                                       );
-                                      await Future.delayed(const Duration(seconds: 1));
-                                      context.go('/jobcarddetails', extra: widget.jobId);
+                                      await Future.delayed(
+                                        const Duration(seconds: 1),
+                                      );
+                                      context.go(
+                                        '/jobcarddetails',
+                                        extra: widget.jobId,
+                                      );
                                     }
                                   } else {
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
-                                          content: Text("Failed to upload signature. Check offline sync."),
-                                          backgroundColor: ColorConstants.errorcolor,
+                                          content: Text(
+                                            "Failed to upload signature. Check offline sync.",
+                                          ),
+                                          backgroundColor:
+                                              ColorConstants.errorcolor,
                                         ),
                                       );
                                     }
@@ -298,6 +382,53 @@ class _QuickInspectionSummaryPageState extends State<QuickInspectionSummaryPage>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildWaveMic(SignatureSpeechController controller) {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 30,
+            width: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                4,
+                (index) => TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 6, end: 20),
+                  duration: Duration(milliseconds: 400 + (index * 150)),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: 4,
+                      height: controller.isListening ? value : 6,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: controller.stopListening,
+            child: const Icon(Icons.close, color: Colors.red, size: 20),
+          ),
+        ],
       ),
     );
   }

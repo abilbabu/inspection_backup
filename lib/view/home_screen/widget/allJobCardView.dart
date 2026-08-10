@@ -337,6 +337,51 @@ class _AlljobcardviewState extends State<Alljobcardview> {
     );
   }
 
+  bool _isQuickInspection(Map<String, dynamic> item) {
+    final typeStr = (item["inspectionType"] ?? item["jobInspectionType"] ?? "").toString().trim().toUpperCase();
+    if (typeStr == "QUICK" || typeStr.contains("QUICK")) {
+      return true;
+    }
+    if (item["isQuick"] == true) {
+      return true;
+    }
+    final inspections = item["inspections"];
+    if (inspections is List && inspections.isNotEmpty) {
+      final first = inspections.first;
+      if (first is Map && first["master"] != null) {
+        final vimType = first["master"]["vimInspectionType"]?.toString();
+        final typeName = first["master"]["vimInspectionTypeName"]?.toString().toUpperCase() ?? "";
+        if (vimType == "1" || typeName.contains("QUICK")) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  Widget _buildInspectionTypeBadge(Map<String, dynamic> item) {
+    final bool isQuick = _isQuickInspection(item);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: isQuick ? Colors.amber.shade50 : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isQuick ? Colors.amber.shade400 : Colors.green.shade300,
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        isQuick ? "QUICK INSPECTION" : "GENERAL INSPECTION",
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          color: isQuick ? Colors.amber.shade900 : Colors.green.shade800,
+        ),
+      ),
+    );
+  }
+
   Widget jobCardItem(BuildContext context, Map<String, dynamic> item) {
     final controller = Provider.of<HomescreenController>(
       context,
@@ -361,6 +406,8 @@ class _AlljobcardviewState extends State<Alljobcardview> {
         jobLaabsJobcardno.trim().isNotEmpty &&
         jobLaabsJobcardno.trim().toLowerCase() != 'null';
 
+    final bool isQuick = _isQuickInspection(item);
+
     return GestureDetector(
       onTap: () {
         final dynamic rawJobId = item['jobId'];
@@ -384,107 +431,93 @@ class _AlljobcardviewState extends State<Alljobcardview> {
             boxShadow: ColorConstants.dashboardboxShadow,
           ),
 
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-
-            child: Row(
-              children: [
-                /// IMAGE
-                Container(
-                  width: 70,
-                  height: 70,
-
-                  decoration: BoxDecoration(
-                    color: ColorConstants.containergreycolor,
-
-                    shape: BoxShape.circle,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 5,
+                    color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
                   ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
 
-                  child: Image.asset(
-                    "assets/image/benz.png",
-                    fit: BoxFit.cover,
-                  ),
-                ),
-
-                const SizedBox(width: 14),
-
-                /// DETAILS
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-
-                    children: [
-                      /// TOP ROW
-                      Row(
+                      child: Row(
                         children: [
-                          Expanded(
-                            child: Text(
-                              item['jobNo'] ?? "",
-
-                              style: ApptextstyleConstants.regularText(
-                                fontSize: 16,
-
-                                color: ColorConstants.blackColor,
-                              ),
-                            ),
-                          ),
-
-                          /// STATUS
+                          /// IMAGE
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
+                            width: 70,
+                            height: 70,
 
                             decoration: BoxDecoration(
-                              color: controller.getJobStatusColor(
-                                jobStatus.toString(),
-                              ),
+                              color: ColorConstants.containergreycolor,
 
-                              borderRadius: BorderRadius.circular(20),
+                              shape: BoxShape.circle,
                             ),
 
-                            child: Text(
-                              statusText,
-
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: Colors.white,
-                              ),
+                            child: Image.asset(
+                              "assets/image/benz.png",
+                              fit: BoxFit.cover,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: item["inspectionType"] == "QUICK"
-                              ? Colors.blue.shade50
-                              : Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: item["inspectionType"] == "QUICK"
-                                ? Colors.blue.shade300
-                                : Colors.green.shade300,
-                            width: 0.5,
-                          ),
-                        ),
-                        child: Text(
-                          item["inspectionType"] == "QUICK"
-                              ? "QUICK"
-                              : "GENERAL",
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                            color: item["inspectionType"] == "QUICK"
-                                ? Colors.blue.shade800
-                                : Colors.green.shade800,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      if (showLaabs) ...[
+
+                          const SizedBox(width: 14),
+
+                          /// DETAILS
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+
+                              children: [
+                                /// TOP ROW
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item['jobNo'] ?? "",
+
+                                        style: ApptextstyleConstants.regularText(
+                                          fontSize: 16,
+
+                                          color: ColorConstants.blackColor,
+                                        ),
+                                      ),
+                                    ),
+
+                                    /// STATUS
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+
+                                      decoration: BoxDecoration(
+                                        color: controller.getJobStatusColor(
+                                          jobStatus.toString(),
+                                        ),
+
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+
+                                      child: Text(
+                                        statusText,
+
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 4),
+                                _buildInspectionTypeBadge(item),
+                                const SizedBox(height: 5),
+                                if (showLaabs) ...[
                         RichText(
                           text: TextSpan(
                             text: "Laabs Job Card No: ",
@@ -543,7 +576,12 @@ class _AlljobcardviewState extends State<Alljobcardview> {
             ),
           ),
         ),
-      ),
-    );
+      ],
+    ),
+  ),
+),
+),
+),
+);
   }
 }

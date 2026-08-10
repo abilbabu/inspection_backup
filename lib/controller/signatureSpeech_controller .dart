@@ -15,6 +15,7 @@ class SignatureSpeechController  extends ChangeNotifier {
   String _currentSpeech = "";
 
   TextEditingController? _speechController;
+  TextEditingController? get activeController => _speechController;
 
   Future<void> initSpeech() async {
     speechEnabled = await _speechToText.initialize();

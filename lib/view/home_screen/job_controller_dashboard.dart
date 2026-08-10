@@ -417,6 +417,51 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
     );
   }
 
+  bool _isQuickInspection(Map<String, dynamic> item) {
+    final typeStr = (item["inspectionType"] ?? item["jobInspectionType"] ?? "").toString().trim().toUpperCase();
+    if (typeStr == "QUICK" || typeStr.contains("QUICK")) {
+      return true;
+    }
+    if (item["isQuick"] == true) {
+      return true;
+    }
+    final inspections = item["inspections"];
+    if (inspections is List && inspections.isNotEmpty) {
+      final first = inspections.first;
+      if (first is Map && first["master"] != null) {
+        final vimType = first["master"]["vimInspectionType"]?.toString();
+        final typeName = first["master"]["vimInspectionTypeName"]?.toString().toUpperCase() ?? "";
+        if (vimType == "1" || typeName.contains("QUICK")) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  Widget _buildInspectionTypeBadge(Map<String, dynamic> item) {
+    final bool isQuick = _isQuickInspection(item);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: isQuick ? Colors.amber.shade50 : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isQuick ? Colors.amber.shade400 : Colors.green.shade300,
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        isQuick ? "QUICK INSPECTION" : "GENERAL INSPECTION",
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          color: isQuick ? Colors.amber.shade900 : Colors.green.shade800,
+        ),
+      ),
+    );
+  }
+
   Widget _jobCardItem(Map<String, dynamic> item) {
     final controller = Provider.of<HomescreenController>(context, listen: false);
     final String? jobLaabsJobcardno = (item['jobLaabsJobcardno'] ?? item['laabsjobCardNo'] ?? item['laabsJobCardNo'])?.toString();
@@ -429,6 +474,7 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
     final String vehicleName = "${item['make'] ?? ''} ${item['model'] ?? ''}";
 
     Color statusColor = controller.getJobStatusColor(jobStatusStr);
+    final bool isQuick = _isQuickInspection(item);
 
     return GestureDetector(
       onTap: () {
@@ -454,126 +500,143 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
           color: ColorConstants.whiteColor,
           boxShadow: ColorConstants.dashboardboxShadow,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: ColorConstants.containergreycolor,
-                  shape: BoxShape.circle,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 5,
+                  color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
                 ),
-                child: Image.asset(
-                  "assets/image/benz.png",
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                 
-                    Row(
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            item['jobNo'] ?? "",
-                            style: ApptextstyleConstants.regularText(
-                              fontSize: 15,
-                              color: ColorConstants.blackColor,
-                            ),
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: ColorConstants.containergreycolor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Image.asset(
+                            "assets/image/benz.png",
+                            fit: BoxFit.cover,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: statusColor, width: 1),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  color: statusColor,
-                                  shape: BoxShape.circle,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item['jobNo'] ?? "",
+                                      style: ApptextstyleConstants.regularText(
+                                        fontSize: 15,
+                                        color: ColorConstants.blackColor,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: statusColor, width: 1),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 7,
+                                          height: 7,
+                                          decoration: BoxDecoration(
+                                            color: statusColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          statusText,
+                                          style: ApptextstyleConstants.thinText(
+                                            fontSize: 10,
+                                            color: statusColor,
+                                          ).copyWith(fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              // const SizedBox(height: 4),
+                              // _buildInspectionTypeBadge(item),
+                              const SizedBox(height: 5),
+                              if (showLaabs) ...[
+                                RichText(
+                                  text: TextSpan(
+                                    text: "Laabs Job Card No: ",
+                                    style: ApptextstyleConstants.thinText(
+                                      fontSize: 10,
+                                      color: ColorConstants.blackColor,
+                                    ).copyWith(fontWeight: FontWeight.bold),
+                                    children: [
+                                      TextSpan(
+                                        text: jobLaabsJobcardno,
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.greenColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+                              Text(
+                                "Plate No : ${item['plateNo'] ?? 'N/A'}",
+                                style: ApptextstyleConstants.lightText(
+                                  fontSize: 13,
+                                  color: ColorConstants.blackColor,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(height: 4),
                               Text(
-                                statusText,
-                                style: ApptextstyleConstants.thinText(
-                                  fontSize: 10,
-                                  color: statusColor,
-                                ).copyWith(fontWeight: FontWeight.w600),
+                                "Vin No: ${item['vinNo'] ?? 'N/A'}",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: ApptextstyleConstants.lightText(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
                               ),
+                              if (vehicleName.trim().isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  vehicleName,
+                                  style: ApptextstyleConstants.thinText(
+                                    fontSize: 12,
+                                    color: ColorConstants.blackColor,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 5),
-                       if (showLaabs) ...[
-                      RichText(
-                        text: TextSpan(
-                          text: "Laabs Job Card No: ",
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.blackColor,
-                          ).copyWith(fontWeight: FontWeight.bold),
-                          children: [
-                            TextSpan(
-                              text: jobLaabsJobcardno,
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 10,
-                                color: ColorConstants.greenColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    Text(
-                      "Plate No : ${item['plateNo'] ?? 'N/A'}",
-                      style: ApptextstyleConstants.lightText(
-                        fontSize: 13,
-                        color: ColorConstants.blackColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Vin No: ${item['vinNo'] ?? 'N/A'}",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: ApptextstyleConstants.lightText(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    if (vehicleName.trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        vehicleName,
-                        style: ApptextstyleConstants.thinText(
-                          fontSize: 12,
-                          color: ColorConstants.blackColor,
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

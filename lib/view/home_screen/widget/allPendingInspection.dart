@@ -284,6 +284,9 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
         jobLaabsJobcardno.trim().isNotEmpty &&
         jobLaabsJobcardno.trim().toLowerCase() != 'null';
 
+    final String typeStr = (data["inspectionType"] ?? data["jobInspectionType"] ?? "").toString().trim().toUpperCase();
+    final bool isQuick = typeStr == "QUICK" || typeStr.contains("QUICK") || data["isQuick"] == true;
+
     return Container(
       height: showLaabs ? 110 : 90,
       width: double.infinity,
@@ -296,84 +299,93 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
         boxShadow: ColorConstants.dashboardboxShadow,
       ),
 
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
         child: Row(
           children: [
             Container(
-              width: 60,
-              height: 60,
-
-              decoration: BoxDecoration(
-                color: ColorConstants.containergreycolor,
-
-                shape: BoxShape.circle,
-              ),
-
-              child: Image.asset("assets/image/benz.png", fit: BoxFit.cover),
+              width: 5,
+              color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
             ),
-
-            const SizedBox(width: 10),
-
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
 
-                crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
 
-                children: [
-                
-                  RichText(
-                    text: TextSpan(
-                      text: "Job Card No: ",
+                      decoration: BoxDecoration(
+                        color: ColorConstants.containergreycolor,
 
-                      style: ApptextstyleConstants.thinText(
-                        fontSize: 10,
-                        color: ColorConstants.blackColor,
-                      ).copyWith(fontWeight: FontWeight.bold),
+                        shape: BoxShape.circle,
+                      ),
 
-                      children: [
-                        TextSpan(
-                          text: "${data["jobNo"]}",
+                      child: Image.asset("assets/image/benz.png", fit: BoxFit.cover),
+                    ),
 
-                          style: ApptextstyleConstants.thinText(
-                            fontSize: 10,
-                            color: ColorConstants.greenColor,
+                    const SizedBox(width: 10),
+
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+
+                        crossAxisAlignment: CrossAxisAlignment.start,
+
+                        children: [
+                        
+                          RichText(
+                            text: TextSpan(
+                              text: "Job Card No: ",
+
+                              style: ApptextstyleConstants.thinText(
+                                fontSize: 10,
+                                color: ColorConstants.blackColor,
+                              ).copyWith(fontWeight: FontWeight.bold),
+
+                              children: [
+                                TextSpan(
+                                  text: "${data["jobNo"]}",
+
+                                  style: ApptextstyleConstants.thinText(
+                                    fontSize: 10,
+                                    color: ColorConstants.greenColor,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.only(top: 4, bottom: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: data["inspectionType"] == "QUICK"
-                          ? Colors.blue.shade50
-                          : Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: data["inspectionType"] == "QUICK"
-                            ? Colors.blue.shade300
-                            : Colors.green.shade300,
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Text(
-                      data["inspectionType"] == "QUICK"
-                          ? "QUICK"
-                          : "GENERAL",
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        color: data["inspectionType"] == "QUICK"
-                            ? Colors.blue.shade800
-                            : Colors.green.shade800,
-                      ),
-                    ),
-                  ),
-                    if (showLaabs) ...[
+                          Container(
+                            margin: const EdgeInsets.only(top: 2, bottom: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isQuick
+                                  ? Colors.amber.shade50
+                                  : Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isQuick
+                                    ? Colors.amber.shade400
+                                    : Colors.green.shade300,
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              isQuick
+                                  ? "QUICK INSPECTION"
+                                  : "GENERAL INSPECTION",
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: isQuick
+                                    ? Colors.amber.shade900
+                                    : Colors.green.shade800,
+                              ),
+                            ),
+                          ),
+                            if (showLaabs) ...[
                     RichText(
                       text: TextSpan(
                         text: "Laabs Job Card No: ",
@@ -466,6 +478,10 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
           ],
         ),
       ),
-    );
+    ),
+  ],
+),
+),
+);
   }
 }

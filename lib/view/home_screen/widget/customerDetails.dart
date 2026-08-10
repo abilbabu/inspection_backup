@@ -14,6 +14,7 @@ import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/customShimmerLoader.dart';
 import 'package:provider/provider.dart';
+import 'package:inspection/controller/signatureSpeech_controller .dart';
 
 class Customerdetails extends StatefulWidget {
   final Map<String, dynamic>? data;
@@ -231,35 +232,68 @@ class _CustomerdetailsState extends State<Customerdetails> {
                                      ),
                                    ),
                                    const SizedBox(height: 8),
-                                   TextFormField(
-                                     controller: customerController.complaintController,
-                                     maxLines: 4,
-                                     decoration: InputDecoration(
-                                       hintText: "Enter customer complaint",
-                                       hintStyle: ApptextstyleConstants.thinText(
-                                         fontSize: 12,
-                                         color: Colors.grey,
-                                       ),
-                                       border: OutlineInputBorder(
-                                         borderRadius: BorderRadius.circular(8),
-                                         borderSide: BorderSide(
-                                           color: Colors.grey.shade300,
-                                         ),
-                                       ),
-                                       enabledBorder: OutlineInputBorder(
-                                         borderRadius: BorderRadius.circular(8),
-                                         borderSide: BorderSide(
-                                           color: Colors.grey.shade300,
-                                         ),
-                                       ),
-                                       focusedBorder: OutlineInputBorder(
-                                         borderRadius: BorderRadius.circular(8),
-                                         borderSide: BorderSide(
-                                           color: ColorConstants.greenColor,
-                                         ),
-                                       ),
-                                     ),
-                                   ),
+                                    Consumer<SignatureSpeechController>(
+                                      builder: (context, speechCtrl, _) {
+                                        final isThisListening = speechCtrl.isListening &&
+                                            speechCtrl.activeController == customerController.complaintController;
+                                        return Stack(
+                                          alignment: Alignment.centerRight,
+                                          children: [
+                                            TextFormField(
+                                              controller: customerController.complaintController,
+                                              maxLines: 4,
+                                              textCapitalization: TextCapitalization.sentences,
+                                              decoration: InputDecoration(
+                                                hintText: "Enter customer complaint",
+                                                hintStyle: ApptextstyleConstants.thinText(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                                contentPadding: const EdgeInsets.only(
+                                                  left: 12,
+                                                  right: 60,
+                                                  top: 12,
+                                                  bottom: 12,
+                                                ),
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderSide: BorderSide(
+                                                    color: Colors.grey.shade300,
+                                                  ),
+                                                ),
+                                                enabledBorder: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderSide: BorderSide(
+                                                    color: Colors.grey.shade300,
+                                                  ),
+                                                ),
+                                                focusedBorder: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderSide: BorderSide(
+                                                    color: ColorConstants.greenColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              right: 8,
+                                              top: 8,
+                                              child: isThisListening
+                                                  ? _buildWaveMic(speechCtrl)
+                                                  : IconButton(
+                                                      icon: Icon(
+                                                        Icons.mic_none,
+                                                        color: ColorConstants.greenColor,
+                                                      ),
+                                                      onPressed: () => speechCtrl.startListening(
+                                                        controller: customerController.complaintController,
+                                                      ),
+                                                    ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
                                  ],
                                  SizedBox(height: 20),
                                 SizedBox(
@@ -1089,6 +1123,53 @@ class _CustomerdetailsState extends State<Customerdetails> {
         // ),
         SizedBox(height: 15),
       ],
+    );
+  }
+
+  Widget _buildWaveMic(SignatureSpeechController controller) {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 30,
+            width: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                4,
+                (index) => TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 6, end: 20),
+                  duration: Duration(milliseconds: 400 + (index * 150)),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: 4,
+                      height: controller.isListening ? value : 6,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: controller.stopListening,
+            child: const Icon(Icons.close, color: Colors.red, size: 20),
+          ),
+        ],
+      ),
     );
   }
 }
