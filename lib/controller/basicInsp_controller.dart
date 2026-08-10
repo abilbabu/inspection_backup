@@ -995,7 +995,13 @@ class BasicinspController extends ChangeNotifier {
       completedImageIds.add(-10);
       await LocalUploadStorageService.saveSkippedImageId(jobId, -10);
     }
-    _moveToNextIncompleteImage(context);
+    // When skipping on additionalImages, jump directly to external360
+    // (or diagram if no 360 configured), bypassing remaining additional images.
+    if (currentStage == InspectionStage.additionalImages) {
+      _moveToNextStage(context);
+    } else {
+      _moveToNextIncompleteImage(context);
+    }
   }
 
   void openCarDiagram(BuildContext context) async {

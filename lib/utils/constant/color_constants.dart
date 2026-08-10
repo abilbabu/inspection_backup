@@ -25,6 +25,8 @@ class ColorConstants {
   static const Color signoutButton = Color(0xFF4D9EB7);
   static const Color textcolor2 = Color(0xFF2b658c);
   static final Color boxColor = const Color(0xffEFEFEF);
+  static final Color yellow = const Color(0xFFFFEB3B);
+
 
   static const List<BoxShadow> boxShadow = [
     BoxShadow(
