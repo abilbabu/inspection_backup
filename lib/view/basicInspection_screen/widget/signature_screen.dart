@@ -33,6 +33,7 @@ class SignatureScreen extends StatefulWidget {
 class _SignatureScreenState extends State<SignatureScreen> {
   late SignatureController _controller;
   late TextEditingController _additionalCommentController;
+  bool _isCommentInitialized = false;
 
   @override
   void initState() {
@@ -43,6 +44,12 @@ class _SignatureScreenState extends State<SignatureScreen> {
       penColor: Colors.black,
       exportBackgroundColor: Colors.white,
     );
+    Future.microtask(() {
+      context.read<BasicInspectionReportController>().getBasicInspection(
+        widget.jobId,
+        forceRefresh: true,
+      );
+    });
   }
 
   Future<File?> _saveSignature() async {
@@ -74,6 +81,11 @@ class _SignatureScreenState extends State<SignatureScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final basicReportController = context.watch<BasicInspectionReportController>();
+    if (!basicReportController.isLoading && !_isCommentInitialized) {
+      _additionalCommentController.text = basicReportController.additionalCommentsController.text;
+      _isCommentInitialized = true;
+    }
     context.read<BasicinspController>();
     return PopScope(
       canPop: false,
