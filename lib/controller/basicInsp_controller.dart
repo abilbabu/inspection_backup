@@ -119,6 +119,13 @@ class BasicinspController extends ChangeNotifier {
             openSignature(context);
           }
         });
+      } else if (currentStage == InspectionStage.completed && isQuick) {
+        hasOpenedResumeStage = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            context.go('/quickInspectionSummary', extra: jobId);
+          }
+        });
       }
     }
   }
@@ -1189,6 +1196,9 @@ class BasicinspController extends ChangeNotifier {
         if (!is360Stage && item != null) {
           completedImageIds.add(item['id']);
         }
+        if (currentStage == InspectionStage.additionalImages) {
+          completedImageIds.add(-100 - currentStep);
+        }
         if (currentStage == InspectionStage.external360) {
           completedImageIds.add(-10);
         }
@@ -1235,6 +1245,9 @@ class BasicinspController extends ChangeNotifier {
           }
           if (!is360Stage && item != null) {
             completedImageIds.add(item['id']);
+          }
+          if (currentStage == InspectionStage.additionalImages) {
+            completedImageIds.add(-100 - currentStep);
           }
           if (currentStage == InspectionStage.external360) {
             completedImageIds.add(-10);
@@ -1438,7 +1451,8 @@ class BasicinspController extends ChangeNotifier {
       final result = jsonDecode(response.body);
       final data = result["data"];
       if (data == null) return;
-      if (data["jobInspectionType"] == "QUICK") {
+      final typeStr = (data["jobInspectionType"] ?? data["inspectionType"] ?? "").toString().toUpperCase();
+      if (typeStr == "QUICK" || typeStr.contains("QUICK") || data["isQuick"] == true) {
         isQuick = true;
       } else {
         isQuick = false;
@@ -1454,34 +1468,83 @@ class BasicinspController extends ChangeNotifier {
       if (grouped == null) return;
       completedImageIds.clear();
       List allAttachments = [];
+
       List externalImages = grouped["externalImages"] ?? [];
       for (var img in externalImages) {
-        int? masterId = img["imageMasterId"];
+        int? masterId = img["imageMasterId"] ?? img["id"] ?? img["inspectionImageId"];
         List attachments = img["attachments"] ?? [];
         if (attachments.isNotEmpty && masterId != null) {
           completedImageIds.add(masterId);
         }
         for (var att in attachments) {
-          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["iaInspectionType"] == 0)) {
+          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["iaInspectionType"] == 0 || att["is360"] == true)) {
             completedImageIds.add(-10);
           }
         }
         allAttachments.addAll(attachments);
       }
+
       List internalImages = grouped["internalImages"] ?? [];
       for (var img in internalImages) {
-        int? masterId = img["imageMasterId"];
+        int? masterId = img["imageMasterId"] ?? img["id"] ?? img["inspectionImageId"];
         List attachments = img["attachments"] ?? [];
         if (attachments.isNotEmpty && masterId != null) {
           completedImageIds.add(masterId);
         }
         for (var att in attachments) {
-          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["iaInspectionType"] == 1)) {
+          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["iaInspectionType"] == 1 || att["is360"] == true)) {
             completedImageIds.add(-20);
           }
         }
         allAttachments.addAll(attachments);
       }
+
+      List quickImages = grouped["quickInspectionImages"] ?? [];
+      for (var img in quickImages) {
+        int? masterId = img["imageMasterId"] ?? img["id"] ?? img["inspectionImageId"];
+        List attachments = img["attachments"] ?? [];
+        if (attachments.isNotEmpty && masterId != null) {
+          completedImageIds.add(masterId);
+        }
+        for (var att in attachments) {
+          int? attImageId = att["iaInspectionImageId"] ?? att["inspectionImageId"] ?? att["imageMasterId"];
+          if (attImageId != null && attImageId != 0) {
+            completedImageIds.add(attImageId);
+          }
+          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["is360"] == true)) {
+            completedImageIds.add(-10);
+          }
+        }
+        allAttachments.addAll(attachments);
+      }
+
+      List additionalImages = grouped["additionalImages"] ?? [];
+      int validAddIndex = 0;
+      for (var img in additionalImages) {
+        List attachments = img["attachments"] ?? [];
+        bool hasAttachment = attachments.isNotEmpty || img["iaUrl"] != null || img["url"] != null;
+        if (hasAttachment) {
+          completedImageIds.add(-100 - validAddIndex);
+          validAddIndex++;
+        }
+        if (attachments.isNotEmpty) {
+          allAttachments.addAll(attachments);
+        }
+      }
+
+      bool has360 = grouped["external360"] != null || grouped["360"] != null || grouped["video360"] != null;
+      if (!has360) {
+        for (var att in allAttachments) {
+          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["is360"] == true)) {
+            has360 = true;
+            break;
+          }
+        }
+      }
+      if (has360) {
+        completedImageIds.add(-10);
+      }
+
       if (grouped["cardiagram"] != null) {
         completedImageIds.add(-30);
       }
@@ -1492,6 +1555,7 @@ class BasicinspController extends ChangeNotifier {
       // Include pending offline local queue items so offline progress is maintained across app returns
       try {
         final pendingQueue = await LocalUploadStorageService.getPendingTasks();
+        int offlineAdditionalCount = 0;
         for (var task in pendingQueue) {
           if (task.jobId == jobId) {
             final imgIdStr = task.fields["inspectionImageId"] ?? task.fields["inspection_image_id"];
@@ -1501,10 +1565,14 @@ class BasicinspController extends ChangeNotifier {
                 completedImageIds.add(parsedId);
               }
             }
+            final attachType = task.fields["attachType"];
+            if (attachType == "15") {
+              completedImageIds.add(-100 - (validAddIndex + offlineAdditionalCount));
+              offlineAdditionalCount++;
+            }
             for (var item in task.mediaItems) {
               if (item.is360) {
-                final attachType = task.fields["attachType"];
-                if (attachType == "0") {
+                if (attachType == "0" || attachType == "14" || attachType == "10") {
                   completedImageIds.add(-10);
                 } else {
                   completedImageIds.add(-20);
