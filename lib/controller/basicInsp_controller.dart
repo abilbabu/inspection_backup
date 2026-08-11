@@ -82,6 +82,9 @@ class BasicinspController extends ChangeNotifier {
   int? lastcompleteId;
   bool isResumeLoaded = false;
   bool hasOpenedResumeStage = false;
+  // Persisted Quick Inspection stage loaded from SharedPreferences before _calculateResumeStep.
+  // Only set for Quick Inspection (isQuick == true).
+  String? _persistedQuickStage;
 
   int get firstExternalImageId {
     if (externalImageList.isNotEmpty) {
@@ -422,6 +425,16 @@ class BasicinspController extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     await getBasicInspection(jobId);
+    // Load persisted Quick Inspection stage so _calculateResumeStep can override
+    // the API-computed stage when the persisted stage is further ahead in the flow.
+    if (isQuick) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        _persistedQuickStage = prefs.getString('quick_stage_$jobId');
+      } catch (_) {
+        _persistedQuickStage = null;
+      }
+    }
     final String urlStr = isQuick 
         ? ApiServices.quickImageSettingsMobile 
         : ApiServices.basicimageSettingList;
@@ -670,6 +683,12 @@ class BasicinspController extends ChangeNotifier {
       currentImages = [];
       hasOpenedResumeStage = true;
     }
+    // Apply persisted stage override AFTER computing from completedImageIds.
+    // This handles cases where the server API imageMasterId fields don't match
+    // the quickImageSettingsMobile image IDs, causing incorrect stage calculation.
+    if (isQuick && _persistedQuickStage != null) {
+      _applyPersistedStageOverride();
+    }
     isResumeLoaded = true;
     notifyListeners();
   }
@@ -803,6 +822,8 @@ class BasicinspController extends ChangeNotifier {
         return;
       }
       currentStage = InspectionStage.diagram;
+      // All additional images saved; Car Diagram is now the pending stage.
+      if (isQuick) _persistQuickStage('carDiagram');
       notifyListeners();
       openCarDiagram(context);
       return;
@@ -930,6 +951,8 @@ class BasicinspController extends ChangeNotifier {
     }
     if (currentStage == InspectionStage.external360) {
       currentStage = InspectionStage.diagram;
+      // 360° Video successfully saved; Car Diagram is now the pending stage.
+      if (isQuick) _persistQuickStage('carDiagram');
       notifyListeners();
       openCarDiagram(context);
       return;
@@ -937,6 +960,8 @@ class BasicinspController extends ChangeNotifier {
     if (currentStage == InspectionStage.diagram) {
       if (isQuick) {
         currentStage = InspectionStage.completed;
+        // Car Diagram saved via this path; Quick Inspection Summary is now pending.
+        _persistQuickStage('summary');
         notifyListeners();
         Future.delayed(const Duration(milliseconds: 300), () {
           if (context.mounted) {
@@ -1026,6 +1051,9 @@ class BasicinspController extends ChangeNotifier {
       notifyListeners();
       if (isQuick) {
         currentStage = InspectionStage.completed;
+        // Car Diagram successfully saved; Quick Inspection Summary is now pending.
+        // Persist BEFORE navigating so reopen always lands on Summary.
+        _persistQuickStage('summary');
         notifyListeners();
         Future.delayed(const Duration(milliseconds: 300), () {
           if (context.mounted) {
@@ -1435,6 +1463,82 @@ class BasicinspController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Quick Inspection stage persistence helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Persists the current Quick Inspection pending stage to SharedPreferences.
+  /// Called ONLY after a successful save/proceed operation — never on screen open.
+  /// Key: 'quick_stage_<jobId>'   Values: 'carDiagram' | 'summary' | 'completed'
+  Future<void> _persistQuickStage(String stage) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('quick_stage_$jobId', stage);
+      debugPrint('QuickInspection [$jobId]: stage persisted → $stage');
+    } catch (e) {
+      debugPrint('QuickInspection [$jobId]: Error persisting stage "$stage": $e');
+    }
+  }
+
+  /// Overrides the API-computed resume stage with the persisted Quick Inspection
+  /// stage when the persisted stage is further ahead in the flow.
+  ///
+  /// Scenarios handled:
+  ///   'carDiagram' → set currentStage = diagram (if not already at/past diagram)
+  ///   'summary'    → set currentStage = completed + hasOpenedResumeStage = false
+  ///   'completed'  → same as 'summary' (signature was saved, re-show Summary)
+  void _applyPersistedStageOverride() {
+    final persisted = _persistedQuickStage;
+    if (persisted == null) return;
+
+    if (persisted == 'carDiagram') {
+      // 360° Video was saved; Car Diagram is the pending stage.
+      // Only override if the API-computed stage has not yet reached diagram.
+      final isAlreadyAtDiagramOrBeyond =
+          currentStage == InspectionStage.diagram ||
+          currentStage == InspectionStage.completed;
+      if (!isAlreadyAtDiagramOrBeyond) {
+        debugPrint('QuickInspection [$jobId]: persisted override → diagram (was $currentStage)');
+        currentStage = InspectionStage.diagram;
+        currentSectionData = null;
+        currentImages = [];
+        // hasOpenedResumeStage stays false so checkAndShowResumeStage opens CarDiagram.
+        hasOpenedResumeStage = false;
+      }
+    } else if (persisted == 'summary' || persisted == 'completed') {
+      // Car Diagram was saved; Quick Inspection Summary is the pending stage.
+      // Force completed + reset hasOpenedResumeStage so checkAndShowResumeStage
+      // navigates to /quickInspectionSummary.
+      debugPrint('QuickInspection [$jobId]: persisted override → completed/summary (was $currentStage)');
+      currentStage = InspectionStage.completed;
+      currentSectionData = null;
+      currentImages = [];
+      hasOpenedResumeStage = false;
+    }
+  }
+
+  /// Public method called by QuickInspectionSummaryPage after a successful
+  /// signature upload. Persists the fully-completed state so that a reopen
+  /// still shows the Summary (not an earlier stage).
+  Future<void> markQuickInspectionCompleted() async {
+    await _persistQuickStage('completed');
+  }
+
+  /// Clears the persisted Quick Inspection stage for [jobId].
+  /// Call this when the inspection is fully submitted and navigation leaves
+  /// the inspection flow (e.g., going to job card details).
+  static Future<void> clearQuickStage(int jobId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('quick_stage_$jobId');
+      debugPrint('QuickInspection [$jobId]: persisted stage cleared');
+    } catch (e) {
+      debugPrint('QuickInspection [$jobId]: Error clearing persisted stage: $e');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> getBasicInspection(int jobId) async {
     try {

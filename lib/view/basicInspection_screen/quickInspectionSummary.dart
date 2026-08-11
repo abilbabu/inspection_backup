@@ -98,6 +98,8 @@ class _QuickInspectionSummaryPageState
 
   void _clearAllCache(BuildContext context) {
     LocalUploadStorageService.clearJobCache(widget.jobId);
+    // Clear the persisted Quick Inspection stage — the inspection is now fully submitted.
+    BasicinspController.clearQuickStage(widget.jobId);
     context.read<CustomerDetailsController>().mobileNumController.clear();
     context.read<CustomerDetailsController>().vehiclePlateController.clear();
     context.read<CustomerDetailsController>().selectedVehicle = null;
@@ -324,6 +326,8 @@ class _QuickInspectionSummaryPageState
                                         .trim(),
                                   );
                                   if (success) {
+                                    // Persist 'completed' so reopening still shows Summary.
+                                    await basicCtrl.markQuickInspectionCompleted();
                                     _clearAllCache(context);
                                     if (mounted) {
                                       ScaffoldMessenger.of(
