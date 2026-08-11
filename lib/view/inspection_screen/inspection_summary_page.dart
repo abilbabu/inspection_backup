@@ -145,7 +145,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        VehicleSummaryWidget(jobId: widget.jobId),
+                        VehicleSummaryWidget(jobId: widget.jobId, isComplaintEditable: true),
                         SizedBox(height: 10),
                         Text(
                           controller.inspectionFormName,

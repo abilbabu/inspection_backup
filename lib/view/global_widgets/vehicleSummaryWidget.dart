@@ -11,10 +11,12 @@ import 'package:provider/provider.dart';
 class VehicleSummaryWidget extends StatefulWidget {
   final int? jobId;
   final bool fetchBasicInspection;
+  final bool isComplaintEditable;
   const VehicleSummaryWidget({
     super.key,
     this.jobId,
     this.fetchBasicInspection = true,
+    this.isComplaintEditable = false,
   });
   @override
   State<VehicleSummaryWidget> createState() => _vehicleSummaryWidgetState();
@@ -22,6 +24,7 @@ class VehicleSummaryWidget extends StatefulWidget {
 
 class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
   TextEditingController additionalCommentsController = TextEditingController();
+  bool _isComplaintInitialized = false;
 
   @override
   void initState() {
@@ -198,9 +201,100 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                           SizedBox(height: 10),
                           Consumer<BasicInspectionReportController>(
                             builder: (context, basicController, child) {
-                              final comments =
-                                  basicController.additionalCommentsController.text;
-                              final complaintList = comments
+                              final String complaint = jobcard['customerComplaint']?.toString() ?? "";
+                              if (widget.isComplaintEditable && !_isComplaintInitialized) {
+                                additionalCommentsController.text = complaint;
+                                _isComplaintInitialized = true;
+                              }
+
+                              if (widget.isComplaintEditable) {
+                                return Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: ColorConstants.errorcolor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: ColorConstants.errorcolor),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            "Customer Complaint:",
+                                            style: ApptextstyleConstants.thinText(
+                                              fontSize: 10,
+                                              color: ColorConstants.blackColor,
+                                            ).copyWith(fontWeight: FontWeight.bold),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.check_circle, size: 22, color: ColorConstants.greenColor),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onPressed: () async {
+                                              final scaffold = ScaffoldMessenger.of(context);
+                                              final success = await context.read<BasicInspectionReportController>().saveCustomerComplaint(
+                                                widget.jobId!,
+                                                additionalCommentsController.text.trim(),
+                                              );
+                                              if (success) {
+                                                context.read<JobcarddetailsController>().postJobCardDetails(widget.jobId!);
+                                                scaffold.showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text("Complaint updated successfully"),
+                                                    backgroundColor: ColorConstants.greenColor,
+                                                  ),
+                                                );
+                                              } else {
+                                                scaffold.showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text("Failed to update complaint"),
+                                                    backgroundColor: ColorConstants.errorcolor,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      TextField(
+                                        controller: additionalCommentsController,
+                                        maxLines: 3,
+                                        textCapitalization: TextCapitalization.sentences,
+                                        decoration: InputDecoration(
+                                          hintText: "Enter customer complaint",
+                                          hintStyle: ApptextstyleConstants.thinText(
+                                            color: Colors.grey,
+                                            fontSize: 10,
+                                          ),
+                                          contentPadding: const EdgeInsets.all(8),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide(color: Colors.grey.shade400),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            borderSide: BorderSide(color: Colors.grey.shade400),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            borderSide: const BorderSide(color: ColorConstants.errorcolor),
+                                          ),
+                                        ),
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 10,
+                                          color: ColorConstants.blackColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
+                              final complaintList = complaint
                                   .split('\n')
                                   .where((e) => e.trim().isNotEmpty)
                                   .toList();

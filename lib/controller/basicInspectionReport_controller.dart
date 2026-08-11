@@ -418,4 +418,31 @@ class BasicInspectionReportController with ChangeNotifier {
       return "Unknown";
     }
   }
+
+  Future<bool> saveCustomerComplaint(int jobId, String complaint) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      final response = await http.post(
+        Uri.parse("${ApiServices.baseUrl}jobcard/updateCustomerComplaint"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+        body: jsonEncode({
+          "jobId": jobId,
+          "customerComplaint": complaint,
+        }),
+      );
+      if (response.statusCode == 200) {
+        additionalCommentsController.text = complaint;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Error saving complaint: $e");
+      return false;
+    }
+  }
 }
