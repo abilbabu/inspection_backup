@@ -219,82 +219,80 @@ class _CustomerdetailsState extends State<Customerdetails> {
                                  SizedBox(height: 20),
                                  _vechicleDetailsSection(customerController),
                                  _serviceTypeSection(customerController),
-                                 if (widget.data?['isQuick'] == true) ...[
-                                   const SizedBox(height: 15),
-                                   Align(
-                                     alignment: Alignment.centerLeft,
-                                     child: Text(
-                                       "Customer Complaint",
-                                       style: ApptextstyleConstants.thinText(
-                                         fontSize: 12,
-                                         color: ColorConstants.blackColor,
-                                       ).copyWith(fontWeight: FontWeight.bold),
-                                     ),
+                                 const SizedBox(height: 15),
+                                 Align(
+                                   alignment: Alignment.centerLeft,
+                                   child: Text(
+                                     "Customer Complaint",
+                                     style: ApptextstyleConstants.thinText(
+                                       fontSize: 12,
+                                       color: ColorConstants.blackColor,
+                                     ).copyWith(fontWeight: FontWeight.bold),
                                    ),
-                                   const SizedBox(height: 8),
-                                    Consumer<SignatureSpeechController>(
-                                      builder: (context, speechCtrl, _) {
-                                        final isThisListening = speechCtrl.isListening &&
-                                            speechCtrl.activeController == customerController.complaintController;
-                                        return Stack(
-                                          alignment: Alignment.centerRight,
-                                          children: [
-                                            TextFormField(
-                                              controller: customerController.complaintController,
-                                              maxLines: 4,
-                                              textCapitalization: TextCapitalization.sentences,
-                                              decoration: InputDecoration(
-                                                hintText: "Enter customer complaint",
-                                                hintStyle: ApptextstyleConstants.thinText(
-                                                  fontSize: 12,
-                                                  color: Colors.grey,
+                                 ),
+                                 const SizedBox(height: 8),
+                                  Consumer<SignatureSpeechController>(
+                                    builder: (context, speechCtrl, _) {
+                                      final isThisListening = speechCtrl.isListening &&
+                                          speechCtrl.activeController == customerController.complaintController;
+                                      return Stack(
+                                        alignment: Alignment.centerRight,
+                                        children: [
+                                          TextFormField(
+                                            controller: customerController.complaintController,
+                                            maxLines: 4,
+                                            textCapitalization: TextCapitalization.sentences,
+                                            decoration: InputDecoration(
+                                              hintText: "Enter customer complaint",
+                                              hintStyle: ApptextstyleConstants.thinText(
+                                                fontSize: 12,
+                                                color: Colors.grey,
+                                              ),
+                                              contentPadding: const EdgeInsets.only(
+                                                left: 12,
+                                                right: 60,
+                                                top: 12,
+                                                bottom: 12,
+                                              ),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(
+                                                  color: Colors.grey.shade300,
                                                 ),
-                                                contentPadding: const EdgeInsets.only(
-                                                  left: 12,
-                                                  right: 60,
-                                                  top: 12,
-                                                  bottom: 12,
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(
+                                                  color: Colors.grey.shade300,
                                                 ),
-                                                border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  borderSide: BorderSide(
-                                                    color: Colors.grey.shade300,
-                                                  ),
-                                                ),
-                                                enabledBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  borderSide: BorderSide(
-                                                    color: Colors.grey.shade300,
-                                                  ),
-                                                ),
-                                                focusedBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  borderSide: BorderSide(
-                                                    color: ColorConstants.greenColor,
-                                                  ),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                borderSide: BorderSide(
+                                                  color: ColorConstants.greenColor,
                                                 ),
                                               ),
                                             ),
-                                            Positioned(
-                                              right: 8,
-                                              top: 8,
-                                              child: isThisListening
-                                                  ? _buildWaveMic(speechCtrl)
-                                                  : IconButton(
-                                                      icon: Icon(
-                                                        Icons.mic_none,
-                                                        color: ColorConstants.greenColor,
-                                                      ),
-                                                      onPressed: () => speechCtrl.startListening(
-                                                        controller: customerController.complaintController,
-                                                      ),
+                                          ),
+                                          Positioned(
+                                            right: 8,
+                                            top: 8,
+                                            child: isThisListening
+                                                ? _buildWaveMic(speechCtrl)
+                                                : IconButton(
+                                                    icon: Icon(
+                                                      Icons.mic_none,
+                                                      color: ColorConstants.greenColor,
                                                     ),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                 ],
+                                                    onPressed: () => speechCtrl.startListening(
+                                                      controller: customerController.complaintController,
+                                                    ),
+                                                  ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
                                  SizedBox(height: 20),
                                 SizedBox(
                                   width: double.infinity,

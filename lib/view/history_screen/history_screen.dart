@@ -130,6 +130,9 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
                 'plateNo': vehicle['vRegNo']?.toString() ?? '',
                 'vinNo': vehicle['vVinNo']?.toString() ?? '',
                 'vehicle': vehicle,
+                'inspectionType': (item['inspectionType'] ?? item['jobInspectionType'])?.toString() ?? '',
+                'isQuick': item['isQuick'] == true,
+                'inspections': item['inspections'] ?? [],
               };
             })
             .where((item) {
