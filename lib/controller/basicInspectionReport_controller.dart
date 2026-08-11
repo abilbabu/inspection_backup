@@ -46,25 +46,33 @@ class BasicInspectionReportController with ChangeNotifier {
   String? jobInspectionType;
 
   Future<void> initializeExternalVideo(String url) async {
-    externalVideoController?.dispose();
-    externalVideoController = VideoPlayerController.network(url);
-    await externalVideoController!.initialize();
-    externalVideoDuration = externalVideoController!.value.duration;
-    isExternalVideoInitialized = true;
-    isExternalVideoPlaying = false;
-    externalVideoController!.addListener(_externalVideoListener);
-    notifyListeners();
+    try {
+      externalVideoController?.dispose();
+      externalVideoController = VideoPlayerController.network(url);
+      await externalVideoController!.initialize();
+      externalVideoDuration = externalVideoController!.value.duration;
+      isExternalVideoInitialized = true;
+      isExternalVideoPlaying = false;
+      externalVideoController!.addListener(_externalVideoListener);
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error initializing external video: $e");
+    }
   }
 
   Future<void> initializeInternalVideo(String url) async {
-    internalVideoController?.dispose();
-    internalVideoController = VideoPlayerController.network(url);
-    await internalVideoController!.initialize();
-    internalVideoDuration = internalVideoController!.value.duration;
-    isInternalVideoInitialized = true;
-    isInternalVideoPlaying = false;
-    internalVideoController!.addListener(_internalVideoListener);
-    notifyListeners();
+    try {
+      internalVideoController?.dispose();
+      internalVideoController = VideoPlayerController.network(url);
+      await internalVideoController!.initialize();
+      internalVideoDuration = internalVideoController!.value.duration;
+      isInternalVideoInitialized = true;
+      isInternalVideoPlaying = false;
+      internalVideoController!.addListener(_internalVideoListener);
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error initializing internal video: $e");
+    }
   }
 
   void _externalVideoListener() {
@@ -348,10 +356,10 @@ class BasicInspectionReportController with ChangeNotifier {
         }
       }
       if (external360Video != null && external360Video!.isNotEmpty) {
-        await initializeExternalVideo(external360Video!);
+        initializeExternalVideo(external360Video!);
       }
       if (internal360Video != null && internal360Video!.isNotEmpty) {
-        await initializeInternalVideo(internal360Video!);
+        initializeInternalVideo(internal360Video!);
       }
     } catch (e) {
       debugPrint("Error : $e");

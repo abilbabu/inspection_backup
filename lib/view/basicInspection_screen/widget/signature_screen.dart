@@ -82,7 +82,9 @@ class _SignatureScreenState extends State<SignatureScreen> {
   @override
   Widget build(BuildContext context) {
     final basicReportController = context.watch<BasicInspectionReportController>();
-    if (!basicReportController.isLoading && !_isCommentInitialized) {
+    if (!basicReportController.isLoading &&
+        basicReportController.loadedJobId == widget.jobId &&
+        !_isCommentInitialized) {
       _additionalCommentController.text = basicReportController.additionalCommentsController.text;
       _isCommentInitialized = true;
     }
