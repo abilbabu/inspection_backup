@@ -130,257 +130,294 @@ class _QuickInspectionSummaryPageState
       },
       child: Consumer<BasicinspController>(
         builder: (context, basicCtrl, child) {
-          return Scaffold(
-            appBar: CustomAppBar(
-              title: "Quick Summary & Signature",
-              onBackPress: () {
-                context.pop();
-              },
-            ),
-            body: SafeArea(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    BasicInspectionPreview(jobId: widget.jobId),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(15),
-                              color: ColorConstants.whiteColor,
-                              boxShadow: ColorConstants.dashboardboxShadow,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Customer Complaint",
-                                    style: ApptextstyleConstants.mediumText(
-                                      fontSize: 14,
-                                      color: ColorConstants.blackColor,
+          return PopScope(
+            canPop: false,
+            onPopInvoked: (_) async {
+              if (await _showExitConfirmation()) {
+                context.go('/home');
+              }
+            },
+            child: Scaffold(
+              appBar: CustomAppBar(
+                title: "Quick Summary & Signature",
+                onBackPress: () async {
+                  if (await _showExitConfirmation()) {
+                    context.go('/home');
+                  }
+                },
+              ),
+              body: SafeArea(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      BasicInspectionPreview(jobId: widget.jobId),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(15),
+                                color: ColorConstants.whiteColor,
+                                boxShadow: ColorConstants.dashboardboxShadow,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Customer Complaint",
+                                      style: ApptextstyleConstants.mediumText(
+                                        fontSize: 14,
+                                        color: ColorConstants.blackColor,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Consumer<SignatureSpeechController>(
-                                    builder: (context, speechCtrl, _) {
-                                      final isThisListening = speechCtrl.isListening && speechCtrl.activeController == _complaintController;
-                                      return Stack(
-                                        alignment: Alignment.centerRight,
-                                        children: [
-                                          TextField(
-                                            controller: _complaintController,
-                                            maxLines: 3,
-                                            textCapitalization: TextCapitalization.sentences,
-                                            decoration: InputDecoration(
-                                              hintText: "Customer Complaint",
-                                              hintStyle: ApptextstyleConstants.thinText(
-                                                color: Colors.grey,
-                                                fontSize: 14,
-                                              ),
-                                              contentPadding: const EdgeInsets.only(
-                                                left: 12,
-                                                right: 60,
-                                                top: 12,
-                                                bottom: 12,
-                                              ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(8),
-                                                borderSide: BorderSide(
-                                                  color: Colors.grey.shade400,
-                                                ),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(8),
-                                                borderSide: BorderSide(
-                                                  color: ColorConstants.activecolor,
-                                                  width: 1.5,
-                                                ),
+                                    const SizedBox(height: 8),
+                                    Consumer<SignatureSpeechController>(
+                                      builder: (context, speechCtrl, _) {
+                                        final isThisListening =
+                                            speechCtrl.isListening &&
+                                            speechCtrl.activeController ==
+                                                _complaintController;
+                                        return Stack(
+                                          alignment: Alignment.centerRight,
+                                          children: [
+                                            TextField(
+                                              controller: _complaintController,
+                                              maxLines: 3,
+                                              textCapitalization:
+                                                  TextCapitalization.sentences,
+                                              decoration: InputDecoration(
+                                                hintText: "Customer Complaint",
+                                                hintStyle:
+                                                    ApptextstyleConstants.thinText(
+                                                      color: Colors.grey,
+                                                      fontSize: 14,
+                                                    ),
+                                                contentPadding:
+                                                    const EdgeInsets.only(
+                                                      left: 12,
+                                                      right: 60,
+                                                      top: 12,
+                                                      bottom: 12,
+                                                    ),
+                                                enabledBorder:
+                                                    OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      borderSide: BorderSide(
+                                                        color: Colors
+                                                            .grey
+                                                            .shade400,
+                                                      ),
+                                                    ),
+                                                focusedBorder:
+                                                    OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      borderSide: BorderSide(
+                                                        color: ColorConstants
+                                                            .activecolor,
+                                                        width: 1.5,
+                                                      ),
+                                                    ),
                                               ),
                                             ),
-                                          ),
-                                          Positioned(
-                                            right: 8,
-                                            top: 8,
-                                            child: isThisListening
-                                                ? _buildWaveMic(speechCtrl)
-                                                : IconButton(
-                                                    icon: Icon(
-                                                      Icons.mic_none,
-                                                      color: ColorConstants.greenColor,
+                                            Positioned(
+                                              right: 8,
+                                              top: 8,
+                                              child: isThisListening
+                                                  ? _buildWaveMic(speechCtrl)
+                                                  : IconButton(
+                                                      icon: Icon(
+                                                        Icons.mic_none,
+                                                        color: ColorConstants
+                                                            .greenColor,
+                                                      ),
+                                                      onPressed: () => speechCtrl
+                                                          .startListening(
+                                                            controller:
+                                                                _complaintController,
+                                                          ),
                                                     ),
-                                                    onPressed: () => speechCtrl.startListening(
-                                                      controller: _complaintController,
-                                                    ),
-                                                  ),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                ],
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: [
-                                Text(
-                                  "Service Advisor Signature ",
-                                  style: ApptextstyleConstants.mediumText(
-                                    color: ColorConstants.blackColor,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                Text(
-                                  "*",
-                                  style: ApptextstyleConstants.boldText(
-                                    color: ColorConstants.errorcolor,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: SizedBox(
-                              height: MediaQuery.of(context).size.height * 0.30,
-                              child: Stack(
+                            const SizedBox(height: 20),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Row(
                                 children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      boxShadow:
-                                          ColorConstants.dashboardboxShadow,
-                                      border: Border.all(
-                                        color: ColorConstants.syanColor,
-                                        width: 1.5,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Signature(
-                                      controller: _signatureController,
-                                      backgroundColor: Colors.white,
+                                  Text(
+                                    "Service Advisor Signature ",
+                                    style: ApptextstyleConstants.mediumText(
+                                      color: ColorConstants.blackColor,
+                                      fontSize: 14,
                                     ),
                                   ),
-                                  Positioned(
-                                    bottom: 12,
-                                    right: 12,
-                                    child: IconButton(
-                                      onPressed: _signatureController.clear,
-                                      icon: ShaderMask(
-                                        shaderCallback: (bounds) =>
-                                            const LinearGradient(
-                                              colors: [
-                                                Color(0xFF0066A6),
-                                                Color(0xFF00BFA6),
-                                              ],
-                                            ).createShader(bounds),
-                                        blendMode: BlendMode.srcIn,
-                                        child: const HugeIcon(
-                                          icon: HugeIcons.strokeRoundedEraser,
-                                          size: 28,
-                                        ),
-                                      ),
+                                  Text(
+                                    "*",
+                                    style: ApptextstyleConstants.boldText(
+                                      color: ColorConstants.errorcolor,
+                                      fontSize: 18,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: CustomButtonWidget(
-                              text: _isLoading
-                                  ? "Please wait..."
-                                  : "Complete Quick Inspection",
-                              textSize: 16,
-                              isDisabled: _isLoading || basicCtrl.isUploading,
-                              showLoader: _isLoading,
-                              onPressed: () async {
-                                final file = await _saveSignature();
-                                if (file == null) return;
-                                setState(() {
-                                  _isLoading = true;
-                                });
-                                bool success = false;
-                                try {
-                                  basicCtrl.currentStage =
-                                      InspectionStage.signature;
-                                  basicCtrl.setSignatureFile(file);
-                                  success = await basicCtrl.proceedStep(
-                                    jobId: widget.jobId,
-                                    status: 3,
-                                    additionalComment: _complaintController.text
-                                        .trim(),
-                                  );
-                                  if (success) {
-                                    // Persist 'completed' so reopening still shows Summary.
-                                    await basicCtrl.markQuickInspectionCompleted();
-                                    _clearAllCache(context);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "Quick inspection completed successfully",
-                                          ),
-                                          backgroundColor:
-                                              ColorConstants.greenColor,
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: SizedBox(
+                                height:
+                                    MediaQuery.of(context).size.height * 0.30,
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        boxShadow:
+                                            ColorConstants.dashboardboxShadow,
+                                        border: Border.all(
+                                          color: ColorConstants.syanColor,
+                                          width: 1.5,
                                         ),
-                                      );
-                                      await Future.delayed(
-                                        const Duration(seconds: 1),
-                                      );
-                                      context.go(
-                                        '/jobcarddetails',
-                                        extra: widget.jobId,
-                                      );
-                                    }
-                                  } else {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "Failed to upload signature. Check offline sync.",
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Signature(
+                                        controller: _signatureController,
+                                        backgroundColor: Colors.white,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 12,
+                                      right: 12,
+                                      child: IconButton(
+                                        onPressed: _signatureController.clear,
+                                        icon: ShaderMask(
+                                          shaderCallback: (bounds) =>
+                                              const LinearGradient(
+                                                colors: [
+                                                  Color(0xFF0066A6),
+                                                  Color(0xFF00BFA6),
+                                                ],
+                                              ).createShader(bounds),
+                                          blendMode: BlendMode.srcIn,
+                                          child: const HugeIcon(
+                                            icon: HugeIcons.strokeRoundedEraser,
+                                            size: 28,
                                           ),
-                                          backgroundColor:
-                                              ColorConstants.errorcolor,
                                         ),
-                                      );
-                                    }
-                                  }
-                                } catch (e) {
-                                  debugPrint("Error completing inspection: $e");
-                                } finally {
-                                  if (mounted) {
-                                    setState(() {
-                                      _isLoading = false;
-                                    });
-                                  }
-                                }
-                              },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 30),
-                        ],
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: CustomButtonWidget(
+                                text: _isLoading
+                                    ? "Please wait..."
+                                    : "Complete Quick Inspection",
+                                textSize: 16,
+                                isDisabled: _isLoading || basicCtrl.isUploading,
+                                showLoader: _isLoading,
+                                onPressed: () async {
+                                  final file = await _saveSignature();
+                                  if (file == null) return;
+                                  setState(() {
+                                    _isLoading = true;
+                                  });
+                                  bool success = false;
+                                  try {
+                                    basicCtrl.currentStage =
+                                        InspectionStage.signature;
+                                    basicCtrl.setSignatureFile(file);
+                                    success = await basicCtrl.proceedStep(
+                                      jobId: widget.jobId,
+                                      status: 3,
+                                      additionalComment: _complaintController
+                                          .text
+                                          .trim(),
+                                    );
+                                    if (success) {
+                                      // Persist 'completed' so reopening still shows Summary.
+                                      await basicCtrl
+                                          .markQuickInspectionCompleted();
+                                      _clearAllCache(context);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Quick inspection completed successfully",
+                                            ),
+                                            backgroundColor:
+                                                ColorConstants.greenColor,
+                                          ),
+                                        );
+                                        await Future.delayed(
+                                          const Duration(seconds: 1),
+                                        );
+                                        context.go(
+                                          '/jobcarddetails',
+                                          extra: widget.jobId,
+                                        );
+                                      }
+                                    } else {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Failed to upload signature. Check offline sync.",
+                                            ),
+                                            backgroundColor:
+                                                ColorConstants.errorcolor,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
+                                    debugPrint(
+                                      "Error completing inspection: $e",
+                                    );
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() {
+                                        _isLoading = false;
+                                      });
+                                    }
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 30),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -435,5 +472,29 @@ class _QuickInspectionSummaryPageState
         ],
       ),
     );
+  }
+
+  Future<bool> _showExitConfirmation() async {
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            title: const Text("Discard changes?"),
+            content: const Text(
+              "Unsaved changes will be cleared. Are you sure you want to go back?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("NO"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("YES"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 }

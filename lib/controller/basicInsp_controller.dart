@@ -631,6 +631,23 @@ class BasicinspController extends ChangeNotifier {
         }
       }
       if (!isCompleted) {
+        for (int j = i + 1; j < steps.length; j++) {
+          final futureId = steps[j]['id'];
+          if (completedImageIds.contains(futureId)) {
+            isCompleted = true;
+            break;
+          }
+          if (lastcompleteId != null) {
+            if (futureId == lastcompleteId ||
+                (futureId == -20 && lastcompleteId == 2) ||
+                (futureId == -10 && lastcompleteId == 1)) {
+              isCompleted = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!isCompleted) {
         resumeIndex = i;
         break;
       }
@@ -1574,13 +1591,26 @@ class BasicinspController extends ChangeNotifier {
       List allAttachments = [];
 
       List externalImages = grouped["externalImages"] ?? [];
-      for (var img in externalImages) {
+      for (int k = 0; k < externalImages.length; k++) {
+        var img = externalImages[k];
         int? masterId = img["imageMasterId"] ?? img["id"] ?? img["inspectionImageId"];
         List attachments = img["attachments"] ?? [];
-        if (attachments.isNotEmpty && masterId != null) {
-          completedImageIds.add(masterId);
+        if (attachments.isNotEmpty) {
+          if (masterId != null && masterId != 0) {
+            completedImageIds.add(masterId);
+          }
+          if (externalImageList.isNotEmpty) {
+            List settingImages = externalImageList.first['images'] ?? [];
+            if (k < settingImages.length && settingImages[k]['id'] != null) {
+              completedImageIds.add(settingImages[k]['id']);
+            }
+          }
         }
         for (var att in attachments) {
+          int? attImageId = att["iaInspectionImageId"] ?? att["inspectionImageId"] ?? att["imageMasterId"];
+          if (attImageId != null && attImageId != 0) {
+            completedImageIds.add(attImageId);
+          }
           if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["iaInspectionType"] == 0 || att["is360"] == true)) {
             completedImageIds.add(-10);
           }
@@ -1589,13 +1619,26 @@ class BasicinspController extends ChangeNotifier {
       }
 
       List internalImages = grouped["internalImages"] ?? [];
-      for (var img in internalImages) {
+      for (int k = 0; k < internalImages.length; k++) {
+        var img = internalImages[k];
         int? masterId = img["imageMasterId"] ?? img["id"] ?? img["inspectionImageId"];
         List attachments = img["attachments"] ?? [];
-        if (attachments.isNotEmpty && masterId != null) {
-          completedImageIds.add(masterId);
+        if (attachments.isNotEmpty) {
+          if (masterId != null && masterId != 0) {
+            completedImageIds.add(masterId);
+          }
+          if (internalImageList.isNotEmpty) {
+            List settingImages = internalImageList.first['images'] ?? [];
+            if (k < settingImages.length && settingImages[k]['id'] != null) {
+              completedImageIds.add(settingImages[k]['id']);
+            }
+          }
         }
         for (var att in attachments) {
+          int? attImageId = att["iaInspectionImageId"] ?? att["inspectionImageId"] ?? att["imageMasterId"];
+          if (attImageId != null && attImageId != 0) {
+            completedImageIds.add(attImageId);
+          }
           if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["iaInspectionType"] == 1 || att["is360"] == true)) {
             completedImageIds.add(-20);
           }
