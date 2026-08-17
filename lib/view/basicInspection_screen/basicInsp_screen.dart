@@ -1,32 +1,257 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:async';
+import 'dart:io';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
-import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
-import 'package:inspection/view/global_widgets/fullScreenVideos.dart';
+import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
-import 'package:video_player/video_player.dart';
+import 'package:syncfusion_flutter_sliders/sliders.dart';
 
 class BasicinspScreen extends StatefulWidget {
   final int jobId;
   const BasicinspScreen({super.key, required this.jobId});
+
   @override
   State<BasicinspScreen> createState() => _BasicinspScreenState();
 }
 
-class _BasicinspScreenState extends State<BasicinspScreen> {
+class _BasicinspScreenState extends State<BasicinspScreen>
+    with WidgetsBindingObserver {
+  CameraController? _cameraController;
+  bool _isCameraReady = false;
+  bool _isCapturing = false;
+  bool _isRecording = false;
+  bool _isStopping = false;
+
+  double _currentZoom = 1.0;
+  double _minZoom = 1.0;
+  double _maxZoom = 10.0;
+  double _baseZoom = 1.0;
+  final List<double> baseLevels = [1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
+  int _zoomIndex = 0;
+  FlashMode _flashMode = FlashMode.auto;
+
+  Timer? _recordTimer;
+  int _remainingSeconds = 30;
+
   final FocusNode _notesFocusNode = FocusNode();
+  bool _showNotesDrawer = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initCamera();
+  }
+
+  Future<void> _initCamera() async {
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) return;
+      final rearCamera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+      _cameraController = CameraController(
+        rearCamera,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+      await _cameraController!.initialize();
+      double minZoom = await _cameraController!.getMinZoomLevel();
+      double maxZoom = await _cameraController!.getMaxZoomLevel();
+      if (Platform.isIOS) {
+        maxZoom = maxZoom.clamp(1.0, 10.0);
+      }
+      _minZoom = minZoom < 1.0 ? 1.0 : minZoom;
+      _maxZoom = maxZoom;
+      _currentZoom = 1.0;
+      _zoomIndex = baseLevels.contains(1.0) ? baseLevels.indexOf(1.0) : 0;
+      await _cameraController!.setZoomLevel(_currentZoom);
+      try {
+        await _cameraController!.setFlashMode(_flashMode);
+      } catch (_) {
+        _flashMode = FlashMode.off;
+      }
+      if (mounted) {
+        setState(() => _isCameraReady = true);
+      }
+    } catch (e) {
+      debugPrint("Camera init error: $e");
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final CameraController? cameraController = _cameraController;
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return;
+    }
+    if (state == AppLifecycleState.inactive) {
+      cameraController.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      _initCamera();
+    }
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notesFocusNode.dispose();
+    _recordTimer?.cancel();
+    _cameraController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+    setState(() {
+      _flashMode = _flashMode == FlashMode.off
+          ? FlashMode.auto
+          : _flashMode == FlashMode.auto
+          ? FlashMode.always
+          : FlashMode.off;
+    });
+    try {
+      await _cameraController!.setFlashMode(_flashMode);
+    } catch (_) {}
+  }
+
+  IconData get _flashIcon {
+    switch (_flashMode) {
+      case FlashMode.off:
+        return Icons.flash_off;
+      case FlashMode.auto:
+        return Icons.flash_auto;
+      case FlashMode.always:
+        return Icons.flash_on;
+      default:
+        return Icons.flash_off;
+    }
+  }
+
+  void _applyZoom(double zoom) {
+    zoom = zoom.clamp(_minZoom, _maxZoom);
+    setState(() {
+      _currentZoom = zoom;
+    });
+    _cameraController?.setZoomLevel(zoom);
+  }
+
+  void _zoomIn() {
+    if (_zoomIndex >= baseLevels.length - 1) return;
+    _zoomIndex++;
+    _applyZoom(baseLevels[_zoomIndex]);
+  }
+
+  void _zoomOut() {
+    if (_zoomIndex <= 0) return;
+    _zoomIndex--;
+    _applyZoom(baseLevels[_zoomIndex]);
+  }
+
+  Future<void> _takePhoto(BasicinspController controller) async {
+    final cam = _cameraController;
+    if (cam == null || !cam.value.isInitialized || _isCapturing || controller.isBusy) return;
+    if (controller.isMaxImagesCaptured) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Maximum  images reached for this item"),
+          duration: Duration(seconds: 1),
+          backgroundColor:ColorConstants.errorcolor
+        ),
+      );
+      return;
+    }
+    setState(() => _isCapturing = true);
+    try {
+      final XFile file = await cam.takePicture();
+      File photoFile = File(file.path);
+      int angle = 0;
+      try {
+        NativeDeviceOrientation orientation =
+            await NativeDeviceOrientationCommunicator().orientation(
+              useSensor: true,
+            );
+        if (orientation == NativeDeviceOrientation.landscapeLeft) {
+          angle = 270;
+        } else if (orientation == NativeDeviceOrientation.landscapeRight) {
+          angle = 90;
+        } else if (orientation == NativeDeviceOrientation.portraitDown) {
+          angle = 180;
+        }
+      } catch (e) {
+        debugPrint("Orientation error: $e");
+      }
+      final activeIndex = controller.selectedBoxIndex;
+      await controller.updateCapturedImage(
+        activeIndex,
+        photoFile,
+        angle: angle,
+      );
+      // Photo captured into box; camera stays open without auto-preview popup.
+    } catch (e) {
+      debugPrint("Photo error: $e");
+    } finally {
+      if (mounted) setState(() => _isCapturing = false);
+    }
+  }
+
+  Future<void> _startRecording(BasicinspController controller) async {
+    final cam = _cameraController;
+    if (cam == null || !cam.value.isInitialized || cam.value.isRecordingVideo || _isRecording || controller.isBusy) {
+      return;
+    }
+    try {
+      await cam.startVideoRecording();
+      final maxDuration = controller.is360Stage
+          ? controller.current360Duration
+          : (controller.currentItem?['videoDuration'] ?? 30);
+      setState(() {
+        _isRecording = true;
+        _remainingSeconds = maxDuration;
+      });
+      _recordTimer?.cancel();
+      _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_remainingSeconds <= 1) {
+          _stopRecording(controller);
+        } else {
+          setState(() {
+            _remainingSeconds--;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint("Start recording error: $e");
+    }
+  }
+
+  Future<void> _stopRecording(BasicinspController controller) async {
+    final cam = _cameraController;
+    if (cam == null || !cam.value.isRecordingVideo || _isStopping) return;
+    try {
+      setState(() => _isStopping = true);
+      _recordTimer?.cancel();
+      final XFile file = await cam.stopVideoRecording();
+      setState(() {
+        _isRecording = false;
+        _isStopping = false;
+      });
+      await controller.updateCapturedVideo(File(file.path));
+      // Video captured into box; camera stays open without auto-preview popup.
+    } catch (e) {
+      debugPrint("Stop recording error: $e");
+      if (mounted) setState(() => _isStopping = false);
+    }
   }
 
   @override
@@ -43,294 +268,151 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
       child: PopScope(
         canPop: false,
         onPopInvoked: (_) async {
+          final controller = Provider.of<BasicinspController>(context, listen: false);
+          if (controller.isBusy || _isRecording || _isStopping) return;
           if (await _showExitConfirmation()) {
             context.go('/home');
           }
         },
         child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          appBar: CustomAppBar(
-            title: "Basic Inspection",
-            onBackPress: () async {
-              if (await _showExitConfirmation()) {
-                context.go('/home');
-              }
-            },
-          ),
+          backgroundColor: Colors.black,
           body: SafeArea(
-            child: SingleChildScrollView(
-              child: Consumer<BasicinspController>(
-                builder: (context, controller, child) {
-                  if (controller.isLoading) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: List.generate(4, (_) => _inspectionShimmer()),
-                      ),
-                    );
-                  }
-                  controller.checkAndShowResumeStage(context);
-                  if (!controller.isBackendFullyConfigured) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(height: 280),
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              color: ColorConstants.orangecolor,
-                              size: 120,
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              "Inspection Image Settings Incomplete",
-                              textAlign: TextAlign.center,
-                              style: ApptextstyleConstants.lightText(
-                                fontSize: 16,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              "Please define External image lists in backend.",
-                              textAlign: TextAlign.center,
-                              style: ApptextstyleConstants.thinText(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            SizedBox(height: 20),
-                            CustomButtonWidget(
-                              text: 'Go To Home',
-                              textSize: 14,
-                              onPressed: () {
-                                context.go('/home');
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  final isImageStage =
-                      controller.currentStage ==
-                          InspectionStage.externalImages ||
-                      controller.currentStage == InspectionStage.internalImages;
-                  if (isImageStage && controller.currentImages.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  Map<String, dynamic>? item = controller.currentItem;
-                  int imageCount = item?['imageCount'] ?? 0;
-                  bool videoFlag = item?['videoFlag'] ?? false;
-                  int videoDuration = item?['videoDuration'] ?? 0;
-                  if (controller.currentStage == InspectionStage.additionalImages) {
-                    imageCount = 1;
-                    videoFlag = false;
-                    videoDuration = 0;
-                  }
-                  final String title = controller.currentStage == InspectionStage.additionalImages
-                      ? "Additional Image"
-                      : (controller.isQuick ? "Quick Inspection Image" : (controller.isExternalSelected ? "External Image" : "Internal Image"));
-                  final String label =
-                      controller.currentStage == InspectionStage.external360
-                      ? (controller.isQuick ? "360 Video" : "External 360 Video")
-                      : controller.currentStage == InspectionStage.internal360
-                      ? "Internal 360 Video"
-                      : controller.currentStage == InspectionStage.additionalImages
-                      ? "Additional Image ${controller.currentStep + 1}"
-                      : (item?['imageLabel'] ?? "");
-
-                  final bool isMandatory = controller.currentStage == InspectionStage.additionalImages ? false : (item?['imageMandatory'] ?? false);
+            child: Consumer<BasicinspController>(
+              builder: (context, controller, child) {
+                if (controller.isLoading) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 25,
-                      horizontal: 12,
-                    ),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              title.toUpperCase(),
-                              style: ApptextstyleConstants.lightText(
-                                fontSize: 18,
-                                color: ColorConstants.blackColor,
-                              ),
+                      children: List.generate(4, (_) => _inspectionShimmer()),
+                    ),
+                  );
+                }
+                controller.checkAndShowResumeStage(context);
+                if (!controller.isBackendFullyConfigured) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: ColorConstants.orangecolor,
+                            size: 100,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            "Inspection Image Settings Incomplete",
+                            textAlign: TextAlign.center,
+                            style: ApptextstyleConstants.lightText(
+                              fontSize: 16,
+                              color: Colors.white,
                             ),
-                            const SizedBox(width: 5),
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  label.toUpperCase(),
-                                  style: ApptextstyleConstants.italicText(
-                                    fontSize: 16,
-                                    color: ColorConstants.greenColor,
-                                  ),
-                                ),
-                              ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            "Please define External image lists in backend.",
+                            textAlign: TextAlign.center,
+                            style: ApptextstyleConstants.thinText(
+                              fontSize: 14,
+                              color: Colors.grey,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        _buildDynamicLayout(
-                          context,
-                          controller,
-                          imageCount,
-                          videoFlag,
-                          videoDuration,
-                        ),
-                        const SizedBox(height: 10),
-                        _textfield(controller, context),
-                        Row(
-                          children: [
-                            if (controller.shouldShowSkip) ...[
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: CustomButtonTwo(
-                                  text: "SKIP",
-                                  isDisabled:
-                                      controller.isVideoLoading ||
-                                      controller.isUploading,
-                                  onPressed: () {
-                                    _notesFocusNode.unfocus();
-                                    controller.skipStep(context);
-                                  },
+                          ),
+                          const SizedBox(height: 20),
+                          CustomButtonWidget(
+                            text: 'Go To Home',
+                            textSize: 14,
+                            onPressed: () {
+                              context.go('/home');
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                final isImageStage =
+                    controller.currentStage == InspectionStage.externalImages ||
+                    controller.currentStage == InspectionStage.internalImages;
+                if (isImageStage && controller.currentImages.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final capturedFile = controller.imageAt(
+                  controller.selectedBoxIndex,
+                );
+
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // 1. Embedded Camera Preview or Captured Image Preview Background
+                    if (!controller.isVideoModeSelected && capturedFile != null)
+                      _buildCapturedImagePreview(capturedFile)
+                    else
+                      _buildCameraPreview(),
+
+                    // 2. Top Navigation & Dynamic Header Overlay
+                    Positioned(
+                      top: 10,
+                      left: 12,
+                      right: 12,
+                      child: _buildTopHeaderRow(controller),
+                    ),
+
+                    // 3. Recording Indicator Badge
+                    if (_isRecording)
+                      Positioned(
+                        top: 70,
+                        left: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.circle,
+                                color: ColorConstants.errorcolor,
+                                size: 10,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                "REC ${_remainingSeconds}s",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
-                            SizedBox(width: 5),
-                            Expanded(
-                              child: CustomButtonWidget(
-                                text: "PROCEED",
-                                textSize: 16,
-                                isDisabled:
-                                    controller.isUploading ||
-                                    controller.isVideoLoading ||
-                                    (controller.currentStage != InspectionStage.additionalImages &&
-                                        !controller.isCurrentMandatory &&
-                                        !controller.hasAnyMedia),
-                                showLoader: controller.isUploading,
-                                onPressed: () async {
-                                  _notesFocusNode.unfocus();
-                                  final isValid = controller
-                                      .validateMandatoryImage();
-                                  if (!isValid) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        backgroundColor:
-                                            ColorConstants.errorcolor,
-                                        content: Text(
-                                          controller.is360Stage
-                                              ? "External 360 Video is mandatory"
-                                              : "Please capture required image",
-                                          style: ApptextstyleConstants.thinText(
-                                            color: ColorConstants.whiteColor,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  final success = await controller.proceedStep(
-                                    jobId: widget.jobId,
-                                    status: 2,
-                                  );
-                                  if (!context.mounted) return;
-                                  if (success) {
-                                    controller.nextStep(context);
-                                    controller.notesController.clear();
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        backgroundColor:
-                                            ColorConstants.errorcolor,
-                                        content: Text(
-                                          controller.lastErrorMessage.isNotEmpty
-                                              ? controller.lastErrorMessage
-                                              : "Failed to process inspection item.",
-                                          style: ApptextstyleConstants.thinText(
-                                            color: ColorConstants.whiteColor,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        if (isMandatory && !controller.is360Stage)
-                          Builder(
-                            builder: (context) {
-                              final hasImage = controller
-                                  .capturedImages
-                                  .isNotEmpty; // already filtered list
-                              final hasNote = controller.notesController.text
-                                  .trim()
-                                  .isNotEmpty;
-
-                              if (hasImage && hasNote) return const SizedBox();
-
-                              return Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 8,
-                                  bottom: 6,
-                                ),
-                                child: Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.deepOrange.withOpacity(0.08),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.deepOrange.withOpacity(0.4),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.warning_amber_rounded,
-                                        size: 16,
-                                        color: Colors.deepOrange,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          "Capture at least one image",
-                                          style: ApptextstyleConstants.thinText(
-                                            fontSize: 12,
-                                            color: ColorConstants.blackColor,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
                           ),
-                      ],
+                        ),
+                      ),
+
+                    // 4. Expandable Notes Bar / Drawer Overlay
+                    Positioned(
+                      bottom: 235,
+                      left: 12,
+                      right: 12,
+                      child: _buildNotesOverlay(controller),
                     ),
-                  );
-                },
-              ),
+
+                    // 5. Bottom Camera Control Panel (3 Rows)
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: _buildBottomControlPanel(controller),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -338,408 +420,731 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
     );
   }
 
-  Widget _textfield(BasicinspController controller, BuildContext context) {
-    return SizedBox(
-      height: 100,
-      child: Stack(
-        alignment: Alignment.centerRight,
+  Widget _buildCapturedImagePreview(File capturedFile) {
+    return Container(
+      // color: Colors.white,
+      width: double.infinity,
+      height: double.infinity,
+      child: Center(
+        child: Image.file(
+          capturedFile,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    if (!_isCameraReady || _cameraController == null) {
+      return const CameraShimmerLoader();
+    }
+    final size = MediaQuery.of(context).size;
+    var previewAspect = _cameraController!.value.aspectRatio;
+    if (size.height > size.width) {
+      previewAspect = 1 / previewAspect;
+    }
+    double scale = size.aspectRatio / previewAspect;
+    if (scale < 1) scale = 1 / scale;
+
+    return NativeDeviceOrientationReader(
+      useSensor: true,
+      builder: (context) {
+        return GestureDetector(
+          onScaleStart: (details) => _baseZoom = _currentZoom,
+          onScaleUpdate: (details) {
+            double zoom = (_baseZoom * details.scale).clamp(_minZoom, _maxZoom);
+            _applyZoom(zoom);
+          },
+          child: Transform.scale(
+            scale: scale,
+            child: Center(child: CameraPreview(_cameraController!)),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTopHeaderRow(BasicinspController controller) {
+    Map<String, dynamic>? item = controller.currentItem;
+
+    final String typeTitle =
+        controller.currentStage == InspectionStage.additionalImages
+        ? "Additional Image"
+        : (controller.isQuick
+              ? "Quick Image"
+              : (controller.isExternalSelected
+                    ? "External Image"
+                    : "Internal Image"));
+
+    final String label = controller.currentStage == InspectionStage.external360
+        ? (controller.isQuick ? "360 Video" : "External 360 Video")
+        : controller.currentStage == InspectionStage.internal360
+        ? "Internal 360 Video"
+        : controller.currentStage == InspectionStage.additionalImages
+        ? "Additional Image ${controller.currentStep + 1}"
+        : (item?['imageLabel'] ?? "");
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.65),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          TextField(
-            focusNode: _notesFocusNode,
-            controller: controller.notesController,
-            maxLines: 3,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (value) =>
-                context.read<BasicinspController>().notes = value,
-            decoration: InputDecoration(
-              hintText: "Contents & Additional Notes",
-              hintStyle: ApptextstyleConstants.thinText(
-                color: Colors.grey,
-                fontSize: 14,
-              ),
-              contentPadding: const EdgeInsets.only(
-                left: 12,
-                right: 60,
-                top: 12,
-                bottom: 12,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: ColorConstants.activecolor,
-                  width: 1.5,
-                ),
+          // Back Button
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              color: Colors.white,
+              size: 20,
+            ),
+            onPressed: (controller.isBusy || _isRecording || _isStopping)
+                ? null
+                : () async {
+                    if (await _showExitConfirmation()) {
+                      context.go('/home');
+                    }
+                  },
+          ),
+
+          const SizedBox(width: 8),
+
+          // Inspection Type
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: ColorConstants.syanColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: ColorConstants.syanColor, width: 1),
+            ),
+            child: Text(
+              typeTitle.toUpperCase(),
+              style: ApptextstyleConstants.mediumText(
+                fontSize: 12,
+                color: Colors.white,
               ),
             ),
           ),
-          Positioned(
-            right: 8,
-            child: controller.showListeningUI
-                ? _buildWaveMic(controller)
-                : IconButton(
+
+          const SizedBox(width: 8),
+
+          // Label gets available space
+          if (label.isNotEmpty)
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade900.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  label.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  softWrap: true,
+                  style: ApptextstyleConstants.italicText(
+                    fontSize: 12,
+                    color: ColorConstants.greenColor,
+                  ),
+                ),
+              ),
+            ),
+
+          const SizedBox(width: 8),
+
+          // FLASH ALWAYS AT RIGHT
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            icon: Icon(_flashIcon, color: Colors.white, size: 22),
+            onPressed: _toggleFlash,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotesOverlay(BasicinspController controller) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (_showNotesDrawer)
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.85),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    focusNode: _notesFocusNode,
+                    controller: controller.notesController,
+                    maxLines: 2,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: (value) => controller.notes = value,
+                    decoration: InputDecoration(
+                      hintText: "Notes & comments...",
+                      hintStyle: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 13,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                  ),
+                ),
+                if (controller.showListeningUI)
+                  _buildWaveMic(controller)
+                else
+                  IconButton(
                     icon: Icon(
                       Icons.mic_none,
                       color: ColorConstants.greenColor,
                     ),
                     onPressed: () => controller.startListening(),
                   ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _showNotesDrawer = !_showNotesDrawer;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _showNotesDrawer
+                      ? Icons.keyboard_arrow_down
+                      : Icons.edit_note,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _showNotesDrawer ? "Close Notes" : "Add Notes",
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomControlPanel(BasicinspController controller) {
+    Map<String, dynamic>? item = controller.currentItem;
+    int imageCount = 0;
+    if (controller.currentStage == InspectionStage.additionalImages) {
+      imageCount = 1;
+    } else if (controller.is360Stage) {
+      imageCount = 0;
+    } else {
+      imageCount = item?['imageCount'] ?? 0;
+    }
+
+    final bool hasVideoRequirement =
+        controller.is360Stage || (item?['videoFlag'] ?? false);
+    final int videoDuration = controller.is360Stage
+        ? controller.current360Duration
+        : (item?['videoDuration'] ?? 30);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── ROW 1: [ Image Boxes ] [ Video Box ] ──────────────────────────
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Dynamic Image Boxes from API / Configuration
+                for (int i = 0; i < imageCount; i++) ...[
+                  _buildImageBox(context, controller, i),
+                  const SizedBox(width: 8),
+                ],
+
+                // Video Box (Show ONLY if video requirement is configured)
+                if (hasVideoRequirement) ...[
+                  _buildVideoBox(context, controller, videoDuration),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── ROW 2: [ Zoom Controller ] ────────────────────────────────────
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.remove_circle_outline,
+                  color: Colors.white,
+                  size: 26,
+                ),
+                onPressed: _zoomOut,
+              ),
+              Expanded(
+                child: SfSlider(
+                  min: _minZoom,
+                  max: _maxZoom,
+                  value: _currentZoom,
+                  interval: 1,
+                  showTicks: false,
+                  showLabels: false,
+                  activeColor: ColorConstants.syanColor,
+                  inactiveColor: Colors.white30,
+                  onChanged: (dynamic value) {
+                    double zoom = value.clamp(_minZoom, _maxZoom);
+                    _applyZoom(zoom);
+                  },
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.add_circle_outline,
+                  color: Colors.white,
+                  size: 26,
+                ),
+                onPressed: _zoomIn,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                "${_currentZoom.toStringAsFixed(1)}x",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          // ── ROW 3: [ Skip ] [ Camera Button ] [ Next ] ───────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Skip Button
+              SizedBox(
+                width: 90,
+                child: controller.shouldShowSkip
+                    ? Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: CustomButtonTwo(
+                          text: "SKIP",
+                          isDisabled: controller.isBusy || _isRecording || _isStopping,
+                          onPressed:
+                              (controller.isBusy ||
+                                  _isRecording ||
+                                  _isStopping)
+                              ? null
+                              : () {
+                                  _notesFocusNode.unfocus();
+                                  controller.skipStep(context);
+                                },
+                        ),
+                      )
+                    : const SizedBox(),
+              ),
+
+              // Shutter / Camera / Record Button
+              GestureDetector(
+                onTap: (_isStopping || _isCapturing || controller.isBusy)
+                    ? null
+                    : (controller.isVideoModeSelected || controller.is360Stage)
+                    ? (_isRecording
+                          ? () => _stopRecording(controller)
+                          : () => _startRecording(controller))
+                    : () => _takePhoto(controller),
+                child: Container(
+                  width: 68,
+                  height: 68,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: ColorConstants.buttonGradient,
+                    border: Border.all(color: Colors.white, width: 3),
+                  ),
+                  child: Center(
+                    child: (_isStopping || controller.isVideoLoading || controller.isUploading)
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                        : Icon(
+                            _isRecording
+                                ? Icons.stop
+                                : (controller.isVideoModeSelected ||
+                                      controller.is360Stage)
+                                ? Icons.videocam
+                                : Icons.camera_alt,
+                            color: Colors.white,
+                            size: 36,
+                          ),
+                  ),
+                ),
+              ),
+
+              // Next / Proceed Button
+              SizedBox(
+                width: 90,
+                child: CustomButtonWidget(
+                  text: "NEXT",
+                  textSize: 14,
+                  showLoader: controller.isVideoLoading || controller.isUploading,
+                  isDisabled: controller.isBusy || _isRecording || _isStopping,
+                  onPressed:
+                      (controller.isBusy ||
+                          _isRecording ||
+                          _isStopping)
+                      ? null
+                      : () async {
+                          _notesFocusNode.unfocus();
+                          final isValid = controller.validateMandatoryImage();
+                          if (!isValid) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: ColorConstants.errorcolor,
+                                content: Text(
+                                  controller.is360Stage
+                                      ? "360 Video is mandatory"
+                                      : "Please capture required image",
+                                  style: ApptextstyleConstants.thinText(
+                                    color: ColorConstants.whiteColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          final success = await controller.proceedStep(
+                            jobId: widget.jobId,
+                            status: 2,
+                          );
+                          if (!context.mounted) return;
+                          if (success) {
+                            controller.nextStep(context);
+                            controller.notesController.clear();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: ColorConstants.errorcolor,
+                                content: Text(
+                                  controller.lastErrorMessage.isNotEmpty
+                                      ? controller.lastErrorMessage
+                                      : "Failed to process inspection item.",
+                                  style: ApptextstyleConstants.thinText(
+                                    color: ColorConstants.whiteColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDynamicLayout(
+  Widget _buildImageBox(
     BuildContext context,
     BasicinspController controller,
-    int imageCount,
-    bool videoFlag,
-    int videoDuration,
+    int index,
   ) {
-    final size = MediaQuery.of(context).size;
-    final orientation = MediaQuery.of(context).orientation;
+    final file = controller.imageAt(index);
+    final isSelected =
+        !controller.isVideoModeSelected && controller.selectedBoxIndex == index;
+    final isBusy = controller.isBusy || _isRecording || _isStopping;
 
-    final bool isLandscape = orientation == Orientation.landscape;
-
-    double h(double portrait, double landscape) {
-      return isLandscape ? size.height * landscape : size.height * portrait;
-    }
-
-    final boxHeight = isLandscape ? size.height * 0.45 : size.height * 0.22;
-    final largeBoxHeight = isLandscape ? size.height * 0.7 : size.height * 0.60;
-
-    final is360Stage =
-        controller.currentStage == InspectionStage.external360 ||
-        controller.currentStage == InspectionStage.internal360;
-    Widget imageBox(int index, {double? height}) {
-      final file = controller.imageAt(index);
-      return GestureDetector(
-        onTap: () {
-          _notesFocusNode.unfocus();
-          controller.handleImageTap(
-            context,
-            imageIndex: index,
-            mediaType: MediaType.image,
-          );
-        },
-        child: Stack(
-          children: [
-            Container(
-              height: height ?? boxHeight,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                // color: ColorConstants.whiteColor,
-                border: Border.all(color: const Color(0xFFDADADA), width: 1),
-                borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: isBusy
+          ? null
+          : () {
+              _notesFocusNode.unfocus();
+              if (file != null) {
+                // Open Preview directly if captured
+                controller.handleImageTap(
+                  context,
+                  imageIndex: index,
+                  mediaType: MediaType.image,
+                );
+              } else {
+                // Focus this box for upcoming photo capture
+                controller.selectBoxIndex(index);
+              }
+            },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.black45,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: ColorConstants.whiteColor
               ),
-              child: file != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+            ),
+            child: file != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      color: Colors.white,
+                      width: double.infinity,
+                      height: double.infinity,
                       child: Image.file(
                         file,
                         fit: BoxFit.contain,
                         width: double.infinity,
                         height: double.infinity,
                       ),
-                    )
-                  : const Center(child: Icon(Icons.camera_alt, size: 30)),
-            ),
-            if (file != null)
-              Positioned(
-                bottom: 12,
-                right: 12,
-                child: GestureDetector(
-                  onTap: () {
-                    _notesFocusNode.unfocus();
-                    controller.handleImageTap(
-                      context,
-                      imageIndex: index,
-                      mediaType: MediaType.image,
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      shape: BoxShape.circle,
                     ),
-                    child: SvgPicture.asset(
-                      'assets/svg/repeat.svg',
-                      width: 18,
-                      height: 18,
-                      colorFilter: ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.camera_alt,
+                        color: Colors.white,
+                        size: 24,
                       ),
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Image ${index + 1}",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ),
+          ),
+          if (file != null) ...[
+            Positioned(
+              top: -6,
+              right: -6,
+              child: GestureDetector(
+                onTap: isBusy
+                    ? null
+                    : () {
+                        _notesFocusNode.unfocus();
+                        controller.removeCapturedImage(index);
+                      },
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade700,
+                    shape: BoxShape.circle,
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black45, blurRadius: 3),
+                    ],
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 12),
                 ),
               ),
+            ),
           ],
-        ),
-      );
-    }
+        ],
+      ),
+    );
+  }
 
-    Widget videoBox({double? height}) {
-      final videoFile = controller.capturedVideo;
-      final duration = is360Stage
-          ? controller.current360Duration
-          : videoDuration;
-      return GestureDetector(
-        onTap: controller.isVideoLoading
-            ? null
-            : () {
-                _notesFocusNode.unfocus();
-                final rootContext = Navigator.of(
-                  context,
-                  rootNavigator: true,
-                ).context;
+  Widget _buildVideoBox(
+    BuildContext context,
+    BasicinspController controller,
+    int duration,
+  ) {
+    final videoFile = controller.capturedVideo;
+    final isSelected = controller.isVideoModeSelected || controller.is360Stage;
+    final isVideoLoading = controller.isVideoLoading;
+    final isBusy = controller.isBusy || _isRecording || _isStopping;
+
+    return GestureDetector(
+      onTap: isBusy
+          ? null
+          : () {
+              _notesFocusNode.unfocus();
+              if (videoFile != null && !isVideoLoading) {
+                // Open Video Preview directly if captured
                 controller.handleImageTap(
-                  rootContext,
+                  context,
                   imageIndex: 0,
                   mediaType: MediaType.video,
                   maxDuration: duration,
                 );
-              },
-        child: Stack(
-          children: [
-            Container(
-              height: height ?? boxHeight,
-              decoration: BoxDecoration(
-                border:Border.all(color: const Color(0xFFDADADA), width: 1),
-                borderRadius: BorderRadius.circular(12),
+              } else if (!isVideoLoading) {
+                // Select Video Mode
+                controller.selectVideoMode();
+              }
+            },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.black45,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color:  ColorConstants.whiteColor
               ),
-              child: videoFile != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          VideoPreviewWidget(file: videoFile),
-                          const Center(
-                            child: Icon(
-                              Icons.play_circle_fill,
-                              color: Colors.white,
-                              size: 50,
-                            ),
-                          ),
-                          if (controller.isVideoLoading)
-                            Container(
-                              color: Colors.black.withOpacity(0.4),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    )
-                  : controller.isVideoLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: ColorConstants.syanColor,
-                      ),
-                    )
-                  : const Center(
-                      child: Icon(
-                        Icons.videocam,
-                        color: ColorConstants.greyColor,
-                        size: 35,
-                      ),
-                    ),
             ),
-            if (videoFile != null)
-              Positioned(
-                bottom: 12,
-                right: 12,
-                child: GestureDetector(
-                  onTap: () {
-                    _notesFocusNode.unfocus();
-                    final rootContext = Navigator.of(
-                      context,
-                      rootNavigator: true,
-                    ).context;
-                    controller.handleImageTap(
-                      rootContext,
-                      imageIndex: 0,
-                      mediaType: MediaType.video,
-                      maxDuration: duration,
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: SvgPicture.asset(
-                      'assets/svg/repeat.svg',
-                      width: 18,
-                      height: 18,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
+            child: isVideoLoading
+                ? const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       ),
+                      SizedBox(height: 4),
+                      Text(
+                        "Processing...",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                        ),
+                      ),
+                    ],
+                  )
+                : videoFile != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        VideoPreviewWidget(file: videoFile),
+                        const Center(
+                          child: Icon(
+                            Icons.play_circle_fill,
+                            color: Colors.white,
+                            size: 26,
+                          ),
+                        ),
+                      ],
                     ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.videocam,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Video",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
+          ),
+          if (videoFile != null && !isVideoLoading) ...[
+
             Positioned(
-              top: 6,
-              right: 6,
-              child: IconButton(
-                icon: const Icon(Icons.fullscreen, color: Colors.white),
-                onPressed: () async {
-                  if (videoFile == null) return;
-                  final videoController = VideoPlayerController.file(videoFile);
-                  await videoController.initialize();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          FullScreenVideos(controller: videoController),
-                    ),
-                  );
-                },
+              top: -6,
+              right: -6,
+              child: GestureDetector(
+                onTap: isBusy
+                    ? null
+                    : () {
+                        _notesFocusNode.unfocus();
+                        controller.removeCapturedVideo();
+                      },
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade700,
+                    shape: BoxShape.circle,
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black45, blurRadius: 3),
+                    ],
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 12),
+                ),
               ),
             ),
           ],
-        ),
-      );
-    }
-
-    final isAdditionalStage =
-        controller.currentStage == InspectionStage.additionalImages;
-    if (is360Stage) {
-      return videoBox(height: largeBoxHeight);
-    }
-    if (isAdditionalStage || (imageCount == 1 && !videoFlag)) {
-      return imageBox(0, height: h(0.60, 0.75));
-    }
-    if (imageCount == 1 && videoFlag) {
-      return Column(
-        children: [
-          imageBox(
-            0,
-            height: isLandscape ? size.height * 0.6 : size.height * 0.35,
-          ),
-          const SizedBox(height: 10),
-          videoBox(height: boxHeight),
         ],
-      );
-    }
-    if (imageCount == 2 && !videoFlag) {
-      return Column(
-        children: [
-          imageBox(0, height: h(0.28, 0.45)),
-          const SizedBox(height: 10),
-          imageBox(1, height: h(0.28, 0.45)),
-        ],
-      );
-    }
-    if (imageCount == 2 && videoFlag) {
-      return Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: imageBox(0, height: h(0.35, 0.55))),
-              const SizedBox(width: 10),
-              Expanded(child: imageBox(1, height: h(0.35, 0.55))),
-            ],
-          ),
-          const SizedBox(height: 10),
-          videoBox(height: h(0.22, 0.40)),
-        ],
-      );
-    }
-    if (imageCount == 3 && !videoFlag) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: imageBox(0)),
-          const SizedBox(width: 8),
-          Expanded(child: imageBox(1)),
-          const SizedBox(width: 8),
-          Expanded(child: imageBox(2)),
-        ],
-      );
-      // GridView.builder(
-      //   shrinkWrap: true,
-      //   physics: const NeverScrollableScrollPhysics(),
-      //   itemCount: 3,
-      //   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      //     crossAxisCount: 2,
-      //     crossAxisSpacing: 10,
-      //     mainAxisSpacing: 10,
-      //     childAspectRatio: 0.7,
-      //   ),
-      //   itemBuilder: (_, index) => imageBox(index),
-      // );
-    }
-    if (imageCount == 3 && videoFlag) {
-      return Column(
-        children: [
-          // GridView.builder(
-          //   shrinkWrap: true,
-          //   physics: const NeverScrollableScrollPhysics(),
-          //   itemCount: 3,
-          //   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          //     crossAxisCount: 3,
-          //     crossAxisSpacing: 8,
-          //     mainAxisSpacing: 8,
-          //     childAspectRatio: 0.6,
-          //   ),
-          //   itemBuilder: (_, index) => imageBox(index),
-          // ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(child: imageBox(0)),
-              const SizedBox(width: 8),
-              Expanded(child: imageBox(1)),
-              const SizedBox(width: 8),
-              Expanded(child: imageBox(2)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          videoBox(height: boxHeight),
-        ],
-      );
-    }
-    return const SizedBox();
+      ),
+    );
   }
 
   Widget _buildWaveMic(BasicinspController controller) {
     return Container(
-      height: 40,
+      height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.red.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            height: 30,
-            width: 40,
+            height: 24,
+            width: 36,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: List.generate(
                 4,
                 (index) => TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 6, end: 20),
+                  tween: Tween(begin: 6, end: 18),
                   duration: Duration(milliseconds: 400 + (index * 150)),
                   curve: Curves.easeInOut,
                   builder: (context, value, child) {
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
-                      width: 4,
+                      width: 3,
                       height: controller.isListening ? value : 6,
                       decoration: BoxDecoration(
                         color: Colors.red,
@@ -748,7 +1153,7 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
                     );
                   },
                   onEnd: () {
-                    if (controller.isListening) {
+                    if (controller.isListening && mounted) {
                       setState(() {});
                     }
                   },
@@ -756,10 +1161,10 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           GestureDetector(
             onTap: controller.stopListening,
-            child: const Icon(Icons.close, color: Colors.red, size: 20),
+            child: const Icon(Icons.close, color: Colors.red, size: 18),
           ),
         ],
       ),
@@ -797,13 +1202,43 @@ class _BasicinspScreenState extends State<BasicinspScreen> {
       enabled: true,
       direction: const ShimmerDirection.fromLTRB(),
       child: Container(
-        height: 200,
+        height: 180,
         width: double.infinity,
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color: Colors.grey.shade300,
+          color: Colors.grey.shade800,
+        ),
+      ),
+    );
+  }
+}
+
+class CameraShimmerLoader extends StatelessWidget {
+  const CameraShimmerLoader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 40),
+        child: Shimmer(
+          duration: const Duration(seconds: 2),
+          interval: const Duration(milliseconds: 500),
+          color: ColorConstants.lightblackColor,
+          colorOpacity: 0.6,
+          enabled: true,
+          direction: const ShimmerDirection.fromLTRB(),
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: ColorConstants.borderGreyColor,
+            ),
+          ),
         ),
       ),
     );

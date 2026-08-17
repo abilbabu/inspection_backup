@@ -313,31 +313,25 @@ class _SignatureScreenState extends State<SignatureScreen> {
                             controller.isCompleted ||
                             reportLoading,
                         showLoader: controller.isUploading,
-                        onPressed:
-                            controller.isUploading ||
-                            controller.isCompleted ||
-                            reportLoading
+                        onPressed: controller.isUploading ||
+                                controller.isCompleted ||
+                                reportLoading
                             ? null
                             : () async {
                                 final additionalComment =
                                     _additionalCommentController.text.trim();
                                 final file = await _saveSignature();
                                 if (file == null) return;
-                                bool success = false;
-                                await controller.runWithLoader(() async {
-                                  controller.currentStage =
-                                      InspectionStage.signature;
-                                  controller.setSignatureFile(file);
-                                  success = await controller.proceedStep(
-                                    jobId: controller.jobId,
-                                    status: 3,
-                                    additionalComment: additionalComment,
-                                  );
-                                  if (success) {
-                                    controller.isCompleted = true;
-                                  }
-                                });
+                                controller.currentStage =
+                                    InspectionStage.signature;
+                                controller.setSignatureFile(file);
+                                final success = await controller.proceedStep(
+                                  jobId: controller.jobId,
+                                  status: 3,
+                                  additionalComment: additionalComment,
+                                );
                                 if (!success) return;
+                                controller.isCompleted = true;
                                 _clearAllData(context);
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
