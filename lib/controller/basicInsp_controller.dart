@@ -77,6 +77,7 @@ class BasicinspController extends ChangeNotifier {
   bool isCompleted = false;
   bool isLoading = true;
   bool get isBackendFullyConfigured => externalImageList.isNotEmpty;
+  bool get isBusy => isVideoLoading || isUploading || isImageLoading;
 
   Set<int> completedImageIds = {};
   int? lastcompleteId;
@@ -329,7 +330,7 @@ class BasicinspController extends ChangeNotifier {
         }
         if (result is File) {
           if (mediaType == MediaType.image) {
-            final compressed = await compressImage(result);
+            final compressed = await compressImage(result, angle: currentAngle);
             await _deleteOldImage(_capturedImages[imageIndex]);
             _capturedImages[imageIndex] = compressed;
           } else {
@@ -365,7 +366,7 @@ class BasicinspController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<File> compressImage(File file) async {
+  Future<File> compressImage(File file, {int angle = 0}) async {
     final dir = await getTemporaryDirectory();
     final targetPath = path.join(
       dir.path,
@@ -379,6 +380,9 @@ class BasicinspController extends ChangeNotifier {
           format: CompressFormat.jpeg,
           minWidth: 1080,
           minHeight: 1080,
+          rotate: angle,
+          autoCorrectionAngle: true,
+          keepExif: false,
         );
     if (compressedXFile == null) return file;
     final compressedFile = File(compressedXFile.path);
@@ -464,6 +468,7 @@ class BasicinspController extends ChangeNotifier {
           _safeSortImages(images);
           internalImageList.first['images'] = images;
         }
+        await getBasicInspection(jobId);
         _calculateResumeStep();
         isLoading = false;
         notifyListeners();
@@ -623,29 +628,8 @@ class BasicinspController extends ChangeNotifier {
       final step = steps[i];
       final id = step['id'];
       bool isCompleted = completedImageIds.contains(id);
-      if (lastcompleteId != null) {
-        if (id == lastcompleteId ||
-            (id == -20 && lastcompleteId == 2) ||
-            (id == -10 && lastcompleteId == 1)) {
-          isCompleted = true;
-        }
-      }
-      if (!isCompleted) {
-        for (int j = i + 1; j < steps.length; j++) {
-          final futureId = steps[j]['id'];
-          if (completedImageIds.contains(futureId)) {
-            isCompleted = true;
-            break;
-          }
-          if (lastcompleteId != null) {
-            if (futureId == lastcompleteId ||
-                (futureId == -20 && lastcompleteId == 2) ||
-                (futureId == -10 && lastcompleteId == 1)) {
-              isCompleted = true;
-              break;
-            }
-          }
-        }
+      if (lastcompleteId != null && id == lastcompleteId) {
+        isCompleted = true;
       }
       if (!isCompleted) {
         resumeIndex = i;
@@ -711,6 +695,10 @@ class BasicinspController extends ChangeNotifier {
   }
 
   Map<String, dynamic>? get currentItem {
+    if (currentStage != InspectionStage.internalImages &&
+        currentStage != InspectionStage.externalImages) {
+      return null;
+    }
     if (currentImages.isEmpty) return null;
     if (currentStep >= currentImages.length) return null;
     return currentImages[currentStep];
@@ -798,6 +786,75 @@ class BasicinspController extends ChangeNotifier {
     }
   }
 
+  int selectedBoxIndex = 0;
+  bool isVideoModeSelected = false;
+
+  void selectBoxIndex(int index) {
+    selectedBoxIndex = index;
+    isVideoModeSelected = false;
+    notifyListeners();
+  }
+
+  void selectVideoMode() {
+    isVideoModeSelected = true;
+    notifyListeners();
+  }
+
+  Future<void> updateCapturedImage(int index, File file, {int angle = 0}) async {
+    final compressed = await compressImage(file, angle: angle);
+    if (index >= 0 && index < _capturedImages.length) {
+      await _deleteOldImage(_capturedImages[index]);
+      _capturedImages[index] = compressed;
+    } else if (_capturedImages.length < 3) {
+      _capturedImages.add(compressed);
+    }
+    // Auto-advance to next uncaptured image box if available
+    for (int i = 0; i < _capturedImages.length; i++) {
+      if (_capturedImages[i] == null) {
+        selectedBoxIndex = i;
+        break;
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<void> removeCapturedImage(int index) async {
+    if (index >= 0 && index < _capturedImages.length) {
+      await _deleteOldImage(_capturedImages[index]);
+      _capturedImages[index] = null;
+      selectedBoxIndex = index;
+      isVideoModeSelected = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> removeCapturedVideo() async {
+    await _deleteOldVideo(_capturedVideo);
+    _capturedVideo = null;
+    isVideoModeSelected = true;
+    notifyListeners();
+  }
+
+  bool get isMaxImagesCaptured {
+    if (_capturedImages.isEmpty) return false;
+    return _capturedImages.every((img) => img != null);
+  }
+
+  Future<void> updateCapturedVideo(File videoFile) async {
+    try {
+      isVideoLoading = true;
+      notifyListeners();
+      final compressed = await compressVideo(videoFile);
+      await _deleteOldVideo(_capturedVideo);
+      _capturedVideo = compressed;
+    } catch (e) {
+      debugPrint("Update captured video error: $e");
+    } finally {
+      isVideoLoading = false;
+      notifyListeners();
+    }
+  }
+
   void _initializeCaptureList({bool reset = true}) {
     int imageCount = 0;
     if (currentStage == InspectionStage.additionalImages) {
@@ -806,11 +863,16 @@ class BasicinspController extends ChangeNotifier {
       final item = currentItem;
       imageCount = item?['imageCount'] ?? 0;
     }
+    if (imageCount > 3) {
+      imageCount = 3;
+    }
     if (reset || _capturedImages.length != imageCount) {
       _capturedImages = List<File?>.filled(imageCount, null);
       capturedStatus = List.generate(imageCount, (_) => false);
     }
     _capturedVideo = null;
+    selectedBoxIndex = 0;
+    isVideoModeSelected = is360Stage;
     showValidation = false;
     notifyListeners();
   }
@@ -835,6 +897,7 @@ class BasicinspController extends ChangeNotifier {
         currentImages = [];
         _capturedVideo = null;
         _initializeCaptureList();
+        if (isQuick) _persistQuickStage('360Video');
         notifyListeners();
         return;
       }
@@ -874,6 +937,7 @@ class BasicinspController extends ChangeNotifier {
             currentImages = [];
             currentStep = 0;
             _initializeCaptureList();
+            _persistQuickStage('additionalImages');
             notifyListeners();
             return;
           }
@@ -885,6 +949,7 @@ class BasicinspController extends ChangeNotifier {
           currentImages = [];
           _capturedVideo = null;
           _initializeCaptureList();
+          if (isQuick) _persistQuickStage('360Video');
           notifyListeners();
           return;
         }
@@ -907,9 +972,10 @@ class BasicinspController extends ChangeNotifier {
     _moveToNextStage(context);
   }
 
-  void _moveToNextStage(BuildContext context) {
+  void _moveToNextStage(BuildContext context) async {
     if (currentStage == InspectionStage.internalImages) {
       currentStage = InspectionStage.internal360;
+      currentImages = [];
       _capturedVideo = null;
       notifyListeners();
       return;
@@ -941,12 +1007,15 @@ class BasicinspController extends ChangeNotifier {
           currentImages = [];
           currentStep = 0;
           _initializeCaptureList();
+          _persistQuickStage('additionalImages');
           notifyListeners();
           return;
         }
       }
       currentStage = InspectionStage.external360;
+      currentImages = [];
       _capturedVideo = null;
+      if (isQuick) _persistQuickStage('360Video');
       notifyListeners();
       return;
     }
@@ -958,10 +1027,12 @@ class BasicinspController extends ChangeNotifier {
         currentImages = [];
         _capturedVideo = null;
         _initializeCaptureList();
+        if (isQuick) _persistQuickStage('360Video');
         notifyListeners();
         return;
       }
       currentStage = InspectionStage.diagram;
+      if (isQuick) _persistQuickStage('carDiagram');
       notifyListeners();
       openCarDiagram(context);
       return;
@@ -978,13 +1049,10 @@ class BasicinspController extends ChangeNotifier {
       if (isQuick) {
         currentStage = InspectionStage.completed;
         // Car Diagram saved via this path; Quick Inspection Summary is now pending.
-        _persistQuickStage('summary');
-        notifyListeners();
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (context.mounted) {
-            context.go('/quickInspectionSummary', extra: jobId);
-          }
-        });
+        await _persistQuickStage('summary');
+        if (context.mounted) {
+          context.go('/quickInspectionSummary', extra: jobId);
+        }
         return;
       }
       currentStage = InspectionStage.signature;
@@ -1030,26 +1098,28 @@ class BasicinspController extends ChangeNotifier {
   }
 
   Future<void> skipStep(BuildContext context) async {
-    if (currentItem != null) {
-      final int skippedId = currentItem!['id'];
-      completedImageIds.add(skippedId);
-      await LocalUploadStorageService.saveSkippedImageId(jobId, skippedId);
-    } else if (currentStage == InspectionStage.additionalImages) {
-      completedImageIds.add(-100 - currentStep);
-      await LocalUploadStorageService.saveSkippedImageId(jobId, -100 - currentStep);
-    } else if (currentStage == InspectionStage.internal360) {
+    if (currentStage == InspectionStage.internal360) {
       completedImageIds.add(-20);
       await LocalUploadStorageService.saveSkippedImageId(jobId, -20);
     } else if (currentStage == InspectionStage.external360) {
       completedImageIds.add(-10);
       await LocalUploadStorageService.saveSkippedImageId(jobId, -10);
+    } else if (currentStage == InspectionStage.additionalImages) {
+      completedImageIds.add(-100 - currentStep);
+      await LocalUploadStorageService.saveSkippedImageId(jobId, -100 - currentStep);
+    } else if (currentItem != null) {
+      final int skippedId = currentItem!['id'];
+      completedImageIds.add(skippedId);
+      await LocalUploadStorageService.saveSkippedImageId(jobId, skippedId);
     }
     // When skipping on additionalImages, jump directly to external360
     // (or diagram if no 360 configured), bypassing remaining additional images.
-    if (currentStage == InspectionStage.additionalImages) {
-      _moveToNextStage(context);
-    } else {
-      _moveToNextIncompleteImage(context);
+    if (context.mounted) {
+      if (currentStage == InspectionStage.additionalImages) {
+        _moveToNextStage(context);
+      } else {
+        _moveToNextIncompleteImage(context);
+      }
     }
   }
 
@@ -1065,20 +1135,19 @@ class BasicinspController extends ChangeNotifier {
     );
     if (result != null) {
       carDiagramPath = result;
-      notifyListeners();
       if (isQuick) {
         currentStage = InspectionStage.completed;
         // Car Diagram successfully saved; Quick Inspection Summary is now pending.
         // Persist BEFORE navigating so reopen always lands on Summary.
-        _persistQuickStage('summary');
-        notifyListeners();
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (context.mounted) {
-            context.go('/quickInspectionSummary', extra: jobId);
-          }
-        });
+        await _persistQuickStage('summary');
+        if (context.mounted) {
+          context.go('/quickInspectionSummary', extra: jobId);
+        }
       } else {
-        openSignature(context);
+        if (context.mounted) {
+          notifyListeners();
+          openSignature(context);
+        }
       }
     }
   }
@@ -1116,6 +1185,7 @@ class BasicinspController extends ChangeNotifier {
     required int status,
     String additionalComment = "",
   }) async {
+    if (isUploading || isVideoLoading) return false;
     final item = currentItem;
     final bool hasNewMedia = is360Stage 
         ? (_capturedVideo != null) 
@@ -1246,6 +1316,7 @@ class BasicinspController extends ChangeNotifier {
         }
         if (currentStage == InspectionStage.external360) {
           completedImageIds.add(-10);
+          if (isQuick) _persistQuickStage('carDiagram');
         }
         if (currentStage == InspectionStage.internal360) {
           completedImageIds.add(-20);
@@ -1296,6 +1367,7 @@ class BasicinspController extends ChangeNotifier {
           }
           if (currentStage == InspectionStage.external360) {
             completedImageIds.add(-10);
+            if (isQuick) _persistQuickStage('carDiagram');
           }
           if (currentStage == InspectionStage.internal360) {
             completedImageIds.add(-20);
@@ -1390,6 +1462,7 @@ class BasicinspController extends ChangeNotifier {
         }
         if (currentStage == InspectionStage.external360) {
           completedImageIds.add(-10);
+          if (isQuick) _persistQuickStage('carDiagram');
         }
         if (currentStage == InspectionStage.internal360) {
           completedImageIds.add(-20);
@@ -1487,7 +1560,7 @@ class BasicinspController extends ChangeNotifier {
 
   /// Persists the current Quick Inspection pending stage to SharedPreferences.
   /// Called ONLY after a successful save/proceed operation — never on screen open.
-  /// Key: 'quick_stage_<jobId>'   Values: 'carDiagram' | 'summary' | 'completed'
+  /// Key: 'quick_stage_{jobId}'   Values: 'carDiagram' | 'summary' | 'completed'
   Future<void> _persistQuickStage(String stage) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1498,40 +1571,83 @@ class BasicinspController extends ChangeNotifier {
     }
   }
 
+  int _getQuickStageRank(dynamic stage) {
+    if (stage is InspectionStage) {
+      switch (stage) {
+        case InspectionStage.externalImages:
+          return 0;
+        case InspectionStage.additionalImages:
+          return 1;
+        case InspectionStage.external360:
+          return 2;
+        case InspectionStage.diagram:
+          return 3;
+        case InspectionStage.completed:
+          return 4;
+        default:
+          return 0;
+      }
+    } else if (stage is String) {
+      switch (stage) {
+        case 'quickImages':
+          return 0;
+        case 'additionalImages':
+          return 1;
+        case '360Video':
+          return 2;
+        case 'carDiagram':
+          return 3;
+        case 'summary':
+        case 'completed':
+          return 4;
+        default:
+          return 0;
+      }
+    }
+    return 0;
+  }
+
   /// Overrides the API-computed resume stage with the persisted Quick Inspection
-  /// stage when the persisted stage is further ahead in the flow.
-  ///
-  /// Scenarios handled:
-  ///   'carDiagram' → set currentStage = diagram (if not already at/past diagram)
-  ///   'summary'    → set currentStage = completed + hasOpenedResumeStage = false
-  ///   'completed'  → same as 'summary' (signature was saved, re-show Summary)
+  /// stage when the persisted stage is further ahead in the flow based on stage rank.
   void _applyPersistedStageOverride() {
     final persisted = _persistedQuickStage;
     if (persisted == null) return;
 
-    if (persisted == 'carDiagram') {
-      // 360° Video was saved; Car Diagram is the pending stage.
-      // Only override if the API-computed stage has not yet reached diagram.
-      final isAlreadyAtDiagramOrBeyond =
-          currentStage == InspectionStage.diagram ||
-          currentStage == InspectionStage.completed;
-      if (!isAlreadyAtDiagramOrBeyond) {
-        debugPrint('QuickInspection [$jobId]: persisted override → diagram (was $currentStage)');
+    final persistedRank = _getQuickStageRank(persisted);
+    final apiRank = _getQuickStageRank(currentStage);
+
+    bool shouldOverride = persistedRank > apiRank;
+    if (!shouldOverride && persisted == '360Video' && !completedImageIds.contains(-10)) {
+      shouldOverride = true;
+    }
+    if (shouldOverride) {
+      debugPrint('QuickInspection [$jobId]: persisted override → $persisted (was $currentStage, rank $apiRank vs persisted $persistedRank)');
+      if (persisted == 'summary' || persisted == 'completed') {
+        currentStage = InspectionStage.completed;
+        currentSectionData = null;
+        currentImages = [];
+        hasOpenedResumeStage = false;
+      } else if (persisted == 'carDiagram') {
         currentStage = InspectionStage.diagram;
         currentSectionData = null;
         currentImages = [];
-        // hasOpenedResumeStage stays false so checkAndShowResumeStage opens CarDiagram.
         hasOpenedResumeStage = false;
+      } else if (persisted == '360Video') {
+        currentStage = InspectionStage.external360;
+        if (externalImageList.isNotEmpty) {
+          currentSectionData = externalImageList.first;
+        }
+        currentImages = [];
+        _capturedVideo = null;
+        _initializeCaptureList();
+      } else if (persisted == 'additionalImages') {
+        currentStage = InspectionStage.additionalImages;
+        if (externalImageList.isNotEmpty) {
+          currentSectionData = externalImageList.first;
+        }
+        currentImages = [];
+        _initializeCaptureList();
       }
-    } else if (persisted == 'summary' || persisted == 'completed') {
-      // Car Diagram was saved; Quick Inspection Summary is the pending stage.
-      // Force completed + reset hasOpenedResumeStage so checkAndShowResumeStage
-      // navigates to /quickInspectionSummary.
-      debugPrint('QuickInspection [$jobId]: persisted override → completed/summary (was $currentStage)');
-      currentStage = InspectionStage.completed;
-      currentSectionData = null;
-      currentImages = [];
-      hasOpenedResumeStage = false;
     }
   }
 
@@ -1679,24 +1795,66 @@ class BasicinspController extends ChangeNotifier {
         }
       }
 
-      bool has360 = grouped["external360"] != null || grouped["360"] != null || grouped["video360"] != null;
-      if (!has360) {
+      bool hasExternal360 = grouped["external360"] != null || grouped["360"] != null || grouped["video360"] != null;
+      if (!hasExternal360) {
         for (var att in allAttachments) {
-          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["is360"] == true)) {
-            has360 = true;
+          final isAtt360 = att["iaType"] == 2 && (att["iaImageType"] == 10 || att["is360"] == true || att["attachType"] == 10 || att["attachType"] == "10");
+          if (isAtt360 && (att["iaInspectionType"] == 0 || isQuick)) {
+            hasExternal360 = true;
             break;
           }
         }
       }
-      if (has360) {
+      if (hasExternal360) {
         completedImageIds.add(-10);
       }
 
+      bool hasInternal360 = grouped["internal360"] != null;
+      if (!hasInternal360) {
+        for (var att in allAttachments) {
+          if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["is360"] == true) && att["iaInspectionType"] == 1) {
+            hasInternal360 = true;
+            break;
+          }
+        }
+      }
+      if (hasInternal360) {
+        completedImageIds.add(-20);
+      }
+
       if (grouped["cardiagram"] != null) {
-        completedImageIds.add(-30);
+        var cd = grouped["cardiagram"];
+        bool hasDiagramContent = false;
+        if (cd is String && cd.isNotEmpty) {
+          hasDiagramContent = true;
+        } else if (cd is Map) {
+          if ((cd["url"] != null && cd["url"].toString().isNotEmpty) ||
+              (cd["path"] != null && cd["path"].toString().isNotEmpty) ||
+              (cd["imageUrl"] != null && cd["imageUrl"].toString().isNotEmpty) ||
+              (cd["attachments"] is List && (cd["attachments"] as List).isNotEmpty)) {
+            hasDiagramContent = true;
+          }
+        }
+        if (hasDiagramContent) {
+          completedImageIds.add(-30);
+        }
       }
       if (grouped["signature"] != null) {
-        completedImageIds.add(-40);
+        var sig = grouped["signature"];
+        bool hasSigContent = false;
+        if (sig is String && sig.isNotEmpty) {
+          hasSigContent = true;
+        } else if (sig is Map) {
+          if ((sig["url"] != null && sig["url"].toString().isNotEmpty) ||
+              (sig["path"] != null && sig["path"].toString().isNotEmpty) ||
+              (sig["signatureUrl"] != null && sig["signatureUrl"].toString().isNotEmpty) ||
+              (sig["attachments"] is List && (sig["attachments"] as List).isNotEmpty)) {
+            hasSigContent = true;
+          }
+        }
+        if (hasSigContent) {
+          completedImageIds.add(-40);
+        }
       }
 
       // Include pending offline local queue items so offline progress is maintained across app returns
