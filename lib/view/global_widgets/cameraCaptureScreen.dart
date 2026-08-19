@@ -4,6 +4,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/permission_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
@@ -53,33 +55,52 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    final rearCamera = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.back,
-    );
-    _controller = CameraController(
-      rearCamera,
-      ResolutionPreset.high,
-      enableAudio: false,
-    );
-    await _controller.initialize();
-    double minZoom = await _controller.getMinZoomLevel();
-    double maxZoom = await _controller.getMaxZoomLevel();
-    if (Platform.isIOS) {
-      maxZoom = maxZoom.clamp(1.0, 10.0);
+    final bool hasPermission = widget.isVideo
+        ? await PermissionService.instance.requestVideoPermissions(context)
+        : await PermissionService.instance.requestCameraPermission(context);
+
+    if (!hasPermission) {
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      return;
     }
-    _minZoom = minZoom < 1 ? 1 : minZoom;
-    _maxZoom = maxZoom;
-    _currentZoom = 1.0;
-    _zoomIndex = baseLevels.indexOf(1.0);
-    await _controller.setZoomLevel(_currentZoom);
+
     try {
-      await _controller.setFlashMode(_flashMode);
-    } on CameraException catch (e) {
-      _flashMode = FlashMode.off;
+      final cameras = await availableCameras();
+      final rearCamera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+      _controller = CameraController(
+        rearCamera,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+      await _controller.initialize();
+      double minZoom = await _controller.getMinZoomLevel();
+      double maxZoom = await _controller.getMaxZoomLevel();
+      if (Platform.isIOS) {
+        maxZoom = maxZoom.clamp(1.0, 10.0);
+      }
+      _minZoom = minZoom < 1 ? 1 : minZoom;
+      _maxZoom = maxZoom;
+      _currentZoom = 1.0;
+      _zoomIndex = baseLevels.indexOf(1.0);
+      await _controller.setZoomLevel(_currentZoom);
+      try {
+        await _controller.setFlashMode(_flashMode);
+      } on CameraException catch (_) {
+        _flashMode = FlashMode.off;
+      }
+      if (!mounted) return;
+      setState(() => _ready = true);
+    } catch (e) {
+      debugPrint("Camera init error: $e");
+      if (mounted) {
+        Navigator.pop(context);
+      }
     }
-    if (!mounted) return;
-    setState(() => _ready = true);
   }
 
   Future<void> _toggleFlash() async {
@@ -218,6 +239,20 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   void _handleScaleStart(ScaleStartDetails details) {
     _baseZoom = _currentZoom;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted || !_ready) return;
+    if (state == AppLifecycleState.inactive) {
+      _controller.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      Permission.camera.status.then((status) {
+        if (status.isGranted && mounted) {
+          _initCamera();
+        }
+      });
+    }
   }
 
   @override

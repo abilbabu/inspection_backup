@@ -9,6 +9,7 @@ import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/model/upload_queue_model.dart';
 import 'package:inspection/utils/local_upload_storage_service.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
+import 'package:inspection/utils/permission_service.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
 import 'package:path/path.dart' as path;
@@ -52,12 +53,23 @@ class VehicleessentialController extends ChangeNotifier {
     return _capturedImages[index];
   }
 
-  Future<void> initSpeech() async {
+  Future<void> initSpeech([BuildContext? context]) async {
+    if (context != null) {
+      final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+      if (!hasMic) return;
+    }
     speechEnabled = await _speechToText.initialize();
     notifyListeners();
   }
 
-  Future<void> startListening() async {
+  Future<void> startListening([BuildContext? context]) async {
+    if (context != null) {
+      final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+      if (!hasMic) return;
+    }
+    if (!speechEnabled) {
+      speechEnabled = await _speechToText.initialize();
+    }
     if (!speechEnabled) return;
     await _speechToText.stop();
     await _speechToText.cancel();

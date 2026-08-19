@@ -8,8 +8,10 @@ import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/permission_service.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
@@ -52,6 +54,8 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Future<void> _initCamera() async {
+    final hasPermission = await PermissionService.instance.requestCameraPermission(context);
+    if (!hasPermission) return;
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) return;
@@ -97,7 +101,11 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     if (state == AppLifecycleState.inactive) {
       cameraController.dispose();
     } else if (state == AppLifecycleState.resumed) {
-      _initCamera();
+      Permission.camera.status.then((status) {
+        if (status.isGranted && mounted) {
+          _initCamera();
+        }
+      });
     }
   }
 
@@ -211,6 +219,8 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     if (cam == null || !cam.value.isInitialized || cam.value.isRecordingVideo || _isRecording || controller.isBusy) {
       return;
     }
+    final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+    if (!hasMic) return;
     try {
       await cam.startVideoRecording();
       final maxDuration = controller.is360Stage
@@ -261,7 +271,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         final controller = BasicinspController(jobId: widget.jobId);
         Future.microtask(() async {
           await controller.getBasicimageList();
-          await controller.initSpeech();
         });
         return controller;
       },
@@ -614,7 +623,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                       Icons.mic_none,
                       color: ColorConstants.greenColor,
                     ),
-                    onPressed: () => controller.startListening(),
+                    onPressed: () => controller.startListening(context),
                   ),
               ],
             ),

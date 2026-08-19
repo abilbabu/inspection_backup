@@ -87,7 +87,6 @@ class _InspectionCardState extends State<InspectionCard> {
       if (!mounted) return;
       final formController = context.read<InspectionFormController>();
       final cardController = context.read<InspectioncardController>();
-      cardController.initSpeech();
       cardController.loadExistingTask(
         formController: formController,
         taskId: widget.taskid,
@@ -392,6 +391,7 @@ class _InspectionCardState extends State<InspectionCard> {
                                               if (!allowed) return;
                                               cardController.startListening(
                                                 SpeechField.description,
+                                                context,
                                               );
                                             },
                                           ),
@@ -837,7 +837,7 @@ class _InspectionCardState extends State<InspectionCard> {
                             controller,
                           );
                       if (!allowed) return;
-                      controller.startListening(SpeechField.note);
+                      controller.startListening(SpeechField.note, context);
                     },
                   ),
           ),
@@ -1048,7 +1048,7 @@ class _InspectionCardState extends State<InspectionCard> {
                                   audioController,
                                 );
                             if (!allowed) return;
-                            await toggleRecording();
+                            await audioController.toggleRecording(context);
                             audioController.markChanged();
                           },
                     child: Row(

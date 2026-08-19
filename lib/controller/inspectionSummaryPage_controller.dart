@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:inspection/utils/permission_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/model/apiResponsModel.dart';
@@ -38,7 +39,11 @@ class InspectionsummarypageController extends ChangeNotifier {
 
   TextEditingController? _speechController;
 
-  Future<void> initSpeech() async {
+  Future<void> initSpeech([BuildContext? context]) async {
+    if (context != null) {
+      final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+      if (!hasMic) return;
+    }
     speechEnabled = await _speechToText.initialize();
     notifyListeners();
   }
@@ -55,7 +60,13 @@ class InspectionsummarypageController extends ChangeNotifier {
 
   Future<void> startListening({
     required TextEditingController controller,
+    BuildContext? context,
   }) async {
+    if (context != null) {
+      final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+      if (!hasMic) return;
+    }
+
     if (!speechEnabled) {
       speechEnabled = await _speechToText.initialize();
     }

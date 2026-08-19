@@ -1058,10 +1058,9 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                   color: Colors.green,
                                 ),
                                 onPressed: () async {
-                                  await controller.initSpeech();
-
                                   await controller.startListening(
                                     controller: _commentController,
+                                    context: context,
                                   );
                                 },
                               ),

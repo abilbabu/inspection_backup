@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/controller/signatureSpeech_controller .dart';
+import 'package:inspection/utils/permission_service.dart';
 
 class VehicleDetails extends StatefulWidget {
   final int? jobId;
@@ -476,6 +477,7 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                                                     speechCtrl.startListening(
                                                   controller:
                                                       controller.complaintController,
+                                                  context: context,
                                                 ),
                                               ),
                                       ),

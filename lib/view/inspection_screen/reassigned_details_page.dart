@@ -600,7 +600,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
   Widget _buildTechnicianCommentsField() {
     return ChangeNotifierProvider(
-      create: (_) => InspectionsummarypageController()..initSpeech(),
+      create: (_) => InspectionsummarypageController(),
       child: Consumer<InspectionsummarypageController>(
         builder: (context, cardController, _) {
           return Card(
@@ -657,9 +657,9 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                                       color: Colors.green,
                                     ),
                                     onPressed: () async {
-                                      await speechController.initSpeech();
                                       await speechController.startListening(
                                         controller: _commentController,
+                                        context: context,
                                       );
                                     },
                                   ),

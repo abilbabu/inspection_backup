@@ -15,6 +15,7 @@ import 'package:inspection/controller/inspectionFormController.dart';
 import 'package:inspection/model/apiResponsModel.dart';
 import 'package:inspection/model/inspectionTaskModel.dart';
 import 'package:inspection/utils/constant/mediaCacheService%20.dart';
+import 'package:inspection/utils/permission_service.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
@@ -93,12 +94,23 @@ class InspectioncardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> initSpeech() async {
+  Future<void> initSpeech([BuildContext? context]) async {
+    if (context != null) {
+      final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+      if (!hasMic) return;
+    }
     speechEnabled = await _speechToText.initialize();
     notifyListeners();
   }
 
-  Future<void> startListening(SpeechField field) async {
+  Future<void> startListening(SpeechField field, [BuildContext? context]) async {
+    if (context != null) {
+      final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+      if (!hasMic) return;
+    }
+    if (!speechEnabled) {
+      speechEnabled = await _speechToText.initialize();
+    }
     if (!speechEnabled) return;
     if (isListening) {
       await stopListening();
@@ -217,7 +229,7 @@ class InspectioncardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleRecording() async {
+  Future<void> toggleRecording([BuildContext? context]) async {
     if (isNotApplicable || isSuccess) return;
     if (isRecording) {
       final path = await record.stop();
@@ -227,7 +239,11 @@ class InspectioncardController extends ChangeNotifier {
         notifyListeners();
       }
     } else {
-      if (await record.hasPermission()) {
+      bool hasMicPermission = true;
+      if (context != null) {
+        hasMicPermission = await PermissionService.instance.requestMicrophonePermission(context);
+      }
+      if (hasMicPermission) {
         final dir = await getTemporaryDirectory();
         final filePath =
             '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.aac';

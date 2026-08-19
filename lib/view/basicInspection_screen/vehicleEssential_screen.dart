@@ -37,7 +37,6 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
     Future.microtask(() {
       final controller = context.read<VehicleessentialController>();
       controller.getvehicleEssentialList();
-      controller.initSpeech();
       if (widget.jobId != null) {
         controller.fetchCustomerComplaint(widget.jobId!);
       }
@@ -340,6 +339,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                           ),
                           onPressed: () => speechCtrl.startListening(
                             controller: controller.complaintController,
+                            context: context,
                           ),
                         ),
                 ),

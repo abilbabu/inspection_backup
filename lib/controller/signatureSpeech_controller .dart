@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:inspection/utils/permission_service.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -17,7 +18,11 @@ class SignatureSpeechController  extends ChangeNotifier {
   TextEditingController? _speechController;
   TextEditingController? get activeController => _speechController;
 
-  Future<void> initSpeech() async {
+  Future<void> initSpeech([BuildContext? context]) async {
+    if (context != null) {
+      final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+      if (!hasMic) return;
+    }
     speechEnabled = await _speechToText.initialize();
     notifyListeners();
   }
@@ -34,7 +39,13 @@ class SignatureSpeechController  extends ChangeNotifier {
 
   Future<void> startListening({
     required TextEditingController controller,
+    BuildContext? context,
   }) async {
+    if (context != null) {
+      final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
+      if (!hasMic) return;
+    }
+
     if (!speechEnabled) {
       speechEnabled = await _speechToText.initialize();
     }
