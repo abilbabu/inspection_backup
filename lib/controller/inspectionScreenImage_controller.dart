@@ -49,7 +49,6 @@ class InspectionscreenimageController extends ChangeNotifier {
         await displayedImage.writeAsBytes(img.encodeJpg(fixed));
       }
     } catch (e) {
-      debugPrint("Rotation fix error: $e");
     }
   }
 
@@ -205,7 +204,6 @@ class InspectionscreenimageController extends ChangeNotifier {
       displayedImage = newFile;
       await preloadImage();
     } catch (e) {
-      debugPrint("Rotate error: $e");
     }
   }
 }

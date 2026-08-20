@@ -31,12 +31,14 @@ class InspectionTypeDetailspage extends StatefulWidget {
 
 class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
   final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final Set<int> _reInspectionTaskIds = {};
   bool _isSubmitting = false;
 
   @override
   void dispose() {
     _commentController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -326,6 +328,84 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                   ],
                   SizedBox(height: 10),
                   if (widget.inspectionTypeId != 2) ...[
+                    SizedBox(
+                      height: 44,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          controller.searchAssignedComponents(
+                            widget.inspectionFormId,
+                            value,
+                          );
+                        },
+                        decoration: InputDecoration(
+                          hintText: "Search components...",
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: Colors.grey.shade600,
+                            size: 20,
+                          ),
+                          suffixIcon: controller.isSearchingAssigned
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(
+                                        Icons.clear,
+                                        color: Colors.grey,
+                                        size: 20,
+                                      ),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        controller.searchAssignedComponents(
+                                          widget.inspectionFormId,
+                                          "",
+                                        );
+                                      },
+                                    )
+                                  : null,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: Colors.grey.shade300,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: Colors.grey.shade300,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                              color: ColorConstants.activecolor,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Consumer<InspectionFormController>(
                       builder: (context, formController, _) {
                         return Container(
@@ -383,8 +463,20 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                               .where((e) => e.value.isNotEmpty)
                               .toList();
                           if (validEntries.isEmpty) {
-                            return const Center(
-                              child: Text("No inspection tasks available"),
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 40),
+                                child: Text(
+                                  _searchController.text.isNotEmpty
+                                      ? "No items found"
+                                      : "No inspection tasks available",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 16,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
                             );
                           }
                           return Padding(

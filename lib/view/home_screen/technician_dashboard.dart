@@ -156,7 +156,6 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
         }
       }
     } catch (e) {
-      debugPrint("❗ Error fetching technician jobs: $e");
     } finally {
       setState(() {
         _isLoading = false;

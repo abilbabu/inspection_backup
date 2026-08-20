@@ -416,7 +416,6 @@ class CustomerDetailsController extends ChangeNotifier {
         }
       }
     } catch (e, stackTrace) {
-      debugPrint("📍 StackTrace: $stackTrace");
     }
     notifyListeners();
   }

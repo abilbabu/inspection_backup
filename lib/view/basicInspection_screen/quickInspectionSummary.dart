@@ -72,7 +72,6 @@ class _QuickInspectionSummaryPageState
         }
       }
     } catch (e) {
-      debugPrint("Error fetching complaint: $e");
     }
   }
 
@@ -399,9 +398,6 @@ class _QuickInspectionSummaryPageState
                                       }
                                     }
                                   } catch (e) {
-                                    debugPrint(
-                                      "Error completing inspection: $e",
-                                    );
                                   } finally {
                                     if (mounted) {
                                       setState(() {

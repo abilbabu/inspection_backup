@@ -414,7 +414,6 @@ class BasicinspController extends ChangeNotifier {
       }
       return info.file!;
     } catch (e) {
-      debugPrint("Video compression error: $e");
       return videoFile;
     }
   }
@@ -433,7 +432,6 @@ class BasicinspController extends ChangeNotifier {
         return aSort.compareTo(bSort);
       });
     } catch (e) {
-      debugPrint("Sort Error: $e");
     }
   }
 
@@ -860,7 +858,6 @@ class BasicinspController extends ChangeNotifier {
       await _deleteOldVideo(_capturedVideo);
       _capturedVideo = compressed;
     } catch (e) {
-      debugPrint("Update captured video error: $e");
     } finally {
       isVideoLoading = false;
       notifyListeners();
@@ -1577,9 +1574,7 @@ class BasicinspController extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('quick_stage_$jobId', stage);
-      debugPrint('QuickInspection [$jobId]: stage persisted → $stage');
     } catch (e) {
-      debugPrint('QuickInspection [$jobId]: Error persisting stage "$stage": $e');
     }
   }
 
@@ -1633,7 +1628,6 @@ class BasicinspController extends ChangeNotifier {
       shouldOverride = true;
     }
     if (shouldOverride) {
-      debugPrint('QuickInspection [$jobId]: persisted override → $persisted (was $currentStage, rank $apiRank vs persisted $persistedRank)');
       if (persisted == 'summary' || persisted == 'completed') {
         currentStage = InspectionStage.completed;
         currentSectionData = null;
@@ -1677,9 +1671,7 @@ class BasicinspController extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('quick_stage_$jobId');
-      debugPrint('QuickInspection [$jobId]: persisted stage cleared');
     } catch (e) {
-      debugPrint('QuickInspection [$jobId]: Error clearing persisted stage: $e');
     }
   }
 
@@ -1899,7 +1891,6 @@ class BasicinspController extends ChangeNotifier {
           }
         }
       } catch (err) {
-        debugPrint("Error merging offline queue ids: $err");
       }
 
       // Include skipped image IDs so skipped items are remembered offline
@@ -1907,12 +1898,10 @@ class BasicinspController extends ChangeNotifier {
         final skippedIds = await LocalUploadStorageService.getSkippedImageIds(jobId);
         completedImageIds.addAll(skippedIds);
       } catch (err) {
-        debugPrint("Error merging skipped image ids: $err");
       }
 
       isResumeLoaded = true;
     } catch (e) {
-      debugPrint("Resume error: $e");
     }
   }
 }

@@ -214,7 +214,6 @@ class _VehicleDetailsState extends State<VehicleDetails> {
 
       if (mounted) vehicleCtrl.notify();
     } catch (e) {
-      debugPrint('❗ _prefillFromJobId error: $e');
     }
   }
 

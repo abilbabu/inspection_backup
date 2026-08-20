@@ -137,11 +137,9 @@ class VehicleessentialController extends ChangeNotifier {
           final basicData = basicDecoded['data'];
           if (basicData != null && basicData['jobInspectionType'] != null) {
             inspectionType = basicData['jobInspectionType'].toString();
-            debugPrint("DEBUG: inspectionType set from getBasicInspectionByJobId: $inspectionType");
           }
         }
       } catch (e) {
-        debugPrint("Error fetching basic inspection type: $e");
       }
 
       final url = Uri.parse(ApiServices.getCustomerVehicleByJobId);
@@ -167,7 +165,6 @@ class VehicleessentialController extends ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint("Error fetching complaint: $e");
     }
   }
 
@@ -191,7 +188,6 @@ class VehicleessentialController extends ChangeNotifier {
       }
       return false;
     } catch (e) {
-      debugPrint("Error checking quick settings: $e");
       return false;
     }
   }

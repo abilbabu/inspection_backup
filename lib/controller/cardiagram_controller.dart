@@ -128,7 +128,6 @@ class CardiagramController extends ChangeNotifier {
           await pngFile.delete();
         }
       } catch (e) {
-        debugPrint("Error deleting temporary PNG file: $e");
       }
 
       if (compressedXFile != null) {
@@ -136,7 +135,6 @@ class CardiagramController extends ChangeNotifier {
       }
       return tempPngPath; // Fallback to raw png if compression fails
     } catch (e) {
-      debugPrint("Save error: $e");
       return null;
     }
   }

@@ -96,7 +96,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       if (!mounted) return;
       setState(() => _ready = true);
     } catch (e) {
-      debugPrint("Camera init error: $e");
       if (mounted) {
         Navigator.pop(context);
       }
@@ -152,7 +151,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       if (!mounted) return;
       Navigator.pop(context, {"file": File(file.path), "angle": angle});
     } catch (e) {
-      debugPrint("Photo error: $e");
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }
@@ -178,7 +176,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         }
       });
     } catch (e) {
-      debugPrint("Start recording error: $e");
     }
   }
 

@@ -83,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final userId = prefs.getString('userId');
       final userDepartment = prefs.getString('userDepartment');
       if (userId == null || userToken == null || userDepartment == null) {
-        debugPrint("❗ userId or token missing");
         return [];
       }
       final response = await http.post(

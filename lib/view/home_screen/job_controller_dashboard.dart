@@ -130,7 +130,6 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
         _applyFilterAndSearch();
       }
     } catch (e) {
-      debugPrint("❗ Error fetching job controller jobs: $e");
     } finally {
       if (mounted) {
         setState(() {

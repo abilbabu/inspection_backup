@@ -18,7 +18,6 @@ class InspectionFullscreenVideoController extends ChangeNotifier {
       isSuccess = true;
       return file;
     } catch (e) {
-      debugPrint("Video save error: $e");
       return null;
     } finally {
       isUploading = false;

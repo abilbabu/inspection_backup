@@ -109,7 +109,7 @@
 //       for (final a in attachments) {
 //         final type = a["imageType"];
 //         final label = a["label"];
-//         debugPrint("Attachment → type:$type label:$label");
+
 //         if (type >= 1 && type <= 6) {
 //           images.add(a);
 //         } else if (type == 10) {
@@ -385,7 +385,7 @@
 //       isRecording = false;
 //       videoConfirmed = false;
 //     } catch (e) {
-//       debugPrint("❌ Stop recording error: $e");
+
 //     } finally {
 //       isUploading = false;
 //       notifyListeners();
@@ -532,7 +532,7 @@
 //       await dio.post(ApiServices.basicInspection, data: formData);
 //       return true;
 //     } catch (e) {
-//       debugPrint("❌ Upload error: $e");
+
 //       return false;
 //     }
 //   }
