@@ -109,36 +109,14 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          if (_initialized) Builder(
-                            builder: (context) {
-                              final size = _controller.value.size;
-                              final isLandscape = size.width > size.height;
-
-                              return Container(
-                                width: double.infinity,
-                                height: double.infinity,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: Colors.cyan,
-                                    width: 2.5,
-                                  ),
-                                ),
-                                child: ClipRect(
-                                  child: FittedBox(
-                                    fit: BoxFit.cover,
-                                    child: Transform.rotate(
-                                      angle: isLandscape ? 1.5708 : 0,
-                                      child: SizedBox(
-                                        width: size.width > 0 ? size.width : 1,
-                                        height: size.height > 0 ? size.height : 1,
-                                        child: VideoPlayer(_controller),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ) else
+                          if (_initialized)
+                            Center(
+                              child: AspectRatio(
+                                aspectRatio: _controller.value.aspectRatio,
+                                child: VideoPlayer(_controller),
+                              ),
+                            )
+                          else
                             const Center(child: CircularProgressIndicator()),
 
                           if (_initialized && _controller.value.isBuffering)

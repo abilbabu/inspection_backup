@@ -11,24 +11,27 @@ import 'package:provider/provider.dart';
 class FullScreenImageScreen extends StatelessWidget {
   final File imageFile;
   final int angle;
+  final bool isReadOnly;
 
   const FullScreenImageScreen({
     super.key,
     required this.imageFile,
     this.angle = 0,
+    this.isReadOnly = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => InspectionscreenimageController()..init(imageFile, angle),
-      child: const _FullScreenImageView(),
+      child: _FullScreenImageView(isReadOnly: isReadOnly),
     );
   }
 }
 
 class _FullScreenImageView extends StatefulWidget {
-  const _FullScreenImageView();
+  final bool isReadOnly;
+  const _FullScreenImageView({this.isReadOnly = false});
 
   @override
   State<_FullScreenImageView> createState() => _FullScreenImageViewState();
@@ -36,10 +39,56 @@ class _FullScreenImageView extends StatefulWidget {
 
 class _FullScreenImageViewState extends State<_FullScreenImageView> {
   bool isLandscapeImage = false;
+  late TransformationController _transformationController;
+  TapDownDetails? _doubleTapDetails;
+  bool _isZoomed = false;
 
   @override
   void initState() {
     super.initState();
+    _transformationController = TransformationController();
+    _transformationController.addListener(_onTransformationChanged);
+  }
+
+  void _onTransformationChanged() {
+    final isCurrentlyZoomed = _transformationController.value != Matrix4.identity();
+    if (isCurrentlyZoomed != _isZoomed) {
+      if (mounted) {
+        setState(() {
+          _isZoomed = isCurrentlyZoomed;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _transformationController.removeListener(_onTransformationChanged);
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTapDown(TapDownDetails details) {
+    _doubleTapDetails = details;
+  }
+
+  void _handleDoubleTap() {
+    if (_transformationController.value != Matrix4.identity()) {
+      _resetZoom();
+    } else if (_doubleTapDetails != null) {
+      final position = _doubleTapDetails!.localPosition;
+      const double scale = 2.5;
+      final x = -position.dx * (scale - 1);
+      final y = -position.dy * (scale - 1);
+      final zoomedMatrix = Matrix4.identity()
+        ..translate(x, y)
+        ..scale(scale);
+      _transformationController.value = zoomedMatrix;
+    }
+  }
+
+  void _resetZoom() {
+    _transformationController.value = Matrix4.identity();
   }
 
   @override
@@ -47,155 +96,203 @@ class _FullScreenImageViewState extends State<_FullScreenImageView> {
     final controller = context.watch<InspectionscreenimageController>();
     return PopScope(
       canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.pop(context);
+        }
+      },
       child: Scaffold(
+        backgroundColor: Colors.white,
         appBar: CustomAppBar(
           title: "Image",
           onBackPress: () => Navigator.pop(context),
         ),
         body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 15),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 30),
+              const SizedBox(height: 12),
+              if (_isZoomed)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _resetZoom,
+                    icon: const Icon(Icons.refresh, color: Colors.black, size: 16),
+                    label: Text(
+                      "Reset Zoom",
+                      style: ApptextstyleConstants.lightText(
+                        color: Colors.black,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
               Expanded(
                 child: Stack(
                   children: [
                     Center(
                       child: controller.imageLoaded
-                          ? AspectRatio(
-                              aspectRatio: controller.aspectRatio,
-                              child: Container(
-                                key: controller.imageKey,
-                                child: Stack(
-                                  children: [
-                                    Positioned.fill(
-                                      child: Image.file(
-                                        controller.displayedImage,
-                                        fit: BoxFit.fill,
-                                      ),
-                                    ),
-                                    if (controller.isEditMode)
-                                      Positioned.fill(
-                                        child: GestureDetector(
-                                          onPanStart: (details) =>
-                                              controller.startStroke(details.localPosition),
-                                          onPanUpdate: (details) =>
-                                              controller.updateStroke(details.localPosition),
-                                          onPanEnd: (_) => controller.endStroke(),
-                                          child: CustomPaint(
-                                            painter: LinePainter(controller.strokes),
-                                            size: Size.infinite,
+                          ? GestureDetector(
+                              onDoubleTapDown: _handleDoubleTapDown,
+                              onDoubleTap: _handleDoubleTap,
+                              child: InteractiveViewer(
+                                transformationController: _transformationController,
+                                minScale: 1.0,
+                                maxScale: 4.0,
+                                panEnabled: !controller.isEditMode,
+                                scaleEnabled: true,
+                                boundaryMargin: const EdgeInsets.all(20),
+                                child: AspectRatio(
+                                  aspectRatio: controller.aspectRatio,
+                                  child: Container(
+                                    key: controller.imageKey,
+                                    child: Stack(
+                                      children: [
+                                        Positioned.fill(
+                                          child: Image.file(
+                                            controller.displayedImage,
+                                            fit: BoxFit.contain,
                                           ),
                                         ),
-                                      ),
-                                  ],
+                                        if (controller.isEditMode && !widget.isReadOnly)
+                                          Positioned.fill(
+                                            child: GestureDetector(
+                                              onPanStart: (details) =>
+                                                  controller.startStroke(details.localPosition),
+                                              onPanUpdate: (details) =>
+                                                  controller.updateStroke(details.localPosition),
+                                              onPanEnd: (_) => controller.endStroke(),
+                                              child: CustomPaint(
+                                                painter: LinePainter(controller.strokes),
+                                                size: Size.infinite,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             )
-                          : const Center(child: CircularProgressIndicator()),
+                          : const Center(
+                              child: CircularProgressIndicator(color: Colors.black),
+                            ),
                     ),
-                    Positioned(
-                      bottom: 12,
-                      right: 12,
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(context, "recapture"),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: SvgPicture.asset(
-                            'assets/svg/repeat.svg',
-                            width: 18,
-                            height: 18,
-                            colorFilter: const ColorFilter.mode(
-                              Colors.white,
-                              BlendMode.srcIn,
+                    if (!widget.isReadOnly)
+                      Positioned(
+                        bottom: 12,
+                        right: 12,
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(context, "recapture"),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: SvgPicture.asset(
+                              'assets/svg/repeat.svg',
+                              width: 18,
+                              height: 18,
+                              colorFilter: const ColorFilter.mode(
+                                Colors.white,
+                                BlendMode.srcIn,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: SvgPicture.asset(
-                      'assets/svg/repeat.svg',
-                      width: 14,
-                      height: 14,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.red,
-                        BlendMode.srcIn,
+              if (!widget.isReadOnly) ...[
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/svg/repeat.svg',
+                        width: 14,
+                        height: 14,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.red,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 2),
-                  Text(
-                    "Click the icon to capture again*",
-                    style: ApptextstyleConstants.lightText(
-                      fontSize: 12,
-                      color: ColorConstants.errorcolor,
+                    SizedBox(width: 2),
+                    Text(
+                      "Click the icon to capture again*",
+                      style: ApptextstyleConstants.lightText(
+                        fontSize: 12,
+                        color: ColorConstants.errorcolor,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.undo),
-                    onPressed: controller.strokes.isNotEmpty
-                        ? controller.undo
-                        : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.redo),
-                    onPressed: controller.redoStack.isNotEmpty
-                        ? controller.redo
-                        : null,
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      controller.isEditMode ? Icons.delete : Icons.edit,
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.undo),
+                      onPressed: controller.strokes.isNotEmpty
+                          ? controller.undo
+                          : null,
                     ),
-                    color: controller.isEditMode
-                        ? ColorConstants.holdorangeColor
-                        : ColorConstants.syanColor,
-                    onPressed: controller.toggleEditMode,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.rotate_90_degrees_ccw),
-                    onPressed: controller.rotateImage,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              CustomButtonWidget(
-                text: controller.isLoading
-                    ? "Please wait..."
-                    : controller.isSuccess
-                    ? "COMPLETED"
-                    : "SAVE",
-                textSize: 18,
-                isDisabled: controller.isLoading || controller.isSuccess,
-                showLoader: controller.isLoading,
-                onPressed: () async {
-                  final file = await controller.saveImageWithStrokes();
-                  if (!context.mounted || file == null) return;
-                  Navigator.pop(context, file);
-                },
-              ),
+                    IconButton(
+                      icon: const Icon(Icons.redo),
+                      onPressed: controller.redoStack.isNotEmpty
+                          ? controller.redo
+                          : null,
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        controller.isEditMode ? Icons.delete : Icons.edit,
+                      ),
+                      color: controller.isEditMode
+                          ? ColorConstants.holdorangeColor
+                          : ColorConstants.syanColor,
+                      onPressed: controller.toggleEditMode,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.rotate_90_degrees_ccw),
+                      onPressed: controller.rotateImage,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+              widget.isReadOnly
+                  ? CustomButtonWidget(
+                      text: "CLOSE",
+                      textSize: 18,
+                      textColor: ColorConstants.whiteColor,
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                    )
+                  : CustomButtonWidget(
+                      text: controller.isLoading
+                          ? "Please wait..."
+                          : controller.isSuccess
+                          ? "COMPLETED"
+                          : "SAVE",
+                      textSize: 18,
+                      isDisabled: controller.isLoading || controller.isSuccess,
+                      showLoader: controller.isLoading,
+                      onPressed: () async {
+                        final file = await controller.saveImageWithStrokes();
+                        if (!context.mounted || file == null) return;
+                        Navigator.pop(context, file);
+                      },
+                    ),
               const SizedBox(height: 40),
             ],
           ),
