@@ -395,16 +395,23 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                             child: ListView.separated(
                               separatorBuilder: (_, __) =>
                                   const SizedBox(height: 6),
-                              itemCount: validEntries.length + 1,
+                              itemCount: validEntries.length + 2,
                               itemBuilder: (context, index) {
-                                if (index == validEntries.length) {
+                                if (index == 0) {
+                                  return _buildCombinedInspectionCard(
+                                    context,
+                                    formController,
+                                    controller,
+                                  );
+                                }
+                                if (index == validEntries.length + 1) {
                                   return _buildBottomSection(
                                     context,
                                     formController,
                                     controller,
                                   );
                                 }
-                                final entry = validEntries[index];
+                                final entry = validEntries[index - 1];
                                 final categoryId = entry.key;
                                 final rawTasks = entry.value;
                                 final pendingTasks = rawTasks.where((task) {
@@ -412,263 +419,97 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                   return taskId != null &&
                                       !formController.isTaskSaved(taskId);
                                 }).toList();
-                                final completedTasks = rawTasks.where((task) {
-                                  final taskId = task["components"]?["itcId"];
-                                  return taskId != null &&
-                                      formController.isTaskSaved(taskId);
-                                }).toList();
                                 final categoryName =
                                     rawTasks.first["categoryName"] ??
                                     "Category $categoryId";
-                                return Column(
-                                  children: [
-                                    if (completedTasks.isNotEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: Colors.green,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                          child: ExpansionTile(
-                                            initiallyExpanded: false,
-                                            iconColor: Colors.green,
-                                            collapsedIconColor: Colors.green,
-                                            title: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    categoryName,
-                                                    style:
-                                                        ApptextstyleConstants.lightText(
-                                                          color: Colors.black,
-                                                          fontSize: 14,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.green
-                                                        .withOpacity(0.12),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          20,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: Colors.green,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    "Completed",
-                                                    style:
-                                                        ApptextstyleConstants.lightText(
-                                                          color: Colors.green,
-                                                          fontSize: 12,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            children: completedTasks.map((
-                                              task,
-                                            ) {
-                                              final components =
-                                                  task["components"];
-                                              // log(
-                                              //   "assemblyCodeName: ${components["assemblyCodeName"]}",
-                                              // );
-                                              return ChangeNotifierProvider(
-                                                key: ValueKey(
-                                                  components["itcId"],
-                                                ),
-                                                create: (_) =>
-                                                    InspectioncardController(),
-                                                child: InspectionCard(
-                                                  categoryId: categoryId,
-                                                  jobid: widget.jobId,
-                                                  taskid: components["itcId"],
-                                                  formid:
-                                                      widget.inspectionFormId,
-                                                  title: components["itcName"],
-                                                  inspectionTaskGoodFlag:
-                                                      components["allowGood"] ??
-                                                      false,
-                                                  inspectionTaskRepairFlag:
-                                                      components["allowRepair"] ??
-                                                      false,
-                                                  inspectionTaskReplaceFlag:
-                                                      components["allowReplace"] ??
-                                                      false,
-                                                  inspectionTaskPoorFlag:
-                                                      components["allowPoor"] ??
-                                                      false,
-                                                  inspectionTaskNotApplicable:
-                                                      components["allowNotApplicable"] ??
-                                                      false,
-                                                  inspectionTaskPhotoFlag:
-                                                      components["allowPhoto"] ??
-                                                      false,
-                                                  inspectionTaskAudioFlag:
-                                                      components["allowAudio"] ??
-                                                      false,
-                                                  inspectionTaskInstruction:
-                                                      components["instructionText"],
-                                                  inspectionPhotoMandatory:
-                                                      components["photoMandatory"] ??
-                                                      false,
-                                                  inspectionAudioMandatory:
-                                                      components["audioMandatory"] ??
-                                                      false,
-                                                  allowMultipleImage:
-                                                      components["allowMultipleImage"] ==
-                                                      true,
-                                                  allowVideo:
-                                                      components["allowVideo"] ==
-                                                      true,
-                                                  assemblyCodeName:
-                                                      components["assemblyCodeName"]
-                                                          ?.toString() ??
-                                                      "",
-                                                  assemblyCodeDesc:
-                                                      components["assemblyCodeDesc"]
-                                                          ?.toString() ??
-                                                      "",
-                                                  repairGroupName:
-                                                      components["repairGroupName"]
-                                                          ?.toString() ??
-                                                      "",
-                                                  repairGroupDesc:
-                                                      components["repairGroupDesc"]
-                                                          ?.toString() ??
-                                                      "",
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ),
+
+                                if (pendingTasks.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: ColorConstants.activecolor,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: ExpansionTile(
+                                      initiallyExpanded: true,
+                                      iconColor: ColorConstants.blackColor,
+                                      collapsedIconColor: Colors.black54,
+                                      title: Text(
+                                        categoryName,
+                                        style: ApptextstyleConstants.lightText(
+                                          color: ColorConstants.blackColor,
+                                          fontSize: 14,
                                         ),
                                       ),
-                                    if (pendingTasks.isNotEmpty)
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: ColorConstants.activecolor,
+                                      children: pendingTasks.map((task) {
+                                        final components = task["components"];
+                                        return ChangeNotifierProvider(
+                                          key: ValueKey(components["itcId"]),
+                                          create: (_) =>
+                                              InspectioncardController(),
+                                          child: InspectionCard(
+                                            categoryId: categoryId,
+                                            jobid: widget.jobId,
+                                            taskid: components["itcId"],
+                                            formid: widget.inspectionFormId,
+                                            title: components["itcName"],
+                                            inspectionTaskGoodFlag:
+                                                components["allowGood"] ?? false,
+                                            inspectionTaskRepairFlag:
+                                                components["allowRepair"] ?? false,
+                                            inspectionTaskReplaceFlag:
+                                                components["allowReplace"] ?? false,
+                                            inspectionTaskPoorFlag:
+                                                components["allowPoor"] ?? false,
+                                            inspectionTaskNotApplicable:
+                                                components["allowNotApplicable"] ??
+                                                false,
+                                            inspectionTaskPhotoFlag:
+                                                components["allowPhoto"] ?? false,
+                                            inspectionTaskAudioFlag:
+                                                components["allowAudio"] ?? false,
+                                            inspectionTaskInstruction:
+                                                components["instructionText"],
+                                            inspectionPhotoMandatory:
+                                                components["photoMandatory"] ??
+                                                false,
+                                            inspectionAudioMandatory:
+                                                components["audioMandatory"] ??
+                                                false,
+                                            allowMultipleImage:
+                                                components["allowMultipleImage"] ==
+                                                true,
+                                            allowVideo:
+                                                components["allowVideo"] == true,
+                                            assemblyCodeName:
+                                                components["assemblyCodeName"]
+                                                    ?.toString() ??
+                                                "",
+                                            assemblyCodeDesc:
+                                                components["assemblyCodeDesc"]
+                                                    ?.toString() ??
+                                                "",
+                                            repairGroupName:
+                                                components["repairGroupName"]
+                                                    ?.toString() ??
+                                                "",
+                                            repairGroupDesc:
+                                                components["repairGroupDesc"]
+                                                    ?.toString() ??
+                                                "",
                                           ),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
-                                          child: ExpansionTile(
-                                            initiallyExpanded: true,
-                                            iconColor:
-                                                ColorConstants.blackColor,
-                                            collapsedIconColor: Colors.black54,
-                                            title: Text(
-                                              categoryName,
-                                              style:
-                                                  ApptextstyleConstants.lightText(
-                                                    color: ColorConstants
-                                                        .blackColor,
-                                                    fontSize: 14,
-                                                  ),
-                                            ),
-                                            children: pendingTasks.map((task) {
-                                              final components =
-                                                  task["components"];
-                                              // log(
-                                              //   "assemblyCodeName: ${components["assemblyCodeName"]}",
-                                              // );
-                                              return ChangeNotifierProvider(
-                                                key: ValueKey(
-                                                  components["itcId"],
-                                                ),
-                                                create: (_) =>
-                                                    InspectioncardController(),
-                                                child: InspectionCard(
-                                                  categoryId: categoryId,
-                                                  jobid: widget.jobId,
-                                                  taskid: components["itcId"],
-                                                  formid:
-                                                      widget.inspectionFormId,
-                                                  title: components["itcName"],
-                                                  inspectionTaskGoodFlag:
-                                                      components["allowGood"] ??
-                                                      false,
-                                                  inspectionTaskRepairFlag:
-                                                      components["allowRepair"] ??
-                                                      false,
-                                                  inspectionTaskReplaceFlag:
-                                                      components["allowReplace"] ??
-                                                      false,
-                                                  inspectionTaskPoorFlag:
-                                                      components["allowPoor"] ??
-                                                      false,
-                                                  inspectionTaskNotApplicable:
-                                                      components["allowNotApplicable"] ??
-                                                      false,
-                                                  inspectionTaskPhotoFlag:
-                                                      components["allowPhoto"] ??
-                                                      false,
-                                                  inspectionTaskAudioFlag:
-                                                      components["allowAudio"] ??
-                                                      false,
-                                                  inspectionTaskInstruction:
-                                                      components["instructionText"],
-                                                  inspectionPhotoMandatory:
-                                                      components["photoMandatory"] ??
-                                                      false,
-                                                  inspectionAudioMandatory:
-                                                      components["audioMandatory"] ??
-                                                      false,
-                                                  allowMultipleImage:
-                                                      components["allowMultipleImage"] ==
-                                                      true,
-                                                  allowVideo:
-                                                      components["allowVideo"] ==
-                                                      true,
-                                                  assemblyCodeName:
-                                                      components["assemblyCodeName"]
-                                                          ?.toString() ??
-                                                      "",
-                                                  assemblyCodeDesc:
-                                                      components["assemblyCodeDesc"]
-                                                          ?.toString() ??
-                                                      "",
-                                                  repairGroupName:
-                                                      components["repairGroupName"]
-                                                          ?.toString() ??
-                                                      "",
-                                                  repairGroupDesc:
-                                                      components["repairGroupDesc"]
-                                                          ?.toString() ??
-                                                      "",
-                                                ),
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
                                 );
                               },
                             ),
@@ -682,6 +523,125 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCombinedInspectionCard(
+    BuildContext context,
+    InspectionFormController formController,
+    InspectionTypeDetailsController controller,
+  ) {
+    final entries = controller.groupedTasks.entries
+        .where((e) => e.value.isNotEmpty)
+        .toList();
+
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    final List<Map<String, dynamic>> allCompletedTasksWithCategory = [];
+    for (final entry in entries) {
+      final categoryId = entry.key;
+      final rawTasks = entry.value;
+      for (final task in rawTasks) {
+        final taskId = task["components"]?["itcId"];
+        if (taskId != null && formController.isTaskSaved(taskId)) {
+          allCompletedTasksWithCategory.add({
+            "categoryId": categoryId,
+            "task": task,
+          });
+        }
+      }
+    }
+
+    if (allCompletedTasksWithCategory.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.green),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: ExpansionTile(
+          initiallyExpanded: false,
+          iconColor: Colors.green,
+          collapsedIconColor: Colors.green,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  "Completed Inspections",
+                  style: ApptextstyleConstants.lightText(
+                    color: ColorConstants.greenColor,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: Text(
+                  allCompletedTasksWithCategory.length.toString(),
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          children: allCompletedTasksWithCategory.map((item) {
+            final categoryId = item["categoryId"];
+            final task = item["task"];
+            final components = task["components"];
+            return ChangeNotifierProvider(
+              key: ValueKey(components["itcId"]),
+              create: (_) => InspectioncardController(),
+              child: InspectionCard(
+                categoryId: categoryId,
+                jobid: widget.jobId,
+                taskid: components["itcId"],
+                formid: widget.inspectionFormId,
+                title: components["itcName"],
+                inspectionTaskGoodFlag: components["allowGood"] ?? false,
+                inspectionTaskRepairFlag: components["allowRepair"] ?? false,
+                inspectionTaskReplaceFlag: components["allowReplace"] ?? false,
+                inspectionTaskPoorFlag: components["allowPoor"] ?? false,
+                inspectionTaskNotApplicable:
+                    components["allowNotApplicable"] ?? false,
+                inspectionTaskPhotoFlag: components["allowPhoto"] ?? false,
+                inspectionTaskAudioFlag: components["allowAudio"] ?? false,
+                inspectionTaskInstruction: components["instructionText"],
+                inspectionPhotoMandatory:
+                    components["photoMandatory"] ?? false,
+                inspectionAudioMandatory:
+                    components["audioMandatory"] ?? false,
+                allowMultipleImage:
+                    components["allowMultipleImage"] == true,
+                allowVideo: components["allowVideo"] == true,
+                assemblyCodeName:
+                    components["assemblyCodeName"]?.toString() ?? "",
+                assemblyCodeDesc:
+                    components["assemblyCodeDesc"]?.toString() ?? "",
+                repairGroupName:
+                    components["repairGroupName"]?.toString() ?? "",
+                repairGroupDesc:
+                    components["repairGroupDesc"]?.toString() ?? "",
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
