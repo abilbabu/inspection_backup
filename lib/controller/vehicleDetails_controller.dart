@@ -143,7 +143,6 @@ class VehicleDetailsController with ChangeNotifier {
         }
       }
     } catch (e, stackTrace) {
-      debugPrint("📍 StackTrace: $stackTrace");
     }
     notifyListeners();
   }
@@ -180,8 +179,6 @@ class VehicleDetailsController with ChangeNotifier {
         }
       }
     } catch (e, stackTrace) {
-      debugPrint("📍 Error fetching emirate plate codes: $e");
-      debugPrint("📍 StackTrace: $stackTrace");
     }
     notifyListeners();
   }

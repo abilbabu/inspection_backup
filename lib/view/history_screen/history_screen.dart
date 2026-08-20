@@ -147,7 +147,6 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
         _allJobs = mapped;
       }
     } catch (e) {
-      debugPrint('History fetch error: $e');
     } finally {
       _applyFilterAndReset();
     }

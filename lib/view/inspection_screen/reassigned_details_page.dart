@@ -30,11 +30,13 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   final Set<int> _reInspectionTaskIds = {};
   final Set<int> _initialCompletedTaskIds = {};
   final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   bool _isSubmitting = false;
 
   @override
   void dispose() {
     _commentController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -156,7 +158,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         }
       }
     } catch (e) {
-      debugPrint("Error loading reassigned data: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -251,6 +252,84 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         style: ApptextstyleConstants.mediumText(
                           color: ColorConstants.textBlueColor,
                           fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 44,
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (value) {
+                            detailsCtrl.searchAssignedComponents(
+                              summaryCtrl.vimIfMasterId ?? 0,
+                              value,
+                            );
+                          },
+                          decoration: InputDecoration(
+                            hintText: "Search components...",
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 14,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: Colors.grey.shade600,
+                              size: 20,
+                            ),
+                            suffixIcon: detailsCtrl.isSearchingAssigned
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(
+                                          Icons.clear,
+                                          color: Colors.grey,
+                                          size: 20,
+                                        ),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          detailsCtrl.searchAssignedComponents(
+                                            summaryCtrl.vimIfMasterId ?? 0,
+                                            "",
+                                          );
+                                        },
+                                      )
+                                    : null,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 12,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: ColorConstants.activecolor,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -529,12 +608,14 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     }
 
     if (visibleTasks.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 20),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
         child: Center(
           child: Text(
-            "No re-inspection items assigned.",
-            style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+            _searchController.text.isNotEmpty
+                ? "No items found"
+                : "No re-inspection items assigned.",
+            style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
           ),
         ),
       );

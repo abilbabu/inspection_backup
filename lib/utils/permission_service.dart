@@ -110,7 +110,6 @@ class PermissionService {
     try {
       status = await permission.request();
     } catch (e) {
-      debugPrint("Error requesting $featureName permission: $e");
     } finally {
       _isRequestingPermission = false;
     }

@@ -56,7 +56,6 @@ class BasicInspectionReportController with ChangeNotifier {
       externalVideoController!.addListener(_externalVideoListener);
       notifyListeners();
     } catch (e) {
-      debugPrint("Error initializing external video: $e");
     }
   }
 
@@ -71,7 +70,6 @@ class BasicInspectionReportController with ChangeNotifier {
       internalVideoController!.addListener(_internalVideoListener);
       notifyListeners();
     } catch (e) {
-      debugPrint("Error initializing internal video: $e");
     }
   }
 
@@ -362,7 +360,6 @@ class BasicInspectionReportController with ChangeNotifier {
         initializeInternalVideo(internal360Video!);
       }
     } catch (e) {
-      debugPrint("Error : $e");
     } finally {
       isBasicInspectionLoading = false;
       notifyListeners();
@@ -410,7 +407,6 @@ class BasicInspectionReportController with ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint("Error: $e");
     } finally {
       isEssentialsLoading = false;
       notifyListeners();
@@ -449,7 +445,6 @@ class BasicInspectionReportController with ChangeNotifier {
       }
       return false;
     } catch (e) {
-      debugPrint("Error saving complaint: $e");
       return false;
     }
   }

@@ -415,7 +415,6 @@ class InspectioncardController extends ChangeNotifier {
       }
       return info.file!;
     } catch (e) {
-      debugPrint("Video compression error: $e");
       return videoFile;
     }
   }

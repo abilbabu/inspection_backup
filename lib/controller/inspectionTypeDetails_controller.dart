@@ -16,12 +16,15 @@ class InspectionTypeDetailsController extends ChangeNotifier {
   List<Map<String, dynamic>> taskMapping = [];
   List<Map<String, dynamic>> taskCategoryList = [];
   Map<int, List<Map<dynamic, dynamic>>> groupedTasks = {};
+  Map<int, List<Map<dynamic, dynamic>>> _unfilteredGroupedTasks = {};
   List<dynamic> allTaskComponents = [];
   List<dynamic> filteredTaskComponents = [];
   List<dynamic> suggestionTaskComponents = [];
 
   bool isLoading = false;
   bool isSearching = false;
+  bool isSearchingAssigned = false;
+  String _lastAssignedQuery = '';
 
   Timer? _debounceTimer;
   String _lastQuery = '';
@@ -173,7 +176,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         filteredTaskComponents = List.from(data);
       }
     } catch (e) {
-      debugPrint("❌ Search fetch error: $e");
     } finally {
       isSearching = false;
       notifyListeners();
@@ -505,7 +507,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<ApiResponse> postInspectionTypeDetails(int inspectionFormId, {bool updateLoading = true}) async {
+  Future<ApiResponse> postInspectionTypeDetails(int inspectionFormId, {String? query, bool updateLoading = true}) async {
     if (updateLoading) {
       isLoading = true;
       notifyListeners();
@@ -520,7 +522,10 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           "Authorization": "Bearer $token",
           "Content-Type": "application/json",
         },
-        body: jsonEncode({"inspectionFormId": inspectionFormId}),
+        body: jsonEncode({
+          "inspectionFormId": inspectionFormId,
+          if (query != null && query.isNotEmpty) "query": query,
+        }),
       );
       final responseBody = jsonDecode(response.body);
       final data = responseBody["data"];
@@ -559,6 +564,11 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           mergedTasks.add(merged);
         }
         groupedTasks[categoryId] = mergedTasks;
+      }
+      if (query == null || query.isEmpty) {
+        _unfilteredGroupedTasks = Map.from(groupedTasks);
+        _lastAssignedQuery = '';
+        isSearchingAssigned = false;
       }
       if (updateLoading) {
         isLoading = false;
@@ -631,7 +641,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         return [];
       }
     } catch (e) {
-      debugPrint("EXCEPTION in getTaskCategoryList(): $e");
       return [];
     }
   }
@@ -642,6 +651,8 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     required InspectionFormController formController,
   }) async {
     isLoading = true;
+    _lastAssignedQuery = '';
+    isSearchingAssigned = false;
     notifyListeners();
     try {
       final results = await Future.wait([
@@ -665,7 +676,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       formController.setTotalTasks(totalTasks);
       return inspectionResponse;
     } catch (e) {
-      debugPrint("Load Page Error: $e");
       return null;
     } finally {
       isLoading = false;
@@ -678,5 +688,127 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     if (value is bool) return value;
     if (value is num) return value.toInt() == 1;
     return value.toString().toLowerCase() == "true" || value.toString() == "1";
+  }
+
+  Future<void> searchAssignedComponents(int inspectionFormId, String query) async {
+    _debounceTimer?.cancel();
+    if (query.trim() == _lastAssignedQuery) return;
+
+    if (query.trim().isEmpty) {
+      _lastAssignedQuery = '';
+      groupedTasks = Map.from(_unfilteredGroupedTasks);
+      isSearchingAssigned = false;
+      notifyListeners();
+      return;
+    }
+
+    isSearchingAssigned = true;
+    notifyListeners();
+
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
+      await _fetchAssignedSearchResults(inspectionFormId, query.trim());
+    });
+  }
+
+  Future<void> _fetchAssignedSearchResults(int inspectionFormId, String query) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userToken = prefs.getString('userToken');
+      if (userToken == null || userToken.isEmpty) {
+        isSearchingAssigned = false;
+        notifyListeners();
+        return;
+      }
+
+      final url = Uri.parse(ApiServices.postInspectionFormById);
+      final bodyPayload = {
+        "inspectionFormId": inspectionFormId,
+        "query": query,
+      };
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+        body: jsonEncode(bodyPayload),
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        final data = responseBody["data"];
+        if (data != null) {
+          _lastAssignedQuery = query;
+
+          final taskMappings = List<Map<String, dynamic>>.from(
+            data["componentMappings"] ?? [],
+          );
+          final categoryIds = taskMappings
+              .map((t) => t["inspectionFormComponentCategoryId"])
+              .whereType<int>()
+              .toSet();
+
+          groupedTasks.clear();
+          final taskCategoryList = await getTaskCategoryList();
+          for (final categoryId in categoryIds) {
+            final categoryMeta = taskCategoryList.firstWhere(
+              (c) => c['taskCategoryId'] == categoryId,
+              orElse: () => {},
+            );
+            final mappingsForCategory = taskMappings.where(
+              (m) => m["inspectionFormComponentCategoryId"] == categoryId,
+            );
+            final List<Map<String, dynamic>> mergedTasks = [];
+            for (final mapping in mappingsForCategory) {
+              final components = Map<String, dynamic>.from(
+                mapping["taskComponent"] ?? {},
+              );
+              if (components.isEmpty) {
+                continue;
+              }
+              _restoreComponentState(components);
+
+              final merged = <String, dynamic>{
+                "categoryId": categoryId,
+                "categoryName":
+                    categoryMeta['taskCategoryName'] ?? 'Category $categoryId',
+                "components": components,
+              };
+              mergedTasks.add(merged);
+            }
+            groupedTasks[categoryId] = mergedTasks;
+          }
+        }
+      }
+    } catch (e) {
+    } finally {
+      isSearchingAssigned = false;
+      notifyListeners();
+    }
+  }
+
+  void _restoreComponentState(Map<String, dynamic> components) {
+    final itcId = components["itcId"];
+    if (itcId == null) return;
+    for (final categoryId in _unfilteredGroupedTasks.keys) {
+      final tasks = _unfilteredGroupedTasks[categoryId];
+      if (tasks == null) continue;
+      for (final t in tasks) {
+        final comp = t["components"];
+        if (comp != null && comp["itcId"] == itcId) {
+          components["viGood"] = comp["viGood"];
+          components["viRepair"] = comp["viRepair"];
+          components["viReplace"] = comp["viReplace"];
+          components["viPoor"] = comp["viPoor"];
+          components["viNotApplicable"] = comp["viNotApplicable"];
+          components["viNote"] = comp["viNote"];
+          components["viDescription"] = comp["viDescription"];
+          components["viReInspection"] = comp["viReInspection"];
+          components["attachments"] = comp["attachments"];
+          return;
+        }
+      }
+    }
   }
 }

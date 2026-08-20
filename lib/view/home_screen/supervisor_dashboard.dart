@@ -130,7 +130,6 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
         _applyFilterAndSearch();
       }
     } catch (e) {
-      debugPrint("❗ Error fetching supervisor jobs: $e");
     } finally {
       if (mounted) {
         setState(() {

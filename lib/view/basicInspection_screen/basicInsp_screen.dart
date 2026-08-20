@@ -88,7 +88,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         setState(() => _isCameraReady = true);
       }
     } catch (e) {
-      debugPrint("Camera init error: $e");
     }
   }
 
@@ -198,7 +197,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           angle = 180;
         }
       } catch (e) {
-        debugPrint("Orientation error: $e");
       }
       final activeIndex = controller.selectedBoxIndex;
       await controller.updateCapturedImage(
@@ -208,7 +206,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       );
       // Photo captured into box; camera stays open without auto-preview popup.
     } catch (e) {
-      debugPrint("Photo error: $e");
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }
@@ -241,7 +238,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         }
       });
     } catch (e) {
-      debugPrint("Start recording error: $e");
     }
   }
 
@@ -259,7 +255,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       await controller.updateCapturedVideo(File(file.path));
       // Video captured into box; camera stays open without auto-preview popup.
     } catch (e) {
-      debugPrint("Stop recording error: $e");
       if (mounted) setState(() => _isStopping = false);
     }
   }

@@ -49,7 +49,6 @@ class InspectionDetailsController extends ChangeNotifier {
             .toList();
       }
     } catch (e) {
-      debugPrint("Error : $e");
     } finally {
       isTechnicianLoading = false;
       notifyListeners();
