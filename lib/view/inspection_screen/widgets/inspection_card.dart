@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/inspectionCard_controller.dart';
@@ -98,17 +99,8 @@ class _InspectionCardState extends State<InspectionCard> {
 
   @override
   Widget build(BuildContext context) {
-    // final assemblyCode =
-    //     ((widget.assemblyCodeName?.trim().isNotEmpty ?? false) &&
-    //         (widget.assemblyCodeDesc?.trim().isNotEmpty ?? false))
-    //     ? "${widget.assemblyCodeName}-${widget.assemblyCodeDesc}"
-    //     : "####";
-
-    // final groupName =
-    //     ((widget.repairGroupName?.trim().isNotEmpty ?? false) &&
-    //         (widget.repairGroupDesc?.trim().isNotEmpty ?? false))
-    //     ? "${widget.repairGroupName}-${widget.repairGroupDesc}"
-    //     : "####";
+    final formController = context.watch<InspectionFormController>();
+    final bool isSaved = formController.isTaskSaved(widget.taskid);
 
     double fieldHeight = MediaQuery.of(context).size.width > 600 ? 45 : 40;
     return Consumer<InspectioncardController>(
@@ -170,13 +162,6 @@ class _InspectionCardState extends State<InspectionCard> {
                 //       child: Text(
                 //         "Group Name : $groupName",
                 //         style: const TextStyle(
-                //           color: Colors.deepPurple,
-                //           fontSize: 10,
-                //         ),
-                //       ),
-                //     ),
-                //   ],
-                // ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
@@ -298,215 +283,188 @@ class _InspectionCardState extends State<InspectionCard> {
                     cardController.deleteRecording,
                   ),
                 SizedBox(height: 8),
-                cardController.showSaveButton
-                    ? Row(
-                        children: [
-                          Expanded(
-                            flex: 6,
-                            child: SizedBox(
-                              height: fieldHeight,
-                              child: Stack(
-                                alignment: Alignment.centerRight,
-                                children: [
-                                  TextField(
-                                    focusNode: descriptionFocusNode,
-                                    controller:
-                                        cardController.descriptionController,
-                                    canRequestFocus: true,
-
-                                    readOnly: cardController.isSuccess,
-                                    textCapitalization:
-                                        TextCapitalization.sentences,
-                                    maxLines: 18,
-                                    decoration: InputDecoration(
-                                      labelText: "Initial Note",
-                                      isDense: true,
-                                      contentPadding: const EdgeInsets.only(
-                                        left: 12,
-                                        right: 60,
-                                        top: 10,
-                                        bottom: 12,
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: BorderSide(
-                                          color: ColorConstants.lightblackColor,
-                                          width: 1,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: BorderSide(
-                                          color: ColorConstants.lightblackColor,
-                                          width: 1.2,
-                                        ),
-                                      ),
-                                    ),
-                                    onChanged: (_) async {
-                                      final formController = context
-                                          .read<InspectionFormController>();
-                                      final allowed = await formController
-                                          .checkUnsavedBeforeEditing(
-                                            context,
-                                            widget.taskid,
-                                            cardController,
-                                          );
-                                      if (!allowed) {
-                                        cardController
-                                            .descriptionController
-                                            .text = cardController
-                                            .descriptionController
-                                            .text;
-                                        return;
-                                      }
-                                      cardController.markChanged();
-                                    },
-                                  ),
-                                  Positioned(
-                                    right: 8,
-                                    child:
-                                        cardController.isListening &&
-                                            cardController.activeSpeechField ==
-                                                SpeechField.description
-                                        ? _buildSmallWaveMic()
-                                        : IconButton(
-                                            icon: Icon(
-                                              Icons.mic_none,
-                                              size: 16,
-                                              weight: 2,
-                                              color: ColorConstants.greenColor,
-                                            ),
-                                            onPressed: () async {
-                                              final formController = context
-                                                  .read<
-                                                    InspectionFormController
-                                                  >();
-                                              final allowed =
-                                                  await formController
-                                                      .checkUnsavedBeforeEditing(
-                                                        context,
-                                                        widget.taskid,
-                                                        cardController,
-                                                      );
-                                              if (!allowed) return;
-                                              cardController.startListening(
-                                                SpeechField.description,
-                                                context,
-                                              );
-                                            },
-                                          ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            flex: 2,
-                            child: SizedBox(
-                              height: fieldHeight,
-                              child: CustomButtonWidget(
-                                text: cardController.isLoading ||
-                                        cardController.isAudioDownloading
-                                    ? "Please Wait..."
-                                    : cardController.isSuccess
-                                        ? (widget.isReInspection ? "SAVED" : "UPLOADED")
-                                        : "SAVE",
-                                textSize: 12,
-                                isDisabled: cardController.isLoading ||
-                                    cardController.isSuccess ||
-                                    cardController.isVideoLoading ||
-                                    cardController.isAudioDownloading,
-                                showLoader: cardController.isLoading ||
-                                    cardController.isAudioDownloading,
-                                onPressed: () async {
-                                  if (widget.formid == 0 || widget.categoryId == null || widget.categoryId == 0) {
-                                    final formController = context
-                                        .read<InspectionFormController>();
-                                    final isCompleted = await cardController
-                                        .onCustomSavePressed(
-                                          context: context,
-                                          formController: formController,
-                                          inspectionPhotoMandatory:
-                                              widget.inspectionPhotoMandatory,
-                                          inspectionAudioMandatory:
-                                              widget.inspectionAudioMandatory,
-                                          jobId: widget.jobid,
-                                          taskId: widget.taskid,
-                                          formId: widget.formid,
-                                          inspectionTypeId:
-                                              widget.inspectionTypeid ?? (widget.isReInspection ? 2 : 1),
-                                          isReInspection: widget.isReInspection,
-                                        );
-                                    if (isCompleted) {
-                                      context.go(
-                                        "/inspectionsummarypage",
-                                        extra: {
-                                          "jobId": widget.jobid,
-                                          "flag": 0,
-                                        },
-                                      );
-                                    }
-                                  } else {
-                                    final formController = context
-                                        .read<InspectionFormController>();
-                                    final isCompleted = await cardController
-                                        .onSavePressed(
-                                          context: context,
-                                          formController: formController,
-                                          inspectionPhotoMandatory:
-                                              widget.inspectionPhotoMandatory,
-                                          inspectionAudioMandatory:
-                                              widget.inspectionAudioMandatory,
-                                          jobId: widget.jobid,
-                                          taskId: widget.taskid,
-                                          formId: widget.formid,
-                                          categoryId: widget.categoryId ?? 0,
-                                          inspectionTypeId: widget.inspectionTypeid,
-                                          isReInspection: widget.isReInspection,
-                                        );
-                                    if (isCompleted) {
-                                      context.go(
-                                        "/inspectionsummarypage",
-                                        extra: {
-                                          "jobId": widget.jobid,
-                                          "flag": 0,
-                                        },
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : SizedBox(
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 6,
+                      child: SizedBox(
                         height: fieldHeight,
-                        width: double.infinity,
-                        child: TextField(
-                          focusNode: descriptionFocusNode,
-                          controller: cardController.descriptionController,
-                          canRequestFocus: true,
-                          readOnly: true,
-                          maxLines: 18,
-                          decoration: InputDecoration(
-                            labelText: "Initial Note",
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: ColorConstants.lightblackColor,
-                                width: 1,
+                        child: Stack(
+                          alignment: Alignment.centerRight,
+                          children: [
+                            TextField(
+                              focusNode: descriptionFocusNode,
+                              controller:
+                                  cardController.descriptionController,
+                              canRequestFocus: true,
+                              readOnly: false,
+                              textCapitalization:
+                                  TextCapitalization.sentences,
+                              maxLines: 18,
+                              decoration: InputDecoration(
+                                labelText: "Initial Note",
+                                isDense: true,
+                                contentPadding: const EdgeInsets.only(
+                                  left: 12,
+                                  right: 60,
+                                  top: 10,
+                                  bottom: 12,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color: ColorConstants.lightblackColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: BorderSide(
+                                    color: ColorConstants.lightblackColor,
+                                    width: 1.2,
+                                  ),
+                                ),
                               ),
+                              onChanged: (_) async {
+                                final formController = context
+                                    .read<InspectionFormController>();
+                                final allowed = await formController
+                                    .checkUnsavedBeforeEditing(
+                                      context,
+                                      widget.taskid,
+                                      cardController,
+                                    );
+                                if (!allowed) {
+                                  cardController
+                                      .descriptionController
+                                      .text = cardController
+                                      .descriptionController
+                                      .text;
+                                  return;
+                                }
+                                cardController.markChanged();
+                              },
                             ),
-                          ),
+                            Positioned(
+                              right: 8,
+                              child:
+                                  cardController.isListening &&
+                                      cardController.activeSpeechField ==
+                                          SpeechField.description
+                                  ? _buildSmallWaveMic()
+                                  : IconButton(
+                                      icon: Icon(
+                                        Icons.mic_none,
+                                        size: 16,
+                                        weight: 2,
+                                        color: ColorConstants.greenColor,
+                                      ),
+                                      onPressed: () async {
+                                        final formController = context
+                                            .read<
+                                              InspectionFormController
+                                            >();
+                                        final allowed =
+                                            await formController
+                                                .checkUnsavedBeforeEditing(
+                                                  context,
+                                                  widget.taskid,
+                                                  cardController,
+                                                );
+                                        if (!allowed) return;
+                                        cardController.startListening(
+                                          SpeechField.description,
+                                          context,
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      flex: 2,
+                      child: SizedBox(
+                        height: fieldHeight,
+                        child: CustomButtonWidget(
+                          text: cardController.isLoading ||
+                                  cardController.isAudioDownloading
+                              ? "Please Wait..."
+                              : isSaved
+                                  ? "UPDATE"
+                                  : "SAVE",
+                          textSize: 12,
+                          isDisabled: cardController.isLoading ||
+                              cardController.isVideoLoading ||
+                              cardController.isAudioDownloading ||
+                              (isSaved && !cardController.hasUnsavedChanges) ||
+                              (!isSaved && cardController.selectedOption == null),
+                          showLoader: cardController.isLoading ||
+                              cardController.isAudioDownloading,
+                          onPressed: () async {
+                            if (widget.formid == 0 || widget.categoryId == null || widget.categoryId == 0) {
+                              final formController = context
+                                  .read<InspectionFormController>();
+                              final isCompleted = await cardController
+                                  .onCustomSavePressed(
+                                    context: context,
+                                    formController: formController,
+                                    inspectionPhotoMandatory:
+                                        widget.inspectionPhotoMandatory,
+                                    inspectionAudioMandatory:
+                                        widget.inspectionAudioMandatory,
+                                    jobId: widget.jobid,
+                                    taskId: widget.taskid,
+                                    formId: widget.formid,
+                                    inspectionTypeId:
+                                        widget.inspectionTypeid ?? (widget.isReInspection ? 2 : 1),
+                                    isReInspection: widget.isReInspection,
+                                  );
+                              if (isCompleted) {
+                                context.go(
+                                  "/inspectionsummarypage",
+                                  extra: {
+                                    "jobId": widget.jobid,
+                                    "flag": 0,
+                                  },
+                                );
+                              }
+                            } else {
+                              final formController = context
+                                  .read<InspectionFormController>();
+                              final isCompleted = await cardController
+                                  .onSavePressed(
+                                    context: context,
+                                    formController: formController,
+                                    inspectionPhotoMandatory:
+                                        widget.inspectionPhotoMandatory,
+                                    inspectionAudioMandatory:
+                                        widget.inspectionAudioMandatory,
+                                    jobId: widget.jobid,
+                                    taskId: widget.taskid,
+                                    formId: widget.formid,
+                                    categoryId: widget.categoryId ?? 0,
+                                    inspectionTypeId: widget.inspectionTypeid,
+                                    isReInspection: widget.isReInspection,
+                                  );
+                              if (isCompleted) {
+                                context.go(
+                                  "/inspectionsummarypage",
+                                  extra: {
+                                    "jobId": widget.jobid,
+                                    "flag": 0,
+                                  },
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 if (widget.allowMultipleImage &&
                     widget.inspectionPhotoMandatory)
                   Builder(
@@ -606,29 +564,47 @@ class _InspectionCardState extends State<InspectionCard> {
     final int currentAngle = controller.getAngleAt(index);
     return GestureDetector(
       onTap: () async {
-        final formController = context.read<InspectionFormController>();
-        final allowed = await formController.checkUnsavedBeforeEditing(
-          context,
-          widget.taskid,
-          controller,
-        );
-        if (!allowed) return;
-        final rootContext = Navigator.of(context, rootNavigator: true).context;
-        if (image == null || !controller.isSuccess) {
+        if (image != null) {
+          final result = await Navigator.push<dynamic>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => FullScreenImageScreen(imageFile: image, angle: currentAngle),
+            ),
+          );
+          if (result == "recapture") {
+            final formController = context.read<InspectionFormController>();
+            final allowed = await formController.checkUnsavedBeforeEditing(
+              context,
+              widget.taskid,
+              controller,
+            );
+            if (!allowed) return;
+            final rootContext = Navigator.of(context, rootNavigator: true).context;
+            await controller.handleImageTap(
+              rootContext,
+              imageIndex: index,
+              mediaType: MediaType.image,
+            );
+            controller.markChanged();
+          } else if (result is File) {
+            controller.setImageAt(index, result);
+            controller.markChanged();
+          }
+        } else {
+          final formController = context.read<InspectionFormController>();
+          final allowed = await formController.checkUnsavedBeforeEditing(
+            context,
+            widget.taskid,
+            controller,
+          );
+          if (!allowed) return;
+          final rootContext = Navigator.of(context, rootNavigator: true).context;
           await controller.handleImageTap(
             rootContext,
             imageIndex: index,
             mediaType: MediaType.image,
           );
           controller.markChanged();
-        } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  FullScreenImageScreen(imageFile: image, angle: currentAngle),
-            ),
-          );
         }
       },
       child: _mediaBox(
@@ -657,7 +633,33 @@ class _InspectionCardState extends State<InspectionCard> {
                 context,
                 rootNavigator: true,
               ).context;
-              if (controller.capturedVideo == null) {
+              if (controller.capturedVideo != null) {
+                final result = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => InspectionFullScreenVideo(
+                      videoUrl: controller.capturedVideo!.path,
+                      label: "Video",
+                    ),
+                  ),
+                );
+                if (result == "recapture") {
+                  final formController = context.read<InspectionFormController>();
+                  final allowed = await formController.checkUnsavedBeforeEditing(
+                    context,
+                    widget.taskid,
+                    controller,
+                  );
+                  if (!allowed) return;
+                  await controller.deleteVideo();
+                  await controller.handleImageTap(
+                    rootContext,
+                    imageIndex: 0,
+                    mediaType: MediaType.video,
+                  );
+                  controller.markChanged();
+                }
+              } else {
                 final formController = context.read<InspectionFormController>();
                 final allowed = await formController.checkUnsavedBeforeEditing(
                   context,
@@ -671,73 +673,6 @@ class _InspectionCardState extends State<InspectionCard> {
                   mediaType: MediaType.video,
                 );
                 controller.markChanged();
-              } else {
-                if (!controller.isSuccess) {
-                  final action = await showDialog<String>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text("Video Options"),
-                      content: const Text("Would you like to play the video or recapture/delete it?"),
-                      actions: [
-                        TextButton(
-                          child: const Text("Delete", style: TextStyle(color: Colors.red)),
-                          onPressed: () => Navigator.pop(context, "delete"),
-                        ),
-                        TextButton(
-                          child: const Text("Play"),
-                          onPressed: () => Navigator.pop(context, "play"),
-                        ),
-                        TextButton(
-                          child: const Text("Recapture"),
-                          onPressed: () => Navigator.pop(context, "recapture"),
-                        ),
-                        TextButton(
-                          child: const Text("Cancel"),
-                          onPressed: () => Navigator.pop(context, "cancel"),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (action == "play") {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => InspectionFullScreenVideo(
-                          videoUrl: controller.capturedVideo!.path,
-                          label: "Video",
-                        ),
-                      ),
-                    );
-                  } else if (action == "recapture") {
-                    final formController = context.read<InspectionFormController>();
-                    final allowed = await formController.checkUnsavedBeforeEditing(
-                      context,
-                      widget.taskid,
-                      controller,
-                    );
-                    if (!allowed) return;
-                    await controller.deleteVideo();
-                    await controller.handleImageTap(
-                      rootContext,
-                      imageIndex: 0,
-                      mediaType: MediaType.video,
-                    );
-                    controller.markChanged();
-                  } else if (action == "delete") {
-                    await controller.deleteVideo();
-                    controller.markChanged();
-                  }
-                } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => InspectionFullScreenVideo(
-                        videoUrl: controller.capturedVideo!.path,
-                        label: "Video",
-                      ),
-                    ),
-                  );
-                }
               }
             },
       child: _mediaBox(
@@ -783,7 +718,7 @@ class _InspectionCardState extends State<InspectionCard> {
             focusNode: noteFocusNode,
             controller: controller.noteController,
             canRequestFocus: true,
-            readOnly: controller.isSuccess || controller.isNotApplicable,
+            readOnly: controller.isNotApplicable,
             expands: true,
             maxLines: null,
             textCapitalization: TextCapitalization.sentences,
@@ -960,9 +895,7 @@ class _InspectionCardState extends State<InspectionCard> {
           Radio<String>(
             value: value,
             groupValue: radioButtonController.selectedOption,
-            onChanged: radioButtonController.isSuccess
-                ? null
-                : (val) async {
+            onChanged: (val) async {
                     final formController = context
                         .read<InspectionFormController>();
                     final controller = context.read<InspectioncardController>();
@@ -1036,9 +969,7 @@ class _InspectionCardState extends State<InspectionCard> {
                   height: 45 - 8,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(6),
-                    onTap: audioController.isSuccess
-                        ? null
-                        : () async {
+                    onTap: () async {
                             final formController = context
                                 .read<InspectionFormController>();
                             final allowed = await formController
@@ -1108,7 +1039,7 @@ class _InspectionCardState extends State<InspectionCard> {
                           ),
                         ],
                       ),
-                      if (!audioController.isSuccess)
+                      if (true)
                         IconButton(
                           icon: Icon(
                             Icons.delete,

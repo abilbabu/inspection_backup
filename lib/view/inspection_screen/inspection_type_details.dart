@@ -1249,6 +1249,26 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           );
                           return;
                         }
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text("Confirm Submission"),
+                            content: const Text(
+                              "The inspection report is about to be submitted as the final version. Please review all inspection details, captured images/videos, audio recordings, conditions, notes, and comments carefully. Once submitted, the updated information will be treated as the final inspection data."
+                            ),
+                            actions: [
+                              TextButton(
+                                child: const Text("Cancel/Review"),
+                                  onPressed: () => Navigator.pop(context, false),
+                              ),
+                              TextButton(
+                                child: const Text("Confirm/Submit"),
+                                onPressed: () => Navigator.pop(context, true),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm != true) return;
                         setState(() {
                           _isSubmitting = true;
                         });
