@@ -214,6 +214,61 @@ class BasicInspectionReportController with ChangeNotifier {
           .toList();
       final attachments = data["basicinspectionattachments"];
       if (attachments != null) {
+        void addGroupToTarget(
+          List<Map<String, dynamic>> targetList,
+          String label,
+          List<Map<String, dynamic>> imageList,
+          String? normalVideoUrl,
+          String? comment,
+          int? videoDuration,
+          bool videoFlag,
+        ) {
+          final trimmedLabel = label.trim();
+          final existingIndex = targetList.indexWhere(
+            (g) => (g["label"] as String? ?? "").trim().toLowerCase() == trimmedLabel.toLowerCase(),
+          );
+
+          if (existingIndex != -1) {
+            final existing = targetList[existingIndex];
+            final List<Map<String, dynamic>> existingImages = List<Map<String, dynamic>>.from(existing["images"] ?? []);
+            final Set<String> existingUrls = existingImages.map((e) => (e["url"] ?? "").toString()).toSet();
+
+            for (var img in imageList) {
+              final String url = (img["url"] ?? "").toString();
+              if (url.isNotEmpty && !existingUrls.contains(url)) {
+                existingImages.add(img);
+                existingUrls.add(url);
+              }
+            }
+
+            existing["images"] = existingImages;
+            if (existing["videoUrl"] == null && normalVideoUrl != null) {
+              existing["videoUrl"] = normalVideoUrl;
+            }
+            if ((existing["comment"] == null || existing["comment"].toString().isEmpty) && comment != null) {
+              existing["comment"] = comment;
+            }
+          } else {
+            final List<Map<String, dynamic>> uniqueImages = [];
+            final Set<String> seenUrls = {};
+            for (var img in imageList) {
+              final String url = (img["url"] ?? "").toString();
+              if (url.isNotEmpty && !seenUrls.contains(url)) {
+                seenUrls.add(url);
+                uniqueImages.add(img);
+              }
+            }
+            targetList.add({
+              "label": label,
+              "images": uniqueImages,
+              "videoUrl": normalVideoUrl,
+              "comment": comment,
+              "videoDuration": videoDuration,
+              "videoFlag": videoFlag,
+            });
+          }
+        }
+
         List external = attachments["externalImages"] ?? [];
         List internal = attachments["internalImages"] ?? [];
         for (var group in external) {
@@ -227,12 +282,13 @@ class BasicInspectionReportController with ChangeNotifier {
           for (var item in attachList) {
             int? iaType = item["iaType"];
             int? iaImageType = item["iaImageType"];
-            String url = item["iaUrl"];
-            if (iaType == 0 && iaImageType == 0) {
+            String? url = item["iaUrl"];
+            if (url == null || url.isEmpty) continue;
+            if (iaType == 0 && (iaImageType == 0 || iaImageType == null)) {
               imageList.add({"url": url});
               comment ??= item["iaInspectionNote"];
             }
-            if (iaType == 2 && iaImageType == 0) {
+            if (iaType == 2 && (iaImageType == 0 || iaImageType == null)) {
               normalVideoUrl = url;
               comment ??= item["iaInspectionNote"];
             }
@@ -241,14 +297,15 @@ class BasicInspectionReportController with ChangeNotifier {
               external360Comment = item["iaInspectionNote"];
             }
           }
-          externalGroups.add({
-            "label": label,
-            "images": imageList,
-            "videoUrl": normalVideoUrl,
-            "comment": comment,
-            "videoDuration": videoDuration,
-            "videoFlag": videoFlag,
-          });
+          addGroupToTarget(
+            externalGroups,
+            label,
+            imageList,
+            normalVideoUrl,
+            comment,
+            videoDuration,
+            videoFlag,
+          );
         }
         for (var group in internal) {
           String label = group["label"] ?? "";
@@ -261,12 +318,13 @@ class BasicInspectionReportController with ChangeNotifier {
           for (var item in attachList) {
             int? iaType = item["iaType"];
             int? iaImageType = item["iaImageType"];
-            String url = item["iaUrl"];
-            if (iaType == 0 && iaImageType == 0) {
+            String? url = item["iaUrl"];
+            if (url == null || url.isEmpty) continue;
+            if (iaType == 0 && (iaImageType == 0 || iaImageType == null)) {
               imageList.add({"url": url});
               comment ??= item["iaInspectionNote"];
             }
-            if (iaType == 2 && iaImageType == 0) {
+            if (iaType == 2 && (iaImageType == 0 || iaImageType == null)) {
               normalVideoUrl = url;
               comment ??= item["iaInspectionNote"];
             }
@@ -275,14 +333,15 @@ class BasicInspectionReportController with ChangeNotifier {
               internal360Comment = item["iaInspectionNote"];
             }
           }
-          internalGroups.add({
-            "label": label,
-            "images": imageList,
-            "videoUrl": normalVideoUrl,
-            "comment": comment,
-            "videoDuration": videoDuration,
-            "videoFlag": videoFlag,
-          });
+          addGroupToTarget(
+            internalGroups,
+            label,
+            imageList,
+            normalVideoUrl,
+            comment,
+            videoDuration,
+            videoFlag,
+          );
         }
         List quick = attachments["quickInspectionImages"] ?? [];
         List additional = attachments["additionalImages"] ?? [];
@@ -297,7 +356,8 @@ class BasicInspectionReportController with ChangeNotifier {
           for (var item in attachList) {
             int? iaType = item["iaType"];
             int? iaImageType = item["iaImageType"];
-            String url = item["iaUrl"];
+            String? url = item["iaUrl"];
+            if (url == null || url.isEmpty) continue;
             if (iaType == 0 && iaImageType == 14) {
               imageList.add({"url": url});
               comment ??= item["iaInspectionNote"];
@@ -307,14 +367,15 @@ class BasicInspectionReportController with ChangeNotifier {
               comment ??= item["iaInspectionNote"];
             }
           }
-          quickInspectionGroups.add({
-            "label": label,
-            "images": imageList,
-            "videoUrl": normalVideoUrl,
-            "comment": comment,
-            "videoDuration": videoDuration,
-            "videoFlag": videoFlag,
-          });
+          addGroupToTarget(
+            quickInspectionGroups,
+            label,
+            imageList,
+            normalVideoUrl,
+            comment,
+            videoDuration,
+            videoFlag,
+          );
         }
         for (var group in additional) {
           String label = group["label"] ?? "";
@@ -327,7 +388,8 @@ class BasicInspectionReportController with ChangeNotifier {
           for (var item in attachList) {
             int? iaType = item["iaType"];
             int? iaImageType = item["iaImageType"];
-            String url = item["iaUrl"];
+            String? url = item["iaUrl"];
+            if (url == null || url.isEmpty) continue;
             if (iaType == 0 && iaImageType == 15) {
               imageList.add({"url": url});
               comment ??= item["iaInspectionNote"];
@@ -337,14 +399,15 @@ class BasicInspectionReportController with ChangeNotifier {
               comment ??= item["iaInspectionNote"];
             }
           }
-          additionalImageGroups.add({
-            "label": label,
-            "images": imageList,
-            "videoUrl": normalVideoUrl,
-            "comment": comment,
-            "videoDuration": videoDuration,
-            "videoFlag": videoFlag,
-          });
+          addGroupToTarget(
+            additionalImageGroups,
+            label,
+            imageList,
+            normalVideoUrl,
+            comment,
+            videoDuration,
+            videoFlag,
+          );
         }
         if (attachments["cardiagram"] != null) {
           diagram = {"url": attachments["cardiagram"]};

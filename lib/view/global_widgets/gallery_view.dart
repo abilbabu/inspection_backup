@@ -57,22 +57,27 @@ class _GalleryViewState extends State<GalleryView> {
               return inspectionShimmerList();
             }
             final bool isQuick = controller.jobInspectionType == "QUICK";
-            List<Map<String, dynamic>> groups;
+            List<Map<String, dynamic>> rawGroups;
             if (isQuick) {
               if (widget.type == 'quick') {
-                groups = controller.quickInspectionGroups;
+                rawGroups = controller.quickInspectionGroups;
               } else if (widget.type == 'additional') {
-                groups = controller.additionalImageGroups;
+                rawGroups = controller.additionalImageGroups;
               } else {
-                groups = [...controller.quickInspectionGroups, ...controller.additionalImageGroups];
+                rawGroups = [...controller.quickInspectionGroups, ...controller.additionalImageGroups];
               }
             } else {
-              groups = widget.type == 'all'
+              rawGroups = widget.type == 'all'
                   ? [...controller.externalGroups, ...controller.internalGroups]
                   : (widget.type == 'external'
                       ? controller.externalGroups
                       : controller.internalGroups);
             }
+            final groups = rawGroups.where((group) {
+              final imgs = group["images"] as List? ?? [];
+              final vUrl = group["videoUrl"];
+              return imgs.isNotEmpty || vUrl != null;
+            }).toList();
             if (groups.isEmpty) {
               return const Center(child: Text("No images available"));
             }

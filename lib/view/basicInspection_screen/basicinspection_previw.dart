@@ -508,6 +508,12 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
         ),
       );
     }
+    final externalGroups = controller.externalGroups
+        .where((g) => (g["images"] as List? ?? []).isNotEmpty)
+        .toList();
+    final internalGroups = controller.internalGroups
+        .where((g) => (g["images"] as List? ?? []).isNotEmpty)
+        .toList();
     return Container(
       decoration: BoxDecoration(
         color: ColorConstants.whiteColor,
@@ -577,11 +583,11 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
                   height: 180,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: controller.externalGroups.length > 5
+                    itemCount: externalGroups.length > 5
                         ? 5
-                        : controller.externalGroups.length,
+                        : externalGroups.length,
                     itemBuilder: (context, index) {
-                      final group = controller.externalGroups[index];
+                      final group = externalGroups[index];
                       final images = group["images"] as List? ?? [];
                       if (images.isEmpty) return const SizedBox();
                       final firstImage = images.first;
@@ -700,11 +706,11 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
                   height: 180,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: controller.internalGroups.length > 5
+                    itemCount: internalGroups.length > 5
                         ? 5
-                        : controller.internalGroups.length,
+                        : internalGroups.length,
                     itemBuilder: (context, index) {
-                      final group = controller.internalGroups[index];
+                      final group = internalGroups[index];
                       final images = group["images"] as List? ?? [];
 
                       if (images.isEmpty) return const SizedBox();
