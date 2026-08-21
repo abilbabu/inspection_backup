@@ -185,6 +185,38 @@ class InspectionsummarypageController extends ChangeNotifier {
       final Map<int, Map<int, List<String>>> imageMap = {};
       final Map<int, Map<int, String>> videoMap = {};
       final Map<int, Map<int, String>> audioMap = {};
+      final Map<int, Map<int, List<Map<String, dynamic>>>> rawImageAttachmentsMap = {};
+
+      void addImageAttachment({
+        required int inspInt,
+        required int taskInt,
+        required Map<String, dynamic> att,
+      }) {
+        final rawType = att["iaType"] ?? att["type"];
+        final int type = rawType is num
+            ? rawType.toInt()
+            : int.tryParse(rawType?.toString() ?? "") ?? 0;
+        if (type != 0) return;
+
+        final String currentUrl = (att["iaUrl"] ?? att["url"])?.toString() ?? "";
+        if (currentUrl.isEmpty) return;
+
+        final int attId = att["iaId"] ?? att["iaInspectionImageId"] ?? att["id"] ?? 0;
+        final int slot = att["imgIndex"] ?? att["iaImgIndex"] ?? att["index"] ?? -1;
+
+        final list = rawImageAttachmentsMap
+            .putIfAbsent(inspInt, () => {})
+            .putIfAbsent(taskInt, () => []);
+
+        if (!list.any((item) => item["url"] == currentUrl && item["id"] == attId)) {
+          list.add({
+            "id": attId,
+            "url": currentUrl,
+            "slot": slot,
+          });
+        }
+      }
+
       for (final att in attachments) {
         final taskId = att["iaInspectionTaskId"];
         final inspectionId = att["iaInspectionId"];
@@ -201,17 +233,10 @@ class InspectionsummarypageController extends ChangeNotifier {
         if (currentUrl.isEmpty) continue;
 
         if (type == 0) {
-          final list = imageMap
-              .putIfAbsent(inspInt, () => {})
-              .putIfAbsent(taskInt, () => []);
-          if (!list.contains(currentUrl)) {
-            list.add(currentUrl);
-          }
-        }
-        if (type == 1) {
+          addImageAttachment(inspInt: inspInt, taskInt: taskInt, att: att);
+        } else if (type == 1) {
           audioMap.putIfAbsent(inspInt, () => {})[taskInt] = currentUrl;
-        }
-        if (type == 2) {
+        } else if (type == 2) {
           videoMap.putIfAbsent(inspInt, () => {})[taskInt] = currentUrl;
         }
       }
@@ -244,12 +269,7 @@ class InspectionsummarypageController extends ChangeNotifier {
               if (currentUrl.isEmpty) continue;
 
               if (type == 0) {
-                final list = imageMap
-                    .putIfAbsent(vimId, () => {})
-                    .putIfAbsent(taskInt, () => []);
-                if (!list.contains(currentUrl)) {
-                  list.add(currentUrl);
-                }
+                addImageAttachment(inspInt: vimId, taskInt: taskInt, att: att);
               } else if (type == 1) {
                 audioMap.putIfAbsent(vimId, () => {})[taskInt] = currentUrl;
               } else if (type == 2) {
@@ -259,6 +279,46 @@ class InspectionsummarypageController extends ChangeNotifier {
           }
         }
       }
+
+      // Process collected image attachments so newer attachments replace old ones
+      rawImageAttachmentsMap.forEach((inspInt, taskMap) {
+        taskMap.forEach((taskInt, attList) {
+          attList.sort((a, b) {
+            final idA = a["id"] as int;
+            final idB = b["id"] as int;
+            return idB.compareTo(idA);
+          });
+
+          final Map<int, String> slotMap = {};
+          final List<String> unslottedUrls = [];
+
+          for (final item in attList) {
+            final int slot = item["slot"] as int;
+            final String url = item["url"] as String;
+            if (slot >= 0) {
+              slotMap.putIfAbsent(slot, () => url);
+            } else {
+              if (!unslottedUrls.contains(url)) {
+                unslottedUrls.add(url);
+              }
+            }
+          }
+
+          List<String> finalUrls = [];
+          if (slotMap.isNotEmpty) {
+            final sortedSlots = slotMap.keys.toList()..sort();
+            for (final s in sortedSlots) {
+              finalUrls.add(slotMap[s]!);
+            }
+          } else if (unslottedUrls.isNotEmpty) {
+            finalUrls = [unslottedUrls.first];
+          }
+
+          if (finalUrls.isNotEmpty) {
+            imageMap.putIfAbsent(inspInt, () => {})[taskInt] = finalUrls;
+          }
+        });
+      });
       if (inspections.length > 1) {
         isInspectionAssigned = true;
         final assignedInspection = inspections[1];

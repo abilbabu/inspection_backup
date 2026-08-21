@@ -584,6 +584,7 @@ class _InspectionCardState extends State<InspectionCard> {
               rootContext,
               imageIndex: index,
               mediaType: MediaType.image,
+              isRecapture: true,
             );
             controller.markChanged();
           } else if (result is File) {
@@ -651,11 +652,11 @@ class _InspectionCardState extends State<InspectionCard> {
                     controller,
                   );
                   if (!allowed) return;
-                  await controller.deleteVideo();
                   await controller.handleImageTap(
                     rootContext,
                     imageIndex: 0,
                     mediaType: MediaType.video,
+                    isRecapture: true,
                   );
                   controller.markChanged();
                 }

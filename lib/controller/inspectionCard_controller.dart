@@ -276,8 +276,14 @@ class InspectioncardController extends ChangeNotifier {
     BuildContext context, {
     required int imageIndex,
     required MediaType mediaType,
+    bool isRecapture = false,
   }) async {
-    if (isNotApplicable || isSuccess) return;
+    if (isNotApplicable) return;
+    if (isRecapture) {
+      isSuccess = false;
+    } else if (isSuccess) {
+      return;
+    }
     if (mediaType == MediaType.image && isImageLoading) return;
     if (mediaType == MediaType.video && isVideoLoading) return;
     mediaType == MediaType.image
@@ -286,9 +292,11 @@ class InspectioncardController extends ChangeNotifier {
     notifyListeners();
     try {
       int currentAngle = 0;
-      File? currentFile = mediaType == MediaType.image
-          ? _capturedImages[imageIndex]
-          : _capturedVideo;
+      File? currentFile = isRecapture
+          ? null
+          : (mediaType == MediaType.image
+              ? _capturedImages[imageIndex]
+              : _capturedVideo);
       if (currentFile == null) {
         final dynamic result = await Navigator.push(
           context,
@@ -343,11 +351,13 @@ class InspectioncardController extends ChangeNotifier {
             final compressed = await compressImage(result);
             await _deleteOldImage(_capturedImages[imageIndex]);
             _capturedImages[imageIndex] = compressed;
+            setAngleAt(imageIndex, currentAngle);
           } else {
             final compressedVideo = await compressVideo(result);
             await _deleteOldVideo(_capturedVideo);
             _capturedVideo = compressedVideo;
           }
+          markChanged();
           notifyListeners();
           return;
         }
@@ -540,6 +550,9 @@ class InspectioncardController extends ChangeNotifier {
     required int taskId,
     required int formId,
   }) {
+    final existing = formController.getTaskById(taskId);
+    final hasNewImages = _capturedImages.any((img) => img != null);
+    final hasNewVideo = _capturedVideo != null;
     formController.updateTask(
       InspectionTaskData(
         categoryId: categoryId,
@@ -550,8 +563,11 @@ class InspectioncardController extends ChangeNotifier {
         note: noteController.text,
         description: descriptionController.text,
         imageFiles: _capturedImages.whereType<File>().toList(),
+        imageUrls: hasNewImages ? null : existing?.imageUrls,
         videoFile: _capturedVideo,
+        videoUrl: hasNewVideo ? null : existing?.videoUrl,
         audioFilePath: _recordedFilePath,
+        audioUrl: _recordedFilePath != null ? null : existing?.audioUrl,
         inserted: false,
       ),
     );
@@ -745,16 +761,6 @@ class InspectioncardController extends ChangeNotifier {
           ? jsonDecode(response.data)
           : response.data;
       if (response.statusCode == 200) {
-        // Clean up local temporary media files after successful upload & database confirmation
-        for (final img in _capturedImages) {
-          if (img != null) await LocalUploadStorageService.cleanupFile(img.path);
-        }
-        if (_capturedVideo != null) {
-          await LocalUploadStorageService.cleanupFile(_capturedVideo!.path);
-        }
-        if (recordedFilePath != null) {
-          await LocalUploadStorageService.cleanupFile(recordedFilePath);
-        }
         return ApiResponse(
           success: true,
           data: decoded?['data'],
@@ -974,6 +980,9 @@ class InspectioncardController extends ChangeNotifier {
     required int taskId,
     required int formId,
   }) {
+    final existing = formController.getTaskById(taskId);
+    final hasNewImages = _capturedImages.any((img) => img != null);
+    final hasNewVideo = _capturedVideo != null;
     formController.updateTask(
       InspectionTaskData(
         jobId: jobId,
@@ -983,8 +992,11 @@ class InspectioncardController extends ChangeNotifier {
         note: noteController.text,
         description: descriptionController.text,
         imageFiles: _capturedImages.whereType<File>().toList(),
+        imageUrls: hasNewImages ? null : existing?.imageUrls,
         videoFile: _capturedVideo,
+        videoUrl: hasNewVideo ? null : existing?.videoUrl,
         audioFilePath: _recordedFilePath,
+        audioUrl: _recordedFilePath != null ? null : existing?.audioUrl,
         inserted: false,
       ),
     );

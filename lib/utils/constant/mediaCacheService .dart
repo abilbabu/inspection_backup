@@ -59,4 +59,21 @@ class MediaCacheService {
     }
     return null;
   }
+
+  Future<void> clearCacheForUrl(String url, CachedMediaType type) async {
+    try {
+      final dir = await _cacheDir();
+      final ext = switch (type) {
+        CachedMediaType.image => ".jpg",
+        CachedMediaType.video => ".mp4",
+        CachedMediaType.audio => ".aac",
+      };
+      final file = File(path.join(dir.path, "${_hash(url)}$ext"));
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      log("❌ Clear cache error: $e");
+    }
+  }
 }
