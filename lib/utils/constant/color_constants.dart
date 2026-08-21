@@ -27,6 +27,49 @@ class ColorConstants {
   static final Color boxColor = const Color(0xffEFEFEF);
   static final Color yellow = const Color(0xFFFFEB3B);
 
+  static bool isQuickInspection(Map<String, dynamic>? item) {
+    if (item == null) return false;
+
+    final isQuickVal = item["isQuick"] ?? item["jobIsQuick"];
+    if (isQuickVal != null) {
+      if (isQuickVal is bool) return isQuickVal;
+      if (isQuickVal is num) return isQuickVal.toInt() == 1;
+      final str = isQuickVal.toString().trim().toLowerCase();
+      if (str == "true" || str == "1") return true;
+      if (str == "false" || str == "0") return false;
+    }
+
+    final typeVal = item["inspectionType"] ??
+        item["jobInspectionType"] ??
+        item["vimInspectionType"] ??
+        item["type"];
+    if (typeVal != null) {
+      final str = typeVal.toString().trim().toUpperCase();
+      if (str == "QUICK" || str.contains("QUICK") || str == "1") return true;
+      if (str == "GENERAL" || str.contains("GENERAL") || str == "2") return false;
+    }
+
+    final master = item["master"] ?? (item["inspections"] is List && (item["inspections"] as List).isNotEmpty
+        ? (item["inspections"] as List).first["master"]
+        : null);
+
+    if (master is Map) {
+      final vimType = master["vimInspectionType"]?.toString().trim();
+      final typeName = master["vimInspectionTypeName"]?.toString().trim().toUpperCase() ?? "";
+      final masterId = master["vimIfMasterId"];
+
+      if (vimType == "1" || typeName.contains("QUICK")) return true;
+      if (vimType == "2" || typeName.contains("GENERAL")) return false;
+      if (masterId != null && (int.tryParse(masterId.toString()) ?? 0) > 0) return true;
+    }
+
+    return false;
+  }
+
+  static Color getInspectionTypeIndicatorColor(bool isQuick) {
+    return isQuick ? ColorConstants.orangecolor : ColorConstants.greenColor;
+  }
+
 
   static const List<BoxShadow> boxShadow = [
     BoxShadow(

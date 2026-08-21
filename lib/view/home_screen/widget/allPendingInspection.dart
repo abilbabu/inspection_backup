@@ -284,8 +284,7 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
         jobLaabsJobcardno.trim().isNotEmpty &&
         jobLaabsJobcardno.trim().toLowerCase() != 'null';
 
-    final String typeStr = (data["inspectionType"] ?? data["jobInspectionType"] ?? "").toString().trim().toUpperCase();
-    final bool isQuick = typeStr == "QUICK" || typeStr.contains("QUICK") || data["isQuick"] == true;
+    final bool isQuick = ColorConstants.isQuickInspection(data);
 
     return Container(
       height: showLaabs ? 110 : 90,
@@ -305,7 +304,7 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
           children: [
             Container(
               width: 5,
-              color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
+              color: ColorConstants.getInspectionTypeIndicatorColor(isQuick),
             ),
             Expanded(
               child: Padding(

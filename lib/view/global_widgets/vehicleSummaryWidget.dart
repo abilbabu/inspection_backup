@@ -71,8 +71,7 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
             jobLaabsJobcardno.trim().isNotEmpty &&
             jobLaabsJobcardno.trim().toLowerCase() != 'null';
 
-        final String typeStr = (jobcard["inspectionType"] ?? jobcard["jobInspectionType"] ?? "").toString().trim().toUpperCase();
-        final bool isQuick = typeStr == "QUICK" || typeStr.contains("QUICK") || jobcard["isQuick"] == true;
+        final bool isQuick = ColorConstants.isQuickInspection(jobcard);
 
         return Container(
           decoration: BoxDecoration(
@@ -88,7 +87,7 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                 children: [
                   Container(
                     width: 5,
-                    color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
+                    color: ColorConstants.getInspectionTypeIndicatorColor(isQuick),
                   ),
                   Expanded(
                     child: Padding(
@@ -408,8 +407,7 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
             jobLaabsJobcardno.trim().isNotEmpty &&
             jobLaabsJobcardno.trim().toLowerCase() != 'null';
 
-        final String typeStr = (jobcard["inspectionType"] ?? jobcard["jobInspectionType"] ?? "").toString().trim().toUpperCase();
-        final bool isQuick = typeStr == "QUICK" || typeStr.contains("QUICK") || jobcard["isQuick"] == true;
+        final bool isQuick = ColorConstants.isQuickInspection(jobcard);
 
         return Container(
           decoration: BoxDecoration(
@@ -425,7 +423,7 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
                 children: [
                   Container(
                     width: 5,
-                    color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
+                    color: ColorConstants.getInspectionTypeIndicatorColor(isQuick),
                   ),
                   Expanded(
                     child: Padding(

@@ -134,7 +134,22 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
         if (decoded["statusCode"] == 200 && decoded["data"] != null) {
           final data = decoded["data"];
           final jobsPage = data["jobs"] ?? {};
-          final List newJobs = jobsPage["content"] ?? [];
+          final List rawNewJobs = jobsPage["content"] ?? [];
+          final List newJobs = rawNewJobs.map((jobItem) {
+            if (jobItem is Map<String, dynamic>) {
+              return {
+                ...jobItem,
+                "isQuick": ColorConstants.isQuickInspection(jobItem),
+              };
+            } else if (jobItem is Map) {
+              final Map<String, dynamic> rawMap = Map<String, dynamic>.from(jobItem);
+              return {
+                ...rawMap,
+                "isQuick": ColorConstants.isQuickInspection(rawMap),
+              };
+            }
+            return jobItem;
+          }).toList();
           final bool last = jobsPage["last"] ?? true;
           final countsData = data["counts"] ?? {};
 
@@ -370,36 +385,19 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
   }
 
   bool _isQuickInspection(Map<String, dynamic> item) {
-    final typeStr = (item["inspectionType"] ?? item["jobInspectionType"] ?? "").toString().trim().toUpperCase();
-    if (typeStr == "QUICK" || typeStr.contains("QUICK")) {
-      return true;
-    }
-    if (item["isQuick"] == true) {
-      return true;
-    }
-    final inspections = item["inspections"];
-    if (inspections is List && inspections.isNotEmpty) {
-      final first = inspections.first;
-      if (first is Map && first["master"] != null) {
-        final vimType = first["master"]["vimInspectionType"]?.toString();
-        final typeName = first["master"]["vimInspectionTypeName"]?.toString().toUpperCase() ?? "";
-        if (vimType == "1" || typeName.contains("QUICK")) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return ColorConstants.isQuickInspection(item);
   }
 
   Widget _buildInspectionTypeBadge(Map<String, dynamic> item) {
     final bool isQuick = _isQuickInspection(item);
+    final Color color = ColorConstants.getInspectionTypeIndicatorColor(isQuick);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: isQuick ? Colors.amber.shade50 : Colors.green.shade50,
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isQuick ? Colors.amber.shade400 : Colors.green.shade300,
+          color: color.withOpacity(0.5),
           width: 0.5,
         ),
       ),
@@ -408,7 +406,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
         style: TextStyle(
           fontSize: 8,
           fontWeight: FontWeight.bold,
-          color: isQuick ? Colors.amber.shade900 : Colors.green.shade800,
+          color: color,
         ),
       ),
     );
@@ -482,7 +480,7 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
               children: [
                 Container(
                   width: 5,
-                  color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
+                  color: ColorConstants.getInspectionTypeIndicatorColor(isQuick),
                 ),
                 Expanded(
                   child: Padding(

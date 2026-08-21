@@ -115,24 +115,25 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
 
         final mapped = rawList
             .map((item) {
-              final vehicle = item['vehicle'] ?? {};
+              if (item is! Map) return <String, dynamic>{};
+              final Map<String, dynamic> rawMap = Map<String, dynamic>.from(item);
+              final vehicle = rawMap['vehicle'] ?? {};
               return {
-                'jobId': item['jobId']?.toString() ?? '',
-                'jobNo': item['jobNo']?.toString() ?? '',
+                ...rawMap,
+                'jobId': rawMap['jobId']?.toString() ?? '',
+                'jobNo': rawMap['jobNo']?.toString() ?? '',
                 'jobLaabsJobcardno':
-                    (item['jobLaabsJobcardno'] ??
-                            item['laabsjobCardNo'] ??
-                            item['laabsJobCardNo'])
+                    (rawMap['jobLaabsJobcardno'] ??
+                            rawMap['laabsjobCardNo'] ??
+                            rawMap['laabsJobCardNo'])
                         ?.toString() ??
                     '',
-                'jobStatus': item['jobStatus']?.toString() ?? '',
-                'jobRegNo': item['jobRegNo']?.toString() ?? '',
+                'jobStatus': rawMap['jobStatus']?.toString() ?? '',
+                'jobRegNo': rawMap['jobRegNo']?.toString() ?? '',
                 'plateNo': vehicle['vRegNo']?.toString() ?? '',
                 'vinNo': vehicle['vVinNo']?.toString() ?? '',
                 'vehicle': vehicle,
-                'inspectionType': (item['inspectionType'] ?? item['jobInspectionType'])?.toString() ?? '',
-                'isQuick': item['isQuick'] == true,
-                'inspections': item['inspections'] ?? [],
+                'isQuick': ColorConstants.isQuickInspection(rawMap),
               };
             })
             .where((item) {
@@ -353,36 +354,19 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
   }
 
   bool _isQuickInspection(Map<String, dynamic> item) {
-    final typeStr = (item["inspectionType"] ?? item["jobInspectionType"] ?? "").toString().trim().toUpperCase();
-    if (typeStr == "QUICK" || typeStr.contains("QUICK")) {
-      return true;
-    }
-    if (item["isQuick"] == true) {
-      return true;
-    }
-    final inspections = item["inspections"];
-    if (inspections is List && inspections.isNotEmpty) {
-      final first = inspections.first;
-      if (first is Map && first["master"] != null) {
-        final vimType = first["master"]["vimInspectionType"]?.toString();
-        final typeName = first["master"]["vimInspectionTypeName"]?.toString().toUpperCase() ?? "";
-        if (vimType == "1" || typeName.contains("QUICK")) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return ColorConstants.isQuickInspection(item);
   }
 
   Widget _buildInspectionTypeBadge(Map<String, dynamic> item) {
     final bool isQuick = _isQuickInspection(item);
+    final Color color = ColorConstants.getInspectionTypeIndicatorColor(isQuick);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: isQuick ? Colors.amber.shade50 : Colors.green.shade50,
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isQuick ? Colors.amber.shade400 : Colors.green.shade300,
+          color: color.withOpacity(0.5),
           width: 0.5,
         ),
       ),
@@ -391,7 +375,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
         style: TextStyle(
           fontSize: 8,
           fontWeight: FontWeight.bold,
-          color: isQuick ? Colors.amber.shade900 : Colors.green.shade800,
+          color: color,
         ),
       ),
     );
@@ -433,7 +417,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
               children: [
                 Container(
                   width: 5,
-                  color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
+                  color: ColorConstants.getInspectionTypeIndicatorColor(isQuick),
                 ),
                 Expanded(
                   child: Padding(

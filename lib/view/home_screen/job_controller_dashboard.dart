@@ -107,23 +107,27 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
         final reversedJobs = filteredList.reversed.toList();
 
         _allJobs = reversedJobs.map((item) {
-          final vehicle = item["vehicle"] ?? {};
+          if (item is! Map) return <String, dynamic>{};
+          final Map<String, dynamic> rawMap = Map<String, dynamic>.from(item);
+          final vehicle = rawMap["vehicle"] ?? {};
           return {
-            "jobId": item["jobId"]?.toString() ?? "",
-            "jobNo": item["jobNo"]?.toString() ?? "",
-            "jobLaabsJobcardno": (item["jobLaabsJobcardno"] ?? item["laabsjobCardNo"] ?? item["laabsJobCardNo"])?.toString() ?? "",
+            ...rawMap,
+            "jobId": rawMap["jobId"]?.toString() ?? "",
+            "jobNo": rawMap["jobNo"]?.toString() ?? "",
+            "jobLaabsJobcardno": (rawMap["jobLaabsJobcardno"] ?? rawMap["laabsjobCardNo"] ?? rawMap["laabsJobCardNo"])?.toString() ?? "",
             "make": vehicle["vMake"] ?? "",
             "model": vehicle["vModel"] ?? "",
             "year": vehicle["vModelYear"]?.toString() ?? "",
             "odometer": vehicle["vOdometer"]?.toString() ?? "",
             "plateNo": vehicle["vRegNo"]?.toString() ?? "",
             "vinNo": vehicle["vVinNo"]?.toString() ?? "",
-            "jobStatus": item["jobStatus"]?.toString() ?? "",
+            "jobStatus": rawMap["jobStatus"]?.toString() ?? "",
             "vehicleTypeId": vehicle["vTypeId"] ?? -1,
-            "jobCreatedOn": item["jobCreatedOn"] ?? "",
-            "jobTechnicianId": item["jobTechnicianId"],
-            "userDepartment": item["userDepartment"],
-            "inspections": item["inspections"] ?? [],
+            "jobCreatedOn": rawMap["jobCreatedOn"] ?? "",
+            "jobTechnicianId": rawMap["jobTechnicianId"],
+            "userDepartment": rawMap["userDepartment"],
+            "inspections": rawMap["inspections"] ?? [],
+            "isQuick": ColorConstants.isQuickInspection(rawMap),
           };
         }).toList();
 
@@ -417,36 +421,19 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
   }
 
   bool _isQuickInspection(Map<String, dynamic> item) {
-    final typeStr = (item["inspectionType"] ?? item["jobInspectionType"] ?? "").toString().trim().toUpperCase();
-    if (typeStr == "QUICK" || typeStr.contains("QUICK")) {
-      return true;
-    }
-    if (item["isQuick"] == true) {
-      return true;
-    }
-    final inspections = item["inspections"];
-    if (inspections is List && inspections.isNotEmpty) {
-      final first = inspections.first;
-      if (first is Map && first["master"] != null) {
-        final vimType = first["master"]["vimInspectionType"]?.toString();
-        final typeName = first["master"]["vimInspectionTypeName"]?.toString().toUpperCase() ?? "";
-        if (vimType == "1" || typeName.contains("QUICK")) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return ColorConstants.isQuickInspection(item);
   }
 
   Widget _buildInspectionTypeBadge(Map<String, dynamic> item) {
     final bool isQuick = _isQuickInspection(item);
+    final Color color = ColorConstants.getInspectionTypeIndicatorColor(isQuick);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: isQuick ? Colors.amber.shade50 : Colors.green.shade50,
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isQuick ? Colors.amber.shade400 : Colors.green.shade300,
+          color: color.withOpacity(0.5),
           width: 0.5,
         ),
       ),
@@ -455,7 +442,7 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
         style: TextStyle(
           fontSize: 8,
           fontWeight: FontWeight.bold,
-          color: isQuick ? Colors.amber.shade900 : Colors.green.shade800,
+          color: color,
         ),
       ),
     );
@@ -507,7 +494,7 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
               children: [
                 Container(
                   width: 5,
-                  color: isQuick ? Colors.amber.shade700 : Colors.green.shade600,
+                  color: ColorConstants.getInspectionTypeIndicatorColor(isQuick),
                 ),
                 Expanded(
                   child: Padding(
