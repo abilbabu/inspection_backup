@@ -382,6 +382,21 @@ class InspectioncardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteImage(int index) async {
+    if (index >= 0 && index < _capturedImages.length) {
+      await _deleteOldImage(_capturedImages[index]);
+      _capturedImages[index] = null;
+      notifyListeners();
+    }
+  }
+
+  void setImageAt(int index, File? file) {
+    if (index >= 0 && index < _capturedImages.length) {
+      _capturedImages[index] = file;
+      notifyListeners();
+    }
+  }
+
   Future<File> compressImage(File file) async {
     final dir = await getTemporaryDirectory();
     final targetPath = path.join(
@@ -499,12 +514,24 @@ class InspectioncardController extends ChangeNotifier {
         notifyListeners();
       }
     }
-    if (formController.isTaskSaved(taskId)) {
+    if (formController.isTaskReadOnly(taskId)) {
       isSuccess = true;
       showSaveButton = false;
+    } else {
+      isSuccess = false;
+      showSaveButton = true;
     }
     notifyListeners();
   }
+
+  void makeEditable(InspectionFormController formController, int taskId) {
+    debugPrint("makeEditable called for taskId: $taskId");
+    isSuccess = false;
+    showSaveButton = true;
+    formController.makeTaskEditable(taskId);
+    notifyListeners();
+  }
+
 
   void updateParentTask({
     required InspectionFormController formController,
