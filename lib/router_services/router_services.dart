@@ -290,10 +290,11 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/inspectionFullScreenVideo',
       builder: (context, state) {
-        final args = state.extra as Map<String, String>;
+        final args = state.extra as Map<String, dynamic>;
         return InspectionFullScreenVideo(
-          videoUrl: args['videoUrl']!,
-          label: args['label']!,
+          videoUrl: args['videoUrl']?.toString() ?? '',
+          label: args['label']?.toString() ?? '',
+          isReadOnly: args['isReadOnly'] == true || args['isReadOnly']?.toString() == 'true',
         );
       },
     ),

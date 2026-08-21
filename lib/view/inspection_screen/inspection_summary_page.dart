@@ -699,7 +699,11 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
       onTap: () {
         context.push(
           '/inspectionFullScreenVideo',
-          extra: {'videoUrl': url, 'label': title},
+          extra: {
+            'videoUrl': url,
+            'label': title,
+            'isReadOnly': true,
+          },
         );
       },
       child: Container(

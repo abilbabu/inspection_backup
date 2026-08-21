@@ -13,11 +13,13 @@ import 'package:video_player/video_player.dart';
 class InspectionFullScreenVideo extends StatefulWidget {
   final String videoUrl;
   final String label;
+  final bool isReadOnly;
 
   const InspectionFullScreenVideo({
     super.key,
     required this.videoUrl,
     required this.label,
+    this.isReadOnly = false,
   });
 
   @override
@@ -28,6 +30,11 @@ class InspectionFullScreenVideo extends StatefulWidget {
 class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
   late VideoPlayerController _controller;
   bool _initialized = false;
+
+  bool get _effectiveReadOnly =>
+      widget.isReadOnly ||
+      widget.videoUrl.startsWith('http://') ||
+      widget.videoUrl.startsWith('https://');
 
   @override
   void initState() {
@@ -210,33 +217,34 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
                               ),
                             ),
 
-                          Positioned(
-                            bottom: 12,
-                            right: 12,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                debugPrint("Recapture clicked in fullscreen video");
-                                Navigator.pop(context, "recapture");
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.7),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: SvgPicture.asset(
-                                  'assets/svg/repeat.svg',
-                                  width: 24,
-                                  height: 24,
-                                  colorFilter: const ColorFilter.mode(
-                                    Colors.white,
-                                    BlendMode.srcIn,
+                          if (!_effectiveReadOnly)
+                            Positioned(
+                              bottom: 12,
+                              right: 12,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  debugPrint("Recapture clicked in fullscreen video");
+                                  Navigator.pop(context, "recapture");
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.7),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: SvgPicture.asset(
+                                    'assets/svg/repeat.svg',
+                                    width: 12,
+                                    height: 12,
+                                    colorFilter: const ColorFilter.mode(
+                                      Colors.white,
+                                      BlendMode.srcIn,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
 
                           Positioned(
                             top: 6,
@@ -264,59 +272,67 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
                   ),
                 ),
 
-                const SizedBox(height: 20),
-
-                /// CLOSE BUTTON
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    debugPrint("Recapture clicked on video instruction row");
-                    Navigator.pop(context, "recapture");
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: SvgPicture.asset(
-                            'assets/svg/repeat.svg',
-                            width: 16,
-                            height: 16,
-                            colorFilter: const ColorFilter.mode(
-                              Colors.red,
-                              BlendMode.srcIn,
+                if (!_effectiveReadOnly) ...[
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      debugPrint("Recapture clicked on video instruction row");
+                      Navigator.pop(context, "recapture");
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: SvgPicture.asset(
+                              'assets/svg/repeat.svg',
+                              width: 12,
+                              height: 12,
+                              colorFilter: const ColorFilter.mode(
+                                Colors.red,
+                                BlendMode.srcIn,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            "Click here or the icon to capture again*",
-                            style: ApptextstyleConstants.lightText(
-                              fontSize: 14,
-                              color: ColorConstants.errorcolor,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Click here or the icon to capture again*",
+                              style: ApptextstyleConstants.lightText(
+                                fontSize: 13,
+                                color: ColorConstants.errorcolor,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
+                ],
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: CustomButtonWidget(
-                    text: "DONE",
+                    text: _effectiveReadOnly ? "CLOSE" : "DONE",
                     textSize: 16,
-                    icon: Icons.check,
-                    isDisabled: controller.isUploading,
-                    showLoader: controller.isUploading,
+                    icon: _effectiveReadOnly ? Icons.close : Icons.check,
+                    isDisabled: !_effectiveReadOnly && controller.isUploading,
+                    showLoader: !_effectiveReadOnly && controller.isUploading,
                     onPressed: () async {
+                      if (_effectiveReadOnly) {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+                          context.pop();
+                        }
+                        return;
+                      }
                       final file = await controller.saveVideo(widget.videoUrl);
 
                       if (!context.mounted || file == null) return;

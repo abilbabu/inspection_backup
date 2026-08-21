@@ -310,6 +310,35 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           continue;
         }
 
+        final List rawAttachments = List.from(savedTask["attachments"] ?? []);
+        final List attachments = List.from(rawAttachments);
+        attachments.sort((a, b) {
+          final idA = a["iaId"] ?? a["iaInspectionImageId"] ?? a["id"] ?? 0;
+          final idB = b["iaId"] ?? b["iaInspectionImageId"] ?? b["id"] ?? 0;
+          if (idA is num && idB is num && idA != 0 && idB != 0) {
+            return idB.compareTo(idA);
+          }
+          return 0;
+        });
+        if (attachments.isEmpty && rawAttachments.isNotEmpty) {
+          attachments.addAll(rawAttachments.reversed);
+        }
+
+        String? videoUrl;
+        final List<String> imageUrl = [];
+        String? audioUrl;
+        for (final a in attachments) {
+          if (a["type"] == 0) {
+            if (a["url"] != null && !imageUrl.contains(a["url"])) {
+              imageUrl.add(a["url"]);
+            }
+          } else if (a["type"] == 1) {
+            audioUrl ??= a["url"];
+          } else if (a["type"] == 2) {
+            videoUrl ??= a["url"];
+          }
+        }
+
         formController.updateTask(
           InspectionTaskData(
             jobId: data["jobId"],
@@ -328,6 +357,9 @@ class InspectionTypeDetailsController extends ChangeNotifier {
                 : null,
             note: savedTask["viNote"] ?? "",
             description: savedTask["viDescription"] ?? "",
+            imageUrls: imageUrl.isNotEmpty ? imageUrl : null,
+            audioUrl: audioUrl,
+            videoUrl: videoUrl,
             inserted: true,
             isSaved: true,
           ),
