@@ -59,8 +59,8 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
     return Consumer<JobcarddetailsController>(
       builder: (context, controller, child) {
         final root = controller.jobCardData;
-        final jobcard = root?['jobcard'] ?? {};
-        final vehicle = jobcard['vehicle'] ?? {};
+        final Map<String, dynamic> jobcard = Map<String, dynamic>.from(root?['jobcard'] ?? {});
+        final Map<String, dynamic> vehicle = Map<String, dynamic>.from(jobcard['vehicle'] ?? {});
         final String? jobLaabsJobcardno =
             (jobcard['jobLaabsJobcardno'] ??
                     jobcard['laabsjobCardNo'] ??
@@ -395,8 +395,8 @@ class _vehicleSummaryWidgetStateTwo extends State<VehicleSummaryWidgetTwo> {
     return Consumer<JobcarddetailsController>(
       builder: (context, controller, child) {
         final root = controller.jobCardData;
-        final jobcard = root?['jobcard'] ?? {};
-        final vehicle = jobcard['vehicle'] ?? {};
+        final Map<String, dynamic> jobcard = Map<String, dynamic>.from(root?['jobcard'] ?? {});
+        final Map<String, dynamic> vehicle = Map<String, dynamic>.from(jobcard['vehicle'] ?? {});
         final String? jobLaabsJobcardno =
             (jobcard['jobLaabsJobcardno'] ??
                     jobcard['laabsjobCardNo'] ??

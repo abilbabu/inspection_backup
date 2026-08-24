@@ -547,7 +547,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                   )
                                   .join(' '),
                             ),
-                            subtitle: const Text("Technician"),
+                            subtitle: Text("Active: ${technician["activeJobCardCount"] ?? 0} | Completed: ${technician["completedJobCardCount"] ?? 0}"),
                             trailing: const Icon(
                               Icons.add,
                               size: 16,
