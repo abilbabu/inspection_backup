@@ -176,13 +176,13 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
       }
 
       final status = int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
-      if (status == 3 || status == 4 || status == 10) {
+      if (status == 3 || status == 4 || status == 5 || status == 10 || status == 11 || status == 18) {
         allCount++;
         if (status == 3) {
           pendingCount++;
-        } else if (status == 4) {
+        } else if (status == 4 || status == 5) {
           assignedCount++;
-        } else if (status == 10) {
+        } else if (status == 10 || status == 11 || status == 18) {
           reassignedCount++;
         }
       }
@@ -192,7 +192,7 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
     if (_activeFilter == "all") {
       temp = temp.where((item) {
         final status = int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
-        return status == 3 || status == 4 || status == 10;
+        return status == 3 || status == 4 || status == 5 || status == 10 || status == 11 || status == 18;
       }).toList();
     } else if (_activeFilter == "pending") {
       temp = temp.where((item) {
@@ -202,12 +202,12 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
     } else if (_activeFilter == "assigned") {
       temp = temp.where((item) {
         final status = int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
-        return status == 4;
+        return status == 4 || status == 5;
       }).toList();
     } else if (_activeFilter == "reassigned") {
       temp = temp.where((item) {
         final status = int.tryParse(item["jobStatus"]?.toString() ?? "0") ?? 0;
-        return status == 10;
+        return status == 10 || status == 11 || status == 18;
       }).toList();
     }
 
@@ -470,13 +470,9 @@ class _SupervisorDashboardState extends State<SupervisorDashboard> {
             : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
         if (jobStatus == 3) {
           context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 4) {
+        } else if (jobStatus == 4 || jobStatus == 5) {
           context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 5) {
-          context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 10) {
-          context.go("/reassigneddetails", extra: jobId);
-        }else if (jobStatus == 11) {
+        } else if (jobStatus == 10 || jobStatus == 11 || jobStatus == 18) {
           context.go("/reassigneddetails", extra: jobId);
         }
       },

@@ -151,4 +151,39 @@ class InspectionDetailsController extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> reassignTechnician({
+    required int jobId,
+    required int newTechnicianId,
+    required int reassignedById,
+    required String technicianName,
+  }) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userToken = prefs.getString('userToken');
+      Map<String, dynamic> payload = {
+        "jobId": jobId,
+        "newTechnicianId": newTechnicianId,
+        "reassignedById": reassignedById,
+      };
+      final response = await http.post(
+        Uri.parse(ApiServices.reassignTechnician),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $userToken",
+        },
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 200) {
+        assignedTechnicianName = technicianName;
+        assignedTechnicianId = newTechnicianId;
+        jobTechnicianId = newTechnicianId;
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
 }

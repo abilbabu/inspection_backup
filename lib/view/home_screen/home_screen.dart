@@ -1629,11 +1629,9 @@ class _HomeScreenState extends State<HomeScreen> {
             : int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
         if (jobStatus == 3) {
           context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 4) {
+        } else if (jobStatus == 4 || jobStatus == 5) {
           context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 5) {
-          context.go("/jobcarddetails", extra: jobId);
-        } else if (jobStatus == 11) {
+        } else if (jobStatus == 10 || jobStatus == 11 || jobStatus == 18) {
           context.go("/reassigneddetails", extra: jobId);
         }
       },

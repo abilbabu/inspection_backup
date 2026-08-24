@@ -17,8 +17,8 @@ class InspectionTaskData {
   final File? videoFile;     // local capture
   final String? videoUrl;
 
-  final List<File>? imageFiles;
-  final List<String>? imageUrls;
+  final List<File?>? imageFiles;
+  final List<String?>? imageUrls;
 
   InspectionTaskData({
    this.categoryId,

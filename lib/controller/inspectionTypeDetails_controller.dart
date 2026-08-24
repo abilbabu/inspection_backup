@@ -325,12 +325,21 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         }
 
         String? videoUrl;
-        final List<String> imageUrl = [];
+        final List<String?> imageUrl = List<String?>.filled(3, null);
         String? audioUrl;
         for (final a in attachments) {
           if (a["type"] == 0) {
-            if (a["url"] != null && !imageUrl.contains(a["url"])) {
-              imageUrl.add(a["url"]);
+            if (a["url"] != null) {
+              final rawSlot = a["iaImageType"] ?? a["imageType"] ?? a["ia_image_type"];
+              int slotIndex = 0;
+              if (rawSlot != null) {
+                slotIndex = int.tryParse(rawSlot.toString()) ?? 0;
+              }
+              if (slotIndex >= 0 && slotIndex < 3) {
+                if (imageUrl[slotIndex] == null) {
+                  imageUrl[slotIndex] = a["url"];
+                }
+              }
             }
           } else if (a["type"] == 1) {
             audioUrl ??= a["url"];
@@ -357,7 +366,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
                 : null,
             note: savedTask["viNote"] ?? "",
             description: savedTask["viDescription"] ?? "",
-            imageUrls: imageUrl.isNotEmpty ? imageUrl : null,
+            imageUrls: imageUrl.any((u) => u != null) ? imageUrl : null,
             audioUrl: audioUrl,
             videoUrl: videoUrl,
             inserted: true,
@@ -489,12 +498,21 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         }
 
         String? videoUrl;
-        final List<String> imageUrl = [];
+        final List<String?> imageUrl = List<String?>.filled(3, null);
         String? audioUrl;
         for (final a in attachments) {
           if (a["type"] == 0) {
-            if (a["url"] != null && !imageUrl.contains(a["url"])) {
-              imageUrl.add(a["url"]);
+            if (a["url"] != null) {
+              final rawSlot = a["iaImageType"] ?? a["imageType"] ?? a["ia_image_type"];
+              int slotIndex = 0;
+              if (rawSlot != null) {
+                slotIndex = int.tryParse(rawSlot.toString()) ?? 0;
+              }
+              if (slotIndex >= 0 && slotIndex < 3) {
+                if (imageUrl[slotIndex] == null) {
+                  imageUrl[slotIndex] = a["url"];
+                }
+              }
             }
           } else if (a["type"] == 1) {
             audioUrl ??= a["url"];
@@ -537,7 +555,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
                       : null,
                   note: savedTask["viNote"] ?? "",
                   description: savedTask["viDescription"] ?? "",
-                  imageUrls: imageUrl.isNotEmpty ? imageUrl : null,
+                  imageUrls: imageUrl.any((u) => u != null) ? imageUrl : null,
                   audioUrl: audioUrl,
                   videoUrl: videoUrl,
                   inserted: true,

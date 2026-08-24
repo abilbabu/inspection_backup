@@ -464,7 +464,7 @@ class InspectioncardController extends ChangeNotifier {
       selectedOption = existing.condition;
       noteController.text = existing.note;
       descriptionController.text = existing.description;
-      if (existing.imageFiles != null && existing.imageFiles!.isNotEmpty) {
+      if (existing.imageFiles != null && existing.imageFiles!.any((f) => f != null)) {
         for (
           int i = 0;
           i < existing.imageFiles!.length && i < _capturedImages.length;
@@ -472,7 +472,7 @@ class InspectioncardController extends ChangeNotifier {
         ) {
           _capturedImages[i] = existing.imageFiles![i];
         }
-      } else if (existing.imageUrls != null && existing.imageUrls!.isNotEmpty) {
+      } else if (existing.imageUrls != null && existing.imageUrls!.any((u) => u != null)) {
         isImageDownloading = true;
         notifyListeners();
         for (
@@ -480,12 +480,15 @@ class InspectioncardController extends ChangeNotifier {
           i < existing.imageUrls!.length && i < _capturedImages.length;
           i++
         ) {
-          final file = await MediaCacheService.instance.getCachedFile(
-            existing.imageUrls![i],
-            CachedMediaType.image,
-          );
-          if (file != null) {
+          final String? url = existing.imageUrls![i];
+          if (url != null) {
+            final file = await MediaCacheService.instance.getCachedFile(
+              url,
+              CachedMediaType.image,
+            );
             _capturedImages[i] = file;
+          } else {
+            _capturedImages[i] = null;
           }
         }
         isImageDownloading = false;
@@ -562,7 +565,7 @@ class InspectioncardController extends ChangeNotifier {
         condition: selectedOption,
         note: noteController.text,
         description: descriptionController.text,
-        imageFiles: _capturedImages.whereType<File>().toList(),
+        imageFiles: List<File?>.from(_capturedImages),
         imageUrls: hasNewImages ? null : existing?.imageUrls,
         videoFile: _capturedVideo,
         videoUrl: hasNewVideo ? null : existing?.videoUrl,

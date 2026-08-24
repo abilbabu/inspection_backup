@@ -37,8 +37,8 @@ class JobcarddetailsController extends ChangeNotifier {
   String? assignedTechnicianName;
   bool isDownloading = false;
 
-  Future<ApiResponse> postJobCardDetails(int jobId) async {
-    if (hasLoaded && jobCardData != null && loadedJobId == jobId) {
+  Future<ApiResponse> postJobCardDetails(int jobId, {bool forceRefresh = false}) async {
+    if (!forceRefresh && hasLoaded && jobCardData != null && loadedJobId == jobId) {
       return ApiResponse(success: true, data: jobCardData);
     }
     if (loadedJobId != jobId) {

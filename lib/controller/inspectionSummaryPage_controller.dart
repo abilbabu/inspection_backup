@@ -202,7 +202,8 @@ class InspectionsummarypageController extends ChangeNotifier {
         if (currentUrl.isEmpty) return;
 
         final int attId = att["iaId"] ?? att["iaInspectionImageId"] ?? att["id"] ?? 0;
-        final int slot = att["imgIndex"] ?? att["iaImgIndex"] ?? att["index"] ?? -1;
+        final dynamic rawSlot = att["iaImageType"] ?? att["imageType"] ?? att["ia_image_type"] ?? att["imgIndex"] ?? att["iaImgIndex"] ?? att["index"];
+        final int slot = rawSlot is num ? rawSlot.toInt() : (int.tryParse(rawSlot?.toString() ?? "") ?? -1);
 
         final list = rawImageAttachmentsMap
             .putIfAbsent(inspInt, () => {})
@@ -310,8 +311,13 @@ class InspectionsummarypageController extends ChangeNotifier {
             for (final s in sortedSlots) {
               finalUrls.add(slotMap[s]!);
             }
+            for (final url in unslottedUrls) {
+              if (!finalUrls.contains(url)) {
+                finalUrls.add(url);
+              }
+            }
           } else if (unslottedUrls.isNotEmpty) {
-            finalUrls = [unslottedUrls.first];
+            finalUrls = List.from(unslottedUrls);
           }
 
           if (finalUrls.isNotEmpty) {

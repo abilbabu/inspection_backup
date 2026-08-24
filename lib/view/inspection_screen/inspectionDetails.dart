@@ -149,7 +149,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                 VehicleSummaryWidget(jobId: widget.jobId),
                 const SizedBox(height: 20),
 
-                if (jobCtrl.isTechnicianAssigned == true &&  ![10, 11, 12, 13, 14].contains(status))
+                if (jobCtrl.isTechnicianAssigned == true &&  ![10, 11, 12, 13, 14].contains(status)) ...[
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -168,6 +168,35 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                       ),
                     ),
                   ),
+                  if ([4, 5, 11, 18].contains(status) &&
+                      (userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.sync_alt, color: Colors.white, size: 18),
+                        label: const Text(
+                          "REASSIGN TECHNICIAN",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ColorConstants.textBlueColor,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () async {
+                          await showReassignTechnicianBottomSheet();
+                        },
+                      ),
+                    ),
+                  ],
+                ],
                 const SizedBox(height: 20),
 
                 Container(
@@ -627,6 +656,192 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                     ),
                                   ),
                                 );
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> showReassignTechnicianBottomSheet() async {
+    final parentContext = context;
+    final controller = context.read<InspectionDetailsController>();
+    final jobCtrl = context.read<JobcarddetailsController>();
+    final currentTechId = int.tryParse(jobCtrl.jobCardData?["jobcard"]?["jobTechnicianId"]?["userId"]?.toString() ?? "") ?? -1;
+
+    await controller.getTechnicianList();
+
+    TextEditingController searchController = TextEditingController();
+
+    List<Map<String, dynamic>> filteredList = List.from(
+      controller.technicianList,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Reassign Technician",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Current: ${jobCtrl.assignedTechnicianName ?? 'None'}",
+                    style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 15),
+                  SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search Technician",
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          filteredList = controller.technicianList
+                              .where(
+                                (e) => e["userName"]
+                                    .toString()
+                                    .toLowerCase()
+                                    .contains(value.toLowerCase()),
+                              )
+                              .toList();
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      itemCount: filteredList.length,
+                      itemBuilder: (context, index) {
+                        final technician = filteredList[index];
+                        final isCurrentTech = int.tryParse(technician["userId"].toString()) == currentTechId;
+                        return Card(
+                          elevation: 2,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          color: isCurrentTech ? Colors.green.shade50 : null,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: isCurrentTech ? Colors.green.shade100 : Colors.blue.shade100,
+                              child: Icon(
+                                Icons.person,
+                                color: isCurrentTech ? Colors.green : Colors.blue,
+                              ),
+                            ),
+                            title: Text(
+                              technician["userName"]
+                                  .toString()
+                                  .split(' ')
+                                  .map(
+                                    (word) => word.isNotEmpty
+                                        ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+                                        : '',
+                                  )
+                                  .join(' '),
+                            ),
+                            subtitle: Text(
+                              isCurrentTech 
+                                  ? "Current Technician" 
+                                  : "Active: ${technician["activeJobCardCount"] ?? 0} | Completed: ${technician["completedJobCardCount"] ?? 0}",
+                              style: TextStyle(
+                                color: isCurrentTech ? Colors.green.shade700 : Colors.grey.shade600,
+                                fontWeight: isCurrentTech ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            trailing: isCurrentTech
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    size: 20,
+                                    color: Colors.green,
+                                  )
+                                : const Icon(
+                                    Icons.sync_alt,
+                                    size: 16,
+                                    color: Colors.blue,
+                                  ),
+                            onTap: isCurrentTech ? null : () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text("Confirm Reassignment"),
+                                  content: Text("Are you sure you want to reassign this job card to ${technician["userName"]}?"),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text("CANCEL"),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text("REASSIGN"),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirm == true) {
+                                Navigator.pop(context); // close bottom sheet
+                                final success = await controller.reassignTechnician(
+                                  jobId: widget.jobId ?? 0,
+                                  newTechnicianId: int.tryParse(technician["userId"].toString()) ?? 0,
+                                  reassignedById: controller.loginTechnicianId ?? 0,
+                                  technicianName: technician["userName"].toString(),
+                                );
+                                if (success) {
+                                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                                    const SnackBar(content: Text("Technician Reassigned Successfully")),
+                                  );
+                                  // Refresh Job Card details to update UI
+                                  parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId!, forceRefresh: true);
+                                } else {
+                                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                                    const SnackBar(content: Text("Technician Reassignment Failed")),
+                                  );
+                                }
                               }
                             },
                           ),
