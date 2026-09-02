@@ -339,73 +339,76 @@ class _QuickInspectionSummaryPageState
                                 textSize: 16,
                                 isDisabled: _isLoading || basicCtrl.isUploading,
                                 showLoader: _isLoading,
-                                onPressed: () async {
-                                  final file = await _saveSignature();
-                                  if (file == null) return;
-                                  setState(() {
-                                    _isLoading = true;
-                                  });
-                                  bool success = false;
-                                  try {
-                                    basicCtrl.currentStage =
-                                        InspectionStage.signature;
-                                    basicCtrl.setSignatureFile(file);
-                                    success = await basicCtrl.proceedStep(
-                                      jobId: widget.jobId,
-                                      status: 3,
-                                      additionalComment: _complaintController
-                                          .text
-                                          .trim(),
-                                    );
-                                    if (success) {
-                                      // Persist 'completed' so reopening still shows Summary.
-                                      await basicCtrl
-                                          .markQuickInspectionCompleted();
-                                      _clearAllCache(context);
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              "Quick inspection completed successfully",
-                                            ),
-                                            backgroundColor:
-                                                ColorConstants.greenColor,
-                                          ),
-                                        );
-                                        await Future.delayed(
-                                          const Duration(seconds: 1),
-                                        );
-                                        context.go(
-                                          '/jobcarddetails',
-                                          extra: widget.jobId,
-                                        );
-                                      }
-                                    } else {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              "Failed to upload signature. Check offline sync.",
-                                            ),
-                                            backgroundColor:
-                                                ColorConstants.errorcolor,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  } catch (e) {
-                                  } finally {
-                                    if (mounted) {
-                                      setState(() {
-                                        _isLoading = false;
-                                      });
-                                    }
-                                  }
-                                },
+                                onPressed: _isLoading || basicCtrl.isUploading
+                                    ? null
+                                    : () async {
+                                        if (_isLoading) return;
+                                        setState(() {
+                                          _isLoading = true;
+                                        });
+                                        try {
+                                          final file = await _saveSignature();
+                                          if (file == null) {
+                                            if (mounted) setState(() => _isLoading = false);
+                                            return;
+                                          }
+                                          basicCtrl.currentStage =
+                                              InspectionStage.signature;
+                                          basicCtrl.setSignatureFile(file);
+                                          final success = await basicCtrl.proceedStep(
+                                            jobId: widget.jobId,
+                                            status: 3,
+                                            additionalComment: _complaintController
+                                                .text
+                                                .trim(),
+                                          );
+                                          if (success) {
+                                            // Persist 'completed' so reopening still shows Summary.
+                                            await basicCtrl
+                                                .markQuickInspectionCompleted();
+                                            _clearAllCache(context);
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Quick inspection completed successfully",
+                                                  ),
+                                                  backgroundColor:
+                                                      ColorConstants.greenColor,
+                                                ),
+                                              );
+                                              await Future.delayed(
+                                                const Duration(seconds: 1),
+                                              );
+                                              context.go(
+                                                '/jobcarddetails',
+                                                extra: widget.jobId,
+                                              );
+                                            }
+                                          } else {
+                                            if (mounted) {
+                                              setState(() => _isLoading = false);
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    "Failed to upload signature. Check offline sync.",
+                                                  ),
+                                                  backgroundColor:
+                                                      ColorConstants.errorcolor,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        } catch (e) {
+                                          if (mounted) {
+                                            setState(() => _isLoading = false);
+                                          }
+                                        }
+                                      },
                               ),
                             ),
                             const SizedBox(height: 30),

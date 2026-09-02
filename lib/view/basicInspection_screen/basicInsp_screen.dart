@@ -54,8 +54,19 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Future<void> _initCamera() async {
+    if (mounted) {
+      setState(() => _isCameraReady = false);
+    }
+    if (_cameraController != null) {
+      try {
+        await _cameraController!.dispose();
+      } catch (_) {}
+      _cameraController = null;
+    }
+
     final hasPermission = await PermissionService.instance.requestCameraPermission(context);
     if (!hasPermission) return;
+    final bool hasMic = await Permission.microphone.isGranted;
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) return;
@@ -63,14 +74,14 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         (c) => c.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
-      _cameraController = CameraController(
+      final controller = CameraController(
         rearCamera,
         ResolutionPreset.high,
-        enableAudio: false,
+        enableAudio: hasMic,
       );
-      await _cameraController!.initialize();
-      double minZoom = await _cameraController!.getMinZoomLevel();
-      double maxZoom = await _cameraController!.getMaxZoomLevel();
+      await controller.initialize();
+      double minZoom = await controller.getMinZoomLevel();
+      double maxZoom = await controller.getMaxZoomLevel();
       if (Platform.isIOS) {
         maxZoom = maxZoom.clamp(1.0, 10.0);
       }
@@ -78,27 +89,38 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       _maxZoom = maxZoom;
       _currentZoom = 1.0;
       _zoomIndex = baseLevels.contains(1.0) ? baseLevels.indexOf(1.0) : 0;
-      await _cameraController!.setZoomLevel(_currentZoom);
       try {
-        await _cameraController!.setFlashMode(_flashMode);
+        await controller.setZoomLevel(_currentZoom);
+      } catch (_) {}
+      try {
+        await controller.setFlashMode(_flashMode);
       } catch (_) {
         _flashMode = FlashMode.off;
       }
-      if (mounted) {
-        setState(() => _isCameraReady = true);
+      if (!mounted) {
+        controller.dispose();
+        return;
       }
+      _cameraController = controller;
+      setState(() => _isCameraReady = true);
     } catch (e) {
+      if (mounted) {
+        setState(() => _isCameraReady = false);
+      }
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final CameraController? cameraController = _cameraController;
-    if (cameraController == null || !cameraController.value.isInitialized) {
-      return;
-    }
-    if (state == AppLifecycleState.inactive) {
-      cameraController.dispose();
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      if (mounted && _isCameraReady) {
+        setState(() => _isCameraReady = false);
+      }
+      if (cameraController != null) {
+        cameraController.dispose();
+        _cameraController = null;
+      }
     } else if (state == AppLifecycleState.resumed) {
       Permission.camera.status.then((status) {
         if (status.isGranted && mounted) {
@@ -114,6 +136,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     _notesFocusNode.dispose();
     _recordTimer?.cancel();
     _cameraController?.dispose();
+    _cameraController = null;
     super.dispose();
   }
 
@@ -170,11 +193,15 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     final cam = _cameraController;
     if (cam == null || !cam.value.isInitialized || _isCapturing || controller.isBusy) return;
     if (controller.isMaxImagesCaptured) {
+      if (controller.hasVideoRequirement) {
+        controller.selectVideoMode();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Maximum  images reached for this item"),
+          content: Text("Maximum images reached for this item"),
           duration: Duration(seconds: 1),
-          backgroundColor:ColorConstants.errorcolor
+          backgroundColor: ColorConstants.errorcolor,
         ),
       );
       return;
@@ -186,9 +213,9 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       int angle = 0;
       try {
         NativeDeviceOrientation orientation =
-            await NativeDeviceOrientationCommunicator().orientation(
-              useSensor: true,
-            );
+            await NativeDeviceOrientationCommunicator()
+                .orientation(useSensor: true)
+                .timeout(const Duration(milliseconds: 500));
         if (orientation == NativeDeviceOrientation.landscapeLeft) {
           angle = 270;
         } else if (orientation == NativeDeviceOrientation.landscapeRight) {
@@ -197,6 +224,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           angle = 180;
         }
       } catch (e) {
+        debugPrint("Orientation check skipped: $e");
       }
       final activeIndex = controller.selectedBoxIndex;
       await controller.updateCapturedImage(
@@ -206,6 +234,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       );
       // Photo captured into box; camera stays open without auto-preview popup.
     } catch (e) {
+      debugPrint("Error in _takePhoto: $e");
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }
@@ -269,18 +298,19 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         });
         return controller;
       },
-      child: PopScope(
-        canPop: false,
-        onPopInvoked: (_) async {
-          final controller = Provider.of<BasicinspController>(context, listen: false);
-          if (controller.isBusy || _isRecording || _isStopping) return;
-          if (await _showExitConfirmation()) {
-            context.go('/home');
-          }
-        },
-        child: Scaffold(
-          backgroundColor: Colors.black,
-          body: SafeArea(
+      builder: (context, child) {
+        return PopScope(
+          canPop: false,
+          onPopInvoked: (_) async {
+            final controller = Provider.of<BasicinspController>(context, listen: false);
+            if (controller.isBusy || _isRecording || _isStopping) return;
+            if (await _showExitConfirmation()) {
+              context.go('/home');
+            }
+          },
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: SafeArea(
             child: Consumer<BasicinspController>(
               builder: (context, controller, child) {
                 if (controller.isLoading) {
@@ -420,9 +450,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   Widget _buildCapturedImagePreview(File capturedFile) {
     return Container(
@@ -441,7 +472,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Widget _buildCameraPreview() {
-    if (!_isCameraReady || _cameraController == null) {
+    if (!_isCameraReady || _cameraController == null || !_cameraController!.value.isInitialized) {
       return const CameraShimmerLoader();
     }
     final size = MediaQuery.of(context).size;
@@ -463,7 +494,11 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           },
           child: Transform.scale(
             scale: scale,
-            child: Center(child: CameraPreview(_cameraController!)),
+            child: Center(
+              child: (_cameraController != null && _cameraController!.value.isInitialized)
+                  ? CameraPreview(_cameraController!)
+                  : const CameraShimmerLoader(),
+            ),
           ),
         );
       },

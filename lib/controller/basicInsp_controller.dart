@@ -810,20 +810,41 @@ class BasicinspController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool get hasVideoRequirement {
+    if (is360Stage) return true;
+    final item = currentItem;
+    return item?['videoFlag'] ?? false;
+  }
+
+  bool get isMaxImagesCaptured {
+    if (_capturedImages.isEmpty) return false;
+    return _capturedImages.every((img) => img != null);
+  }
+
   Future<void> updateCapturedImage(int index, File file, {int angle = 0}) async {
     final compressed = await compressImage(file, angle: angle);
-    if (index >= 0 && index < _capturedImages.length) {
+    if (_capturedImages.isEmpty) {
+      _capturedImages.add(compressed);
+    } else if (index >= 0 && index < _capturedImages.length) {
       await _deleteOldImage(_capturedImages[index]);
       _capturedImages[index] = compressed;
     } else if (_capturedImages.length < 3) {
       _capturedImages.add(compressed);
+    } else {
+      _capturedImages[0] = compressed;
     }
     // Auto-advance to next uncaptured image box if available
+    bool foundEmpty = false;
     for (int i = 0; i < _capturedImages.length; i++) {
       if (_capturedImages[i] == null) {
         selectedBoxIndex = i;
+        foundEmpty = true;
         break;
       }
+    }
+    // If all required images are captured, automatically transition to Video mode
+    if (!foundEmpty && hasVideoRequirement) {
+      isVideoModeSelected = true;
     }
     notifyListeners();
   }
@@ -843,11 +864,6 @@ class BasicinspController extends ChangeNotifier {
     _capturedVideo = null;
     isVideoModeSelected = true;
     notifyListeners();
-  }
-
-  bool get isMaxImagesCaptured {
-    if (_capturedImages.isEmpty) return false;
-    return _capturedImages.every((img) => img != null);
   }
 
   Future<void> updateCapturedVideo(File videoFile) async {
@@ -876,8 +892,8 @@ class BasicinspController extends ChangeNotifier {
       imageCount = 3;
     }
     if (reset || _capturedImages.length != imageCount) {
-      _capturedImages = List<File?>.filled(imageCount, null);
-      capturedStatus = List.generate(imageCount, (_) => false);
+      _capturedImages = List<File?>.generate(imageCount, (_) => null, growable: true);
+      capturedStatus = List.generate(imageCount, (_) => false, growable: true);
     }
     _capturedVideo = null;
     selectedBoxIndex = 0;

@@ -28,7 +28,7 @@ Timer? _debounce;
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     with WidgetsBindingObserver {
-  late CameraController _controller;
+  CameraController? _controller;
   bool _ready = false;
   bool _isCapturing = false;
   bool _isRecording = false;
@@ -55,6 +55,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _initCamera() async {
+    if (mounted) {
+      setState(() => _ready = false);
+    }
+    if (_controller != null) {
+      try {
+        await _controller!.dispose();
+      } catch (_) {}
+      _controller = null;
+    }
+
     final bool hasPermission = widget.isVideo
         ? await PermissionService.instance.requestVideoPermissions(context)
         : await PermissionService.instance.requestCameraPermission(context);
@@ -68,18 +78,22 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
     try {
       final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        if (mounted) Navigator.pop(context);
+        return;
+      }
       final rearCamera = cameras.firstWhere(
         (c) => c.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
-      _controller = CameraController(
+      final controller = CameraController(
         rearCamera,
         ResolutionPreset.high,
-        enableAudio: false,
+        enableAudio: widget.isVideo,
       );
-      await _controller.initialize();
-      double minZoom = await _controller.getMinZoomLevel();
-      double maxZoom = await _controller.getMaxZoomLevel();
+      await controller.initialize();
+      double minZoom = await controller.getMinZoomLevel();
+      double maxZoom = await controller.getMaxZoomLevel();
       if (Platform.isIOS) {
         maxZoom = maxZoom.clamp(1.0, 10.0);
       }
@@ -87,13 +101,19 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       _maxZoom = maxZoom;
       _currentZoom = 1.0;
       _zoomIndex = baseLevels.indexOf(1.0);
-      await _controller.setZoomLevel(_currentZoom);
       try {
-        await _controller.setFlashMode(_flashMode);
+        await controller.setZoomLevel(_currentZoom);
+      } catch (_) {}
+      try {
+        await controller.setFlashMode(_flashMode);
       } on CameraException catch (_) {
         _flashMode = FlashMode.off;
       }
-      if (!mounted) return;
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      _controller = controller;
       setState(() => _ready = true);
     } catch (e) {
       if (mounted) {
@@ -103,7 +123,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _toggleFlash() async {
-    if (!_controller.value.isInitialized) return;
+    if (_controller == null || !_controller!.value.isInitialized) return;
     setState(() {
       _flashMode = _flashMode == FlashMode.off
           ? FlashMode.auto
@@ -112,8 +132,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           : FlashMode.off;
     });
     try {
-      await _controller.setFlashMode(_flashMode);
-    } on CameraException catch (e) {
+      await _controller!.setFlashMode(_flashMode);
+    } on CameraException catch (_) {
       _flashMode = FlashMode.off;
     }
   }
@@ -132,10 +152,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _takePhoto() async {
-    if (_isCapturing || !_controller.value.isInitialized) return;
+    if (_isCapturing || _controller == null || !_controller!.value.isInitialized) return;
     setState(() => _isCapturing = true);
     try {
-      final XFile file = await _controller.takePicture();
+      final XFile file = await _controller!.takePicture();
       NativeDeviceOrientation orientation =
           await NativeDeviceOrientationCommunicator().orientation(
             useSensor: true,
@@ -157,10 +177,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _startRecording() async {
-    if (!_controller.value.isInitialized || _controller.value.isRecordingVideo)
+    if (_controller == null || !_controller!.value.isInitialized || _controller!.value.isRecordingVideo) {
       return;
+    }
     try {
-      await _controller.startVideoRecording();
+      await _controller!.startVideoRecording();
       setState(() {
         _isRecording = true;
         _remainingSeconds = _maxVideoSeconds;
@@ -180,13 +201,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _stopRecording() async {
-    if (!_controller.value.isRecordingVideo || _isStopping) return;
+    if (_controller == null || !_controller!.value.isRecordingVideo || _isStopping) return;
     try {
       setState(() {
         _isStopping = true;
       });
       _recordTimer?.cancel();
-      final XFile file = await _controller.stopVideoRecording();
+      final XFile file = await _controller!.stopVideoRecording();
       setState(() {
         _isRecording = false;
         _isStopping = false;
@@ -207,7 +228,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     });
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 10), () {
-      _controller.setZoomLevel(zoom);
+      if (_controller != null && _controller!.value.isInitialized) {
+        _controller!.setZoomLevel(zoom);
+      }
     });
   }
 
@@ -218,7 +241,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     });
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 10), () {
-      _controller.setZoomLevel(zoom);
+      if (_controller != null && _controller!.value.isInitialized) {
+        _controller!.setZoomLevel(zoom);
+      }
     });
   }
 
@@ -240,9 +265,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!mounted || !_ready) return;
-    if (state == AppLifecycleState.inactive) {
-      _controller.dispose();
+    final CameraController? cameraController = _controller;
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      if (mounted && _ready) {
+        setState(() => _ready = false);
+      }
+      if (cameraController != null) {
+        cameraController.dispose();
+        _controller = null;
+      }
     } else if (state == AppLifecycleState.resumed) {
       Permission.camera.status.then((status) {
         if (status.isGranted && mounted) {
@@ -257,7 +288,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     _debounce?.cancel();
     _recordTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    _controller.dispose();
+    _controller?.dispose();
+    _controller = null;
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -271,9 +303,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   Widget build(BuildContext context) {
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
-    if (!_ready) return const CameraShimmerLoader();
+    if (!_ready || _controller == null || !_controller!.value.isInitialized) return const CameraShimmerLoader();
     final size = MediaQuery.of(context).size;
-    var previewAspect = _controller.value.aspectRatio;
+    var previewAspect = _controller!.value.aspectRatio;
     if (size.height > size.width) {
       previewAspect = 1 / previewAspect;
     }
@@ -298,7 +330,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 onScaleUpdate: _handleZoom,
                 child: Transform.scale(
                   scale: scale,
-                  child: Center(child: CameraPreview(_controller)),
+                  child: Center(
+                    child: (_controller != null && _controller!.value.isInitialized)
+                        ? CameraPreview(_controller!)
+                        : const CameraShimmerLoader(),
+                  ),
                 ),
               ),
               Positioned(
@@ -365,7 +401,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                               showLabels: false,
                               onChanged: (dynamic value) async {
                                 double zoom = value.clamp(_minZoom, _maxZoom);
-                                await _controller.setZoomLevel(zoom);
+                                if (_controller != null && _controller!.value.isInitialized) {
+                                  await _controller!.setZoomLevel(zoom);
+                                }
                                 setState(() {
                                   _currentZoom = zoom;
                                 });
@@ -373,7 +411,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                                 _debounce = Timer(
                                   const Duration(milliseconds: 120),
                                   () {
-                                    _controller.setZoomLevel(zoom);
+                                    if (_controller != null && _controller!.value.isInitialized) {
+                                      _controller!.setZoomLevel(zoom);
+                                    }
                                   },
                                 );
                               },

@@ -34,6 +34,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
   late SignatureController _controller;
   late TextEditingController _additionalCommentController;
   bool _isCommentInitialized = false;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -281,16 +282,16 @@ class _SignatureScreenState extends State<SignatureScreen> {
                     builder: (context, controller, _) {
                       final reportLoading =
                           context.watch<BasicInspectionReportController>().isLoading;
-                      if (controller.isUploading || controller.isLoading || reportLoading) {
+                      if ((controller.isLoading || reportLoading) &&
+                          !controller.isUploading &&
+                          !_isSubmitting) {
                         return Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             _inspectionShimmer(),
                             const SizedBox(height: 8),
-                            CustomButtonWidget(
-                              text: controller.isUploading
-                                  ? "Saving media..."
-                                  : "Loading inspection...",
+                            const CustomButtonWidget(
+                              text: "Loading inspection...",
                               textSize: 16,
                               textColor: Colors.white,
                               isDisabled: true,
@@ -301,54 +302,72 @@ class _SignatureScreenState extends State<SignatureScreen> {
                         );
                       }
                       return CustomButtonWidget(
-                        text: controller.isUploading
+                        text: (_isSubmitting || controller.isUploading)
                             ? "Please wait..."
                             : controller.isCompleted
                             ? "COMPLETED"
-                            : "PROCEED",
+                            : "SUBMIT",
                         textSize: 16,
                         textColor: Colors.white,
                         isDisabled:
+                            _isSubmitting ||
                             controller.isUploading ||
                             controller.isCompleted ||
                             reportLoading,
-                        showLoader: controller.isUploading,
-                        onPressed: controller.isUploading ||
+                        showLoader: _isSubmitting || controller.isUploading,
+                        onPressed: (_isSubmitting ||
+                                controller.isUploading ||
                                 controller.isCompleted ||
-                                reportLoading
+                                reportLoading)
                             ? null
                             : () async {
-                                final additionalComment =
-                                    _additionalCommentController.text.trim();
-                                final file = await _saveSignature();
-                                if (file == null) return;
-                                controller.currentStage =
-                                    InspectionStage.signature;
-                                controller.setSignatureFile(file);
-                                final success = await controller.proceedStep(
-                                  jobId: controller.jobId,
-                                  status: 3,
-                                  additionalComment: additionalComment,
-                                );
-                                if (!success) return;
-                                controller.isCompleted = true;
-                                _clearAllData(context);
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      "Basic inspection completed successfully",
+                                if (_isSubmitting) return;
+                                setState(() {
+                                  _isSubmitting = true;
+                                });
+                                try {
+                                  final additionalComment =
+                                      _additionalCommentController.text.trim();
+                                  final file = await _saveSignature();
+                                  if (file == null) {
+                                    if (mounted) setState(() => _isSubmitting = false);
+                                    return;
+                                  }
+                                  controller.currentStage =
+                                      InspectionStage.signature;
+                                  controller.setSignatureFile(file);
+                                  final success = await controller.proceedStep(
+                                    jobId: controller.jobId,
+                                    status: 3,
+                                    additionalComment: additionalComment,
+                                  );
+                                  if (!success) {
+                                    if (mounted) setState(() => _isSubmitting = false);
+                                    return;
+                                  }
+                                  controller.isCompleted = true;
+                                  _clearAllData(context);
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Basic inspection completed successfully",
+                                      ),
+                                      backgroundColor: ColorConstants.greenColor,
                                     ),
-                                    backgroundColor: ColorConstants.greenColor,
-                                  ),
-                                );
-                                await Future.delayed(
-                                  const Duration(seconds: 2),
-                                );
-                                context.go(
-                                  '/jobcarddetails',
-                                  extra: controller.jobId,
-                                );
+                                  );
+                                  await Future.delayed(
+                                    const Duration(seconds: 2),
+                                  );
+                                  context.go(
+                                    '/jobcarddetails',
+                                    extra: controller.jobId,
+                                  );
+                                } catch (e) {
+                                  if (mounted) {
+                                    setState(() => _isSubmitting = false);
+                                  }
+                                }
                               },
                       );
                     },
