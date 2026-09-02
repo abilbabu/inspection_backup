@@ -82,6 +82,33 @@ class InspectionFormController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void prepareTaskForReInspection(int taskId) {
+    _readOnlyTaskIds.remove(taskId);
+    _savedTaskIds.remove(taskId);
+    final existing = _tasks[taskId];
+    if (existing != null) {
+      _tasks[taskId] = InspectionTaskData(
+        categoryId: existing.categoryId,
+        jobId: existing.jobId,
+        taskId: taskId,
+        formId: existing.formId,
+        condition: null,
+        note: "",
+        description: existing.description,
+        audioFilePath: null,
+        audioUrl: null,
+        inserted: existing.inserted,
+        isSaved: false,
+        imageFiles: null,
+        imageUrls: null,
+        videoUrl: null,
+        videoFile: null,
+      );
+    }
+    notifyListeners();
+  }
+
+
   void reset() {
     _tasks.clear();
     _savedTaskIds.clear();

@@ -153,7 +153,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
               jobStatus == 10 ||
               jobStatus == 11 ||
               jobStatus == 18) {
-            formCtrl.makeTaskEditable(taskId);
+            formCtrl.prepareTaskForReInspection(taskId);
           }
         }
       }
