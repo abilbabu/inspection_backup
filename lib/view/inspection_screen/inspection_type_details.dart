@@ -51,6 +51,10 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
       final detailsController = context.read<InspectionTypeDetailsController>();
       final formController = context.read<InspectionFormController>();
 
+      if (widget.inspectionTypeId == 2) {
+        detailsController.getComponentList();
+      }
+
       final inspectionResponse = await detailsController.loadPage(
         jobId: widget.jobId,
         inspectionFormId: widget.inspectionFormId,
@@ -96,13 +100,13 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    context.go("/jobcarddetails", extra: widget.jobId);
+                    Navigator.of(context).pop(false);
                   },
                   child: const Text("NO"),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    context.go("/jobcarddetails", extra: widget.jobId);
+                    Navigator.of(context).pop(true);
                   },
                   child: const Text("YES"),
                 ),
@@ -113,38 +117,30 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
         false;
   }
 
+  void _handleBackNavigation() async {
+    final shouldExit = await _showExitConfirmation();
+    if (!shouldExit || !mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go("/home");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
-        final shouldExit = await _showExitConfirmation();
-        if (!shouldExit) return;
-        final formController = context.read<InspectionFormController>();
-        if (formController.savedTasks == 0) {
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            context.go("/jobcarddetails", extra: widget.jobId);
-          }
-        }
+        _handleBackNavigation();
       },
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: CustomAppBar(
           title: 'Inspection Details',
-          onBackPress: () async {
-            final shouldExit = await _showExitConfirmation();
-            if (!shouldExit) return;
-            final formController = context.read<InspectionFormController>();
-            if (formController.savedTasks == 0) {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go("/jobcarddetails", extra: widget.jobId);
-              }
-            }
+          onBackPress: () {
+            _handleBackNavigation();
           },
         ),
         body: Padding(
@@ -306,6 +302,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                 CustomButtonTwo(
                                   text: "+ CUSTOM INSPECTIONS",
                                   onPressed: () {
+                                    controller.getComponentList();
                                     _showGeneralInspectionBottomSheet(
                                       context,
                                       controller,

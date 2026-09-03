@@ -12,6 +12,9 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 class InspectionTypeDetailsController extends ChangeNotifier {
+  static List<Map<String, dynamic>> _cachedTaskCategoryList = [];
+  static List<dynamic> _cachedComponentList = [];
+
   String inspectionFormName = "";
   List<Map<String, dynamic>> taskMapping = [];
   List<Map<String, dynamic>> taskCategoryList = [];
@@ -284,6 +287,8 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     InspectionFormController formController,
   ) {
     final inspections = data["inspections"] ?? [];
+    final List<InspectionTaskData> tasksToUpdate = [];
+    final Set<int> savedIdsToMark = {};
 
     for (final inspection in inspections) {
       // Custom Inspection only
@@ -348,7 +353,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           }
         }
 
-        formController.updateTask(
+        tasksToUpdate.add(
           InspectionTaskData(
             jobId: data["jobId"],
             taskId: taskId,
@@ -373,16 +378,28 @@ class InspectionTypeDetailsController extends ChangeNotifier {
             isSaved: true,
           ),
         );
-
-        formController.markTaskSaved(taskId);
+        savedIdsToMark.add(taskId);
       }
     }
 
+    if (tasksToUpdate.isNotEmpty) {
+      formController.batchUpdateTasks(tasksToUpdate, savedIdsToMark, savedIdsToMark);
+    }
     notifyListeners();
   }
 
   Future<ApiResponse> getComponentList() async {
     if (allTaskComponents.isNotEmpty) {
+      return ApiResponse(
+        success: true,
+        statusCode: 200,
+        status: "Success",
+        data: allTaskComponents,
+      );
+    }
+    if (_cachedComponentList.isNotEmpty) {
+      allTaskComponents = List.from(_cachedComponentList);
+      filteredTaskComponents = List.from(_cachedComponentList);
       return ApiResponse(
         success: true,
         statusCode: 200,
@@ -417,6 +434,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       }
       allTaskComponents = List.from(data);
       filteredTaskComponents = List.from(data);
+      _cachedComponentList = List.from(data);
       return ApiResponse(
         success: result["statusCode"] == 200,
         statusCode: result["statusCode"],
@@ -465,6 +483,25 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     if (inspections.isEmpty) {
       return;
     }
+
+    final Map<int, Map<String, dynamic>> componentByItcId = {};
+    groupedTasks.forEach((categoryId, taskList) {
+      for (final task in taskList) {
+        final components = task["components"];
+        if (components != null && components["itcId"] != null) {
+          final int id = components["itcId"] is int
+              ? components["itcId"]
+              : int.tryParse(components["itcId"].toString()) ?? 0;
+          if (id != 0) {
+            componentByItcId[id] = components;
+          }
+        }
+      }
+    });
+
+    final List<InspectionTaskData> tasksToUpdate = [];
+    final Set<int> savedIdsToMark = {};
+
     for (final inspection in inspections) {
       final int vimInspectionType = inspection["master"]?["vimInspectionType"] ?? 0;
       final completedTasks = inspection["completedTasks"] ?? [];
@@ -520,54 +557,55 @@ class InspectionTypeDetailsController extends ChangeNotifier {
             videoUrl ??= a["url"];
           }
         }
-        groupedTasks.forEach((categoryId, taskList) {
-          for (final task in taskList) {
-            final components = task["components"];
-            if (components == null) continue;
-            if (components["itcId"] == savedTaskId) {
-              components["viGood"] = savedTask["viGood"];
-              components["viRepair"] = savedTask["viRepair"];
-              components["viReplace"] = savedTask["viReplace"];
-              components["viPoor"] = savedTask["viPoor"];
-              components["viNotApplicable"] =
-                  savedTask["viNotApplicable"] ?? false;
-              components["viNote"] = savedTask["viNote"];
-              components["viDescription"] = savedTask["viDescription"];
-              components["viReInspection"] =
-                  savedTask["viReInspection"] ?? false;
-              components["attachments"] = attachments;
-              formController.updateTask(
-                InspectionTaskData(
-                  categoryId: categoryId,
-                  jobId: data["jobId"],
-                  taskId: savedTaskId,
-                  formId: inspection["inspectionFormId"],
-                  condition: _asBool(savedTask["viGood"])
-                      ? "Good"
-                      : _asBool(savedTask["viRepair"])
-                      ? "Repair"
-                      : _asBool(savedTask["viReplace"])
-                      ? "Replace"
-                      : _asBool(savedTask["viPoor"])
-                      ? "Poor"
-                      : _asBool(savedTask["viNotApplicable"])
-                      ? "N/A"
-                      : null,
-                  note: savedTask["viNote"] ?? "",
-                  description: savedTask["viDescription"] ?? "",
-                  imageUrls: imageUrl.any((u) => u != null) ? imageUrl : null,
-                  audioUrl: audioUrl,
-                  videoUrl: videoUrl,
-                  inserted: true,
-                  isSaved: true,
-                ),
-              );
-              formController.markTaskSaved(savedTaskId);
-              formController.setTaskReadOnly(savedTaskId, true);
-            }
-          }
-        });
+
+        final components = componentByItcId[savedTaskId];
+        if (components != null) {
+          components["viGood"] = savedTask["viGood"];
+          components["viRepair"] = savedTask["viRepair"];
+          components["viReplace"] = savedTask["viReplace"];
+          components["viPoor"] = savedTask["viPoor"];
+          components["viNotApplicable"] =
+              savedTask["viNotApplicable"] ?? false;
+          components["viNote"] = savedTask["viNote"];
+          components["viDescription"] = savedTask["viDescription"];
+          components["viReInspection"] =
+              savedTask["viReInspection"] ?? false;
+          components["attachments"] = attachments;
+
+          final categoryId = components["categoryId"];
+          tasksToUpdate.add(
+            InspectionTaskData(
+              categoryId: categoryId is int ? categoryId : null,
+              jobId: data["jobId"],
+              taskId: savedTaskId,
+              formId: inspection["inspectionFormId"],
+              condition: _asBool(savedTask["viGood"])
+                  ? "Good"
+                  : _asBool(savedTask["viRepair"])
+                  ? "Repair"
+                  : _asBool(savedTask["viReplace"])
+                  ? "Replace"
+                  : _asBool(savedTask["viPoor"])
+                  ? "Poor"
+                  : _asBool(savedTask["viNotApplicable"])
+                  ? "N/A"
+                  : null,
+              note: savedTask["viNote"] ?? "",
+              description: savedTask["viDescription"] ?? "",
+              imageUrls: imageUrl.any((u) => u != null) ? imageUrl : null,
+              audioUrl: audioUrl,
+              videoUrl: videoUrl,
+              inserted: true,
+              isSaved: true,
+            ),
+          );
+          savedIdsToMark.add(savedTaskId);
+        }
       }
+    }
+
+    if (tasksToUpdate.isNotEmpty) {
+      formController.batchUpdateTasks(tasksToUpdate, savedIdsToMark, savedIdsToMark);
     }
     notifyListeners();
   }
@@ -686,6 +724,14 @@ class InspectionTypeDetailsController extends ChangeNotifier {
   }
 
   Future<List<Map<String, dynamic>>> getTaskCategoryList() async {
+    if (taskCategoryList.isNotEmpty) {
+      return taskCategoryList;
+    }
+    if (_cachedTaskCategoryList.isNotEmpty) {
+      taskCategoryList = List.from(_cachedTaskCategoryList);
+      notifyListeners();
+      return taskCategoryList;
+    }
     final url = Uri.parse(ApiServices.taskCategoryList);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -700,6 +746,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
         taskCategoryList = List<Map<String, dynamic>>.from(res['data']);
+        _cachedTaskCategoryList = List.from(taskCategoryList);
         notifyListeners();
         return taskCategoryList;
       } else {
@@ -723,7 +770,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       final results = await Future.wait([
         getInspectionDetailsById(jobId),
         postInspectionTypeDetails(inspectionFormId, updateLoading: false),
-        getComponentList(),
       ]);
       final inspectionResponse = results[0];
       if (inspectionResponse.success == true &&

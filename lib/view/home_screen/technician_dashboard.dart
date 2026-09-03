@@ -442,9 +442,6 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
         if (jobStatus == 10 || jobStatus == 11 || jobStatus == 18) {
           context.go("/reassigneddetails", extra: jobId);
           return;
-        } else if (jobStatus == 5) {
-          context.go("/jobcarddetails", extra: jobId);
-          return;
         }
         final List inspections = item["inspections"] ?? [];
         int inspectionTypeId = 2;

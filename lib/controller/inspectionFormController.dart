@@ -7,7 +7,6 @@ import 'package:inspection/utils/constant/color_constants.dart';
 class InspectionFormController extends ChangeNotifier {
   final Map<int, InspectionTaskData> _tasks = {};
   final Set<int> _savedTaskIds = {};
-
   final Set<int> _readOnlyTaskIds = {};
 
   int _totalTasks = 0;
@@ -43,10 +42,20 @@ class InspectionFormController extends ChangeNotifier {
   void markTaskSaved(int taskId) {
     if (_savedTaskIds.contains(taskId)) return;
     _savedTaskIds.add(taskId);
-
-    // 🔒 Auto-lock when saved
     _readOnlyTaskIds.add(taskId);
+    notifyListeners();
+  }
 
+  void batchUpdateTasks(
+    List<InspectionTaskData> tasksToUpdate,
+    Set<int> savedIds,
+    Set<int> readOnlyIds,
+  ) {
+    for (final task in tasksToUpdate) {
+      _tasks[task.taskId] = task;
+    }
+    _savedTaskIds.addAll(savedIds);
+    _readOnlyTaskIds.addAll(readOnlyIds);
     notifyListeners();
   }
 
@@ -108,7 +117,6 @@ class InspectionFormController extends ChangeNotifier {
     notifyListeners();
   }
 
-
   void reset() {
     _tasks.clear();
     _savedTaskIds.clear();
@@ -146,19 +154,22 @@ class InspectionFormController extends ChangeNotifier {
               fontSize: 18,
             ),
           ),
-          content:  Text(
+          content: Text(
             "You have unsaved changes in another card. Continue without saving?",
             style: ApptextstyleConstants.italicText(
-                color: ColorConstants.activecolor,
-                fontSize: 15,
-              ),
+              color: ColorConstants.activecolor,
+              fontSize: 15,
+            ),
           ),
           actions: [
             TextButton(
-              child:  Text("Cancel", style: ApptextstyleConstants.extraLightText(
-              color: ColorConstants.blackColor,
-              fontSize: 15,
-            ),),
+              child: Text(
+                "Cancel",
+                style: ApptextstyleConstants.extraLightText(
+                  color: ColorConstants.blackColor,
+                  fontSize: 15,
+                ),
+              ),
               onPressed: () => Navigator.pop(context, false),
             ),
           ],

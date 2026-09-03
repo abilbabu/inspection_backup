@@ -37,7 +37,7 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
         if (widget.fetchBasicInspection) {
           context.read<BasicInspectionReportController>().getBasicInspection(
             widget.jobId!,
-            forceRefresh: true,
+            forceRefresh: false,
           );
         }
       }
