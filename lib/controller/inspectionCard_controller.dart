@@ -464,17 +464,21 @@ class InspectioncardController extends ChangeNotifier {
       selectedOption = existing.condition;
       noteController.text = existing.note;
       descriptionController.text = existing.description;
+      final bool hasLocalCapturedImages = _capturedImages.any((f) => f != null);
       if (existing.imageFiles != null && existing.imageFiles!.any((f) => f != null)) {
         for (
           int i = 0;
           i < existing.imageFiles!.length && i < _capturedImages.length;
           i++
         ) {
-          _capturedImages[i] = existing.imageFiles![i];
+          if (existing.imageFiles![i] != null) {
+            _capturedImages[i] = existing.imageFiles![i];
+          }
         }
-      } else if (existing.imageUrls != null && existing.imageUrls!.any((u) => u != null)) {
+      } else if (!hasLocalCapturedImages && existing.imageUrls != null && existing.imageUrls!.any((u) => u != null)) {
         isImageDownloading = true;
         notifyListeners();
+        final List<Future<void>> downloadFutures = [];
         for (
           int i = 0;
           i < existing.imageUrls!.length && i < _capturedImages.length;
@@ -482,16 +486,20 @@ class InspectioncardController extends ChangeNotifier {
         ) {
           final String? url = existing.imageUrls![i];
           if (url != null) {
-            final file = await MediaCacheService.instance.getCachedFile(
-              url,
-              CachedMediaType.image,
+            final index = i;
+            downloadFutures.add(
+              MediaCacheService.instance.getCachedFile(
+                url,
+                CachedMediaType.image,
+              ).then((file) {
+                _capturedImages[index] = file;
+              }),
             );
-            _capturedImages[i] = file;
-          } else {
-            _capturedImages[i] = null;
           }
         }
+        await Future.wait(downloadFutures);
         isImageDownloading = false;
+        notifyListeners();
       }
       if (existing.videoFile != null) {
         _capturedVideo = existing.videoFile;
