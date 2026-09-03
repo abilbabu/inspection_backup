@@ -620,7 +620,15 @@ class _InspectionCardState extends State<InspectionCard> {
                   fit: BoxFit.cover,
                 ),
               )
-            : const Icon(Icons.camera_alt, color: Colors.grey),
+            : controller.isImageDownloading
+                ? const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : const Icon(Icons.camera_alt, color: Colors.grey),
       ),
     );
   }
