@@ -53,7 +53,9 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     _initCamera();
   }
 
-  Future<void> _initCamera() async {
+  bool _isAudioEnabled = false;
+
+  Future<void> _initCamera({bool enableAudio = false}) async {
     if (mounted) {
       setState(() => _isCameraReady = false);
     }
@@ -66,7 +68,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
 
     final hasPermission = await PermissionService.instance.requestCameraPermission(context);
     if (!hasPermission) return;
-    final bool hasMic = await Permission.microphone.isGranted;
+    final bool hasMic = enableAudio ? await Permission.microphone.isGranted : false;
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) return;
@@ -74,12 +76,25 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         (c) => c.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
-      final controller = CameraController(
-        rearCamera,
-        ResolutionPreset.high,
-        enableAudio: hasMic,
-      );
-      await controller.initialize();
+
+      CameraController controller;
+      try {
+        controller = CameraController(
+          rearCamera,
+          ResolutionPreset.high,
+          enableAudio: enableAudio && hasMic,
+        );
+        await controller.initialize();
+      } catch (e) {
+        debugPrint("Camera high resolution init failed, retrying with medium: $e");
+        controller = CameraController(
+          rearCamera,
+          ResolutionPreset.medium,
+          enableAudio: enableAudio && hasMic,
+        );
+        await controller.initialize();
+      }
+
       double minZoom = await controller.getMinZoomLevel();
       double maxZoom = await controller.getMaxZoomLevel();
       if (Platform.isIOS) {
@@ -102,8 +117,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         return;
       }
       _cameraController = controller;
+      _isAudioEnabled = enableAudio && hasMic;
       setState(() => _isCameraReady = true);
     } catch (e) {
+      debugPrint("Error in _initCamera: $e");
       if (mounted) {
         setState(() => _isCameraReady = false);
       }
@@ -124,7 +141,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     } else if (state == AppLifecycleState.resumed) {
       Permission.camera.status.then((status) {
         if (status.isGranted && mounted) {
-          _initCamera();
+          _initCamera(enableAudio: _isAudioEnabled);
         }
       });
     }
@@ -190,11 +207,14 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Future<void> _takePhoto(BasicinspController controller) async {
-    final cam = _cameraController;
+    CameraController? cam = _cameraController;
     if (cam == null || !cam.value.isInitialized || _isCapturing || controller.isBusy) return;
     if (controller.isMaxImagesCaptured) {
       if (controller.hasVideoRequirement) {
         controller.selectVideoMode();
+        if (!_isAudioEnabled) {
+          await _initCamera(enableAudio: false);
+        }
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -208,7 +228,23 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     }
     setState(() => _isCapturing = true);
     try {
-      final XFile file = await cam.takePicture();
+      if (_isAudioEnabled) {
+        await _initCamera(enableAudio: false);
+        cam = _cameraController;
+      }
+      if (cam == null || !cam.value.isInitialized) return;
+
+      XFile file;
+      try {
+        file = await cam.takePicture();
+      } catch (e) {
+        debugPrint("First takePicture attempt failed ($e), re-initializing camera...");
+        await _initCamera(enableAudio: false);
+        cam = _cameraController;
+        if (cam == null || !cam.value.isInitialized) rethrow;
+        file = await cam.takePicture();
+      }
+
       File photoFile = File(file.path);
       int angle = 0;
       try {
@@ -235,12 +271,24 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       // Photo captured into box; camera stays open without auto-preview popup.
     } catch (e) {
       debugPrint("Error in _takePhoto: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to capture photo: ${e.toString()}"),
+            duration: const Duration(seconds: 2),
+            backgroundColor: ColorConstants.errorcolor,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }
   }
 
   Future<void> _startRecording(BasicinspController controller) async {
+    if (!_isAudioEnabled) {
+      await _initCamera(enableAudio: false);
+    }
     final cam = _cameraController;
     if (cam == null || !cam.value.isInitialized || cam.value.isRecordingVideo || _isRecording || controller.isBusy) {
       return;
