@@ -93,23 +93,19 @@ class PermissionService {
       return false;
     }
 
+    // 1. Check current permission status
     PermissionStatus status = await permission.status;
 
     if (status.isGranted || status.isLimited) {
       return true;
     }
 
-    if (status.isPermanentlyDenied) {
-      if (context.mounted) {
-        await showPermanentlyDeniedDialog(context, featureName, rationale);
-      }
-      return false;
-    }
-
+    // 2. Request permission (queries live system status on iOS & Android)
     _isRequestingPermission = true;
     try {
       status = await permission.request();
     } catch (e) {
+      debugPrint("Error requesting $featureName permission: $e");
     } finally {
       _isRequestingPermission = false;
     }
@@ -118,6 +114,7 @@ class PermissionService {
       return true;
     }
 
+    // 3. Show dialog if permission is permanently denied after request attempt
     if (status.isPermanentlyDenied) {
       if (context.mounted) {
         await showPermanentlyDeniedDialog(context, featureName, rationale);
