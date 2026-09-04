@@ -100,6 +100,13 @@ class PermissionService {
       return true;
     }
 
+    if (status.isPermanentlyDenied) {
+      if (context.mounted) {
+        await showPermanentlyDeniedDialog(context, featureName, rationale);
+      }
+      return false;
+    }
+
     // 2. Request permission (queries live system status on iOS & Android)
     _isRequestingPermission = true;
     try {
