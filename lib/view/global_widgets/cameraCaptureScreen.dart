@@ -155,22 +155,46 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     if (_isCapturing || _controller == null || !_controller!.value.isInitialized) return;
     setState(() => _isCapturing = true);
     try {
-      final XFile file = await _controller!.takePicture();
-      NativeDeviceOrientation orientation =
-          await NativeDeviceOrientationCommunicator().orientation(
-            useSensor: true,
-          );
-      int angle = 0;
-      if (orientation == NativeDeviceOrientation.landscapeLeft) {
-        angle = 270; // Changed from 90
-      } else if (orientation == NativeDeviceOrientation.landscapeRight) {
-        angle = 90; // Changed from -90
-      } else if (orientation == NativeDeviceOrientation.portraitDown) {
-        angle = 180;
+      XFile file;
+      try {
+        file = await _controller!.takePicture();
+      } catch (e) {
+        debugPrint("First takePicture attempt failed ($e), re-initializing camera...");
+        await _initCamera();
+        if (_controller == null || !_controller!.value.isInitialized) return;
+        file = await _controller!.takePicture();
       }
+
+      int angle = 0;
+      try {
+        NativeDeviceOrientation orientation =
+            await NativeDeviceOrientationCommunicator()
+                .orientation(useSensor: true)
+                .timeout(const Duration(milliseconds: 500));
+        if (orientation == NativeDeviceOrientation.landscapeLeft) {
+          angle = 270;
+        } else if (orientation == NativeDeviceOrientation.landscapeRight) {
+          angle = 90;
+        } else if (orientation == NativeDeviceOrientation.portraitDown) {
+          angle = 180;
+        }
+      } catch (e) {
+        debugPrint("Orientation check skipped or timed out: $e");
+      }
+
       if (!mounted) return;
       Navigator.pop(context, {"file": File(file.path), "angle": angle});
     } catch (e) {
+      debugPrint("Error in _takePhoto: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to capture photo: ${e.toString()}"),
+            duration: const Duration(seconds: 2),
+            backgroundColor: ColorConstants.errorcolor,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }
@@ -491,7 +515,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Widget _buildCaptureButton() {
     return GestureDetector(
-      onTap: _isStopping
+      onTap: (_isStopping || _isCapturing)
           ? null
           : widget.isVideo
           ? (_isRecording ? _stopRecording : _startRecording)
@@ -504,7 +528,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           gradient: ColorConstants.buttonGradient,
         ),
         child: Center(
-          child: _isStopping
+          child: (_isStopping || _isCapturing)
               ? const CircularProgressIndicator(
                   color: ColorConstants.whiteColor,
                   strokeWidth: 2,
