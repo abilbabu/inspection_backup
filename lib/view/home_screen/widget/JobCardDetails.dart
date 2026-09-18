@@ -49,34 +49,33 @@ class _JobCardDetailsState extends State<JobCardDetails> {
 
   @override
   void initState() {
-    
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      context.read<InspectionsummarypageController>().getInspectionSummary(
-        widget.jobId,
-      );
+      final summaryCtrl = context.read<InspectionsummarypageController>();
       final jobCtrl = context.read<JobcarddetailsController>();
       final custCtrl = context.read<CustomerDetailsController>();
       final vehicleCtrl = context.read<VehicleDetailsController>();
+
+      jobCtrl.reset();
+
+      // Run all initial API calls concurrently in parallel to maximize performance
+      await Future.wait([
+        summaryCtrl.getInspectionSummary(widget.jobId),
+        jobCtrl.postJobCardDetails(widget.jobId),
+        custCtrl.getFuelTypeList(),
+        custCtrl.getTransmissionList(),
+        vehicleCtrl.getCustomerTypeList(),
+        custCtrl.getServiceTypeList(),
+      ]);
+
+      if (!mounted) return;
+      jobCtrl.mapFuelAndTransmissionNames(custCtrl);
 
       Future.microtask(() {
         if (!mounted) return;
         jobCtrl.getInspectionListByUserId();
       });
-
-      jobCtrl.reset();
-      await jobCtrl.postJobCardDetails(widget.jobId);
-      if (!mounted) return;
-      await custCtrl.getFuelTypeList();
-      if (!mounted) return;
-      await custCtrl.getTransmissionList();
-      if (!mounted) return;
-      await vehicleCtrl.getCustomerTypeList();
-      if (!mounted) return;
-      await custCtrl.getServiceTypeList();
-      if (!mounted) return;
-      jobCtrl.mapFuelAndTransmissionNames(custCtrl);
     });
   }
 
@@ -234,7 +233,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 },
                               ),
                             ),
-                          if (jobController.isTechnicianAssigned && ![10, 11, 12, 13, 14].contains(jobStatus) &&
+                          if (jobController.isTechnicianAssigned && ![10, 12, 13, 14].contains(jobStatus) &&
                               userDepartment != 3 &&
                               !isHistoryTab) ...[
                             SizedBox(height: 16),
@@ -260,33 +259,64 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 ),
                               ),
                             ),
-                            if ([4, 5, 11, 18].contains(jobStatus) &&
-                                (userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
-                              SizedBox(height: 10),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.sync_alt, color: Colors.white, size: 18),
-                                  label: const Text(
-                                    "REASSIGN TECHNICIAN",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Colors.white,
+                            if ((userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
+                              if ([4, 5, 18, 11].contains(jobStatus)) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.sync_alt, color: Colors.white, size: 18),
+                                    label: const Text(
+                                      "REASSIGN TECHNICIAN",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: ColorConstants.textBlueColor,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: ColorConstants.textBlueColor,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
                                     ),
+                                    onPressed: () async {
+                                      await showReassignTechnicianBottomSheet(context);
+                                    },
                                   ),
-                                  onPressed: () async {
-                                    await showReassignTechnicianBottomSheet(context);
-                                  },
                                 ),
-                              ),
+                              ] else if ([6, 12].contains(jobStatus)) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.block, color: Colors.grey, size: 18),
+                                    label: const Text(
+                                      "Reassignment unavailable",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.grey.shade200,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    onPressed: null,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  "Reassignment is unavailable because the inspection has been completed.",
+                                  style: TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.w500),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
                             ],
                           ],
                           if (userDepartment == 3) ...[
@@ -355,7 +385,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 );
                               },
                             ),
-                          if ((userDepartment == 0 || userDepartment == 1) &&
+                          if ((userDepartment == 0 || userDepartment == 1 || userDepartment == 2 || userDepartment == 5) &&
                               jobController.isTechnicianAssigned &&
                               ![5, 6, 7, 8, 9, 10,11,12,13,14,15,16,17,18,19].contains(jobStatus))
                             Builder(
@@ -449,7 +479,10 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                 Expanded(
                   child: Center(
                     child: Text(
-                      "Inspection Details go",
+                      (controller.inspectionFormName.trim().isNotEmpty &&
+                              controller.inspectionFormName != "No Name")
+                          ? "${controller.inspectionFormName} Details"
+                          : "Inspection Form Details",
                       textAlign: TextAlign.center,
                       style: ApptextstyleConstants.thinText(
                         fontSize: 16,
@@ -1134,23 +1167,22 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 final String? loggedInUserIdStr = prefs.getString('userId');
                                 final int loggedInUserId = int.tryParse(loggedInUserIdStr ?? "0") ?? 0;
 
-                                final success = await controller.reassignTechnician(
+                                final res = await controller.reassignTechnician(
                                   jobId: widget.jobId,
                                   newTechnicianId: int.tryParse(technician["userId"].toString()) ?? 0,
                                   reassignedById: loggedInUserId,
                                   technicianName: technician["userName"].toString(),
                                 );
-                                if (success) {
+                                if (res["success"] == true) {
                                   ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    const SnackBar(content: Text("Technician Reassigned Successfully")),
+                                    SnackBar(content: Text(res["message"] ?? "Technician Reassigned Successfully")),
                                   );
-                                  // Refresh Job Card details to update UI
-                                  parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId, forceRefresh: true);
                                 } else {
                                   ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    const SnackBar(content: Text("Technician Reassignment Failed")),
+                                    SnackBar(content: Text(res["message"] ?? "Technician Reassignment Failed")),
                                   );
                                 }
+                                parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId, forceRefresh: true);
                               }
                             },
                           ),

@@ -102,7 +102,8 @@ class VehicleDetailsController with ChangeNotifier {
   Map<String, List<String>> emiratePlateCodesMap = {};
   List<String> emiratesList = [];
 
-  Future<void> getCustomerTypeList({String? defaultValue}) async {
+  Future<void> getCustomerTypeList({String? defaultValue, bool force = false}) async {
+    if (!force && customerTypeList.isNotEmpty) return;
     final url = Uri.parse(ApiServices.customerTypeList);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();

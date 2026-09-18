@@ -14,6 +14,7 @@ import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_card.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'package:inspection/view/inspection_screen/inspection_summary_page.dart';
 
 class ReassignedDetailsPage extends StatefulWidget {
@@ -213,7 +214,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     _buildCommentsSummaryCard(summaryCtrl),
                     if (jobCardCtrl.isTechnicianAssigned == true &&
                         jobCardCtrl.assignedTechnicianName != null &&
-                        jobCardCtrl.assignedTechnicianName!.isNotEmpty && ![10, 11, 12, 13, 14].contains(jobStatus)) ...[
+                        jobCardCtrl.assignedTechnicianName!.isNotEmpty && ![10, 12, 13, 14].contains(jobStatus)) ...[
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -233,33 +234,64 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                           ),
                         ),
                       ),
-                      if ([4, 5, 11, 18].contains(jobStatus) &&
-                          (userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.sync_alt, color: Colors.white, size: 18),
-                            label: const Text(
-                              "REASSIGN TECHNICIAN",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: Colors.white,
+                      if ((userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
+                        if ([4, 5, 18, 11].contains(jobStatus)) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.sync_alt, color: Colors.white, size: 18),
+                              label: const Text(
+                                "REASSIGN TECHNICIAN",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ColorConstants.textBlueColor,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: ColorConstants.textBlueColor,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
+                              onPressed: () async {
+                                await showReassignTechnicianBottomSheet(context);
+                              },
                             ),
-                            onPressed: () async {
-                              await showReassignTechnicianBottomSheet(context);
-                            },
                           ),
-                        ),
+                        ] else if ([6, 12].contains(jobStatus)) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.block, color: Colors.grey, size: 18),
+                              label: const Text(
+                                "Reassignment unavailable",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.shade200,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: null,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            "Reassignment is unavailable because the inspection has been completed.",
+                            style: TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.w500),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ],
                     ],
                     const SizedBox(height: 16),
@@ -837,25 +869,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     InspectionFormController formController,
     InspectionsummarypageController summaryController,
   ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Confirm Submission"),
-        content: const Text(
-          "The inspection report is about to be submitted as the final version. Please review all inspection details, captured images/videos, audio recordings, conditions, notes, and comments carefully. Once submitted, the updated information will be treated as the final inspection data."
-        ),
-        actions: [
-          TextButton(
-            child: const Text("Cancel/Review"),
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          TextButton(
-            child: const Text("Confirm/Submit"),
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
-      ),
-    );
+    final confirm = await ConfirmSubmissionDialog.show(context);
     if (confirm != true) return;
 
     setState(() {
@@ -1512,23 +1526,22 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
                               if (confirm == true) {
                                 Navigator.pop(context); // close bottom sheet
-                                final success = await controller.reassignTechnician(
+                                final res = await controller.reassignTechnician(
                                   jobId: widget.jobId,
                                   newTechnicianId: int.tryParse(technician["userId"].toString()) ?? 0,
                                   reassignedById: controller.loginTechnicianId ?? 0,
                                   technicianName: technician["userName"].toString(),
                                 );
-                                if (success) {
+                                if (res["success"] == true) {
                                   ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    const SnackBar(content: Text("Technician Reassigned Successfully")),
+                                    SnackBar(content: Text(res["message"] ?? "Technician Reassigned Successfully")),
                                   );
-                                  // Refresh Job Card details to update UI
-                                  parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId, forceRefresh: true);
                                 } else {
                                   ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    const SnackBar(content: Text("Technician Reassignment Failed")),
+                                    SnackBar(content: Text(res["message"] ?? "Technician Reassignment Failed")),
                                   );
                                 }
+                                parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId, forceRefresh: true);
                               }
                             },
                           ),

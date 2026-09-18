@@ -152,7 +152,7 @@ class InspectionDetailsController extends ChangeNotifier {
     }
   }
 
-  Future<bool> reassignTechnician({
+  Future<Map<String, dynamic>> reassignTechnician({
     required int jobId,
     required int newTechnicianId,
     required int reassignedById,
@@ -174,16 +174,19 @@ class InspectionDetailsController extends ChangeNotifier {
         },
         body: jsonEncode(payload),
       );
-      if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 && (decoded["statusCode"] == 200 || decoded["status"] == "Success")) {
         assignedTechnicianName = technicianName;
         assignedTechnicianId = newTechnicianId;
         jobTechnicianId = newTechnicianId;
         notifyListeners();
-        return true;
+        return {"success": true, "message": decoded["data"]?.toString() ?? "Technician Reassigned Successfully"};
+      } else {
+        String errorMsg = decoded["errMessage"]?.toString() ?? decoded["message"]?.toString() ?? decoded["data"]?.toString() ?? "Technician Reassignment Failed";
+        return {"success": false, "message": errorMsg};
       }
-      return false;
     } catch (e) {
-      return false;
+      return {"success": false, "message": "Technician Reassignment Failed"};
     }
   }
 }

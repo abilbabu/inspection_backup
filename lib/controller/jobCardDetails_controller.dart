@@ -232,18 +232,35 @@ class JobcarddetailsController extends ChangeNotifier {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> getInspectionListByUserId() async {
-    isLoading = true;
-    isJobcardLoading = true;
+  int currentPage = 0;
+  final int pageSize = 20;
+  bool hasMore = true;
+  bool isFetchingMore = false;
+
+  Future<void> getInspectionListByUserId({bool refresh = false}) async {
+    if (refresh) {
+      currentPage = 0;
+      hasMore = true;
+    }
+    if (isFetchingMore) return;
+    if (currentPage == 0) {
+      isLoading = true;
+      isJobcardLoading = true;
+    } else {
+      isFetchingMore = true;
+    }
     notifyListeners();
     final url = Uri.parse(ApiServices.allInspectionList);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
       String? userId = prefs.getString('userId');
+      String? userDepartmentStr = prefs.getString('userDepartment');
+      int userDepartment = int.tryParse(userDepartmentStr ?? '') ?? 0;
       if (userId == null) {
         isLoading = false;
         isJobcardLoading = false;
+        isFetchingMore = false;
         notifyListeners();
         return;
       }
@@ -253,12 +270,27 @@ class JobcarddetailsController extends ChangeNotifier {
           "Content-Type": "application/json",
           "Authorization": "Bearer $userToken",
         },
-        body: jsonEncode({"userId": int.parse(userId)}),
+        body: jsonEncode({
+          "userId": int.parse(userId),
+          "userDepartment": userDepartment,
+          "page": currentPage,
+          "size": pageSize,
+        }),
       );
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
-        final List rawList = res["data"] ?? [];
-        jobcardList = rawList
+        final data = res["data"];
+        List rawList = [];
+        if (data is Map && data.containsKey("content")) {
+          rawList = data["content"] ?? [];
+          final totalPages = data["totalPages"] ?? 1;
+          hasMore = (currentPage + 1) < totalPages;
+        } else if (data is List) {
+          rawList = data;
+          hasMore = false;
+        }
+
+        final newItems = rawList
             .where((item) {
               final int status =
                   int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
@@ -283,12 +315,22 @@ class JobcarddetailsController extends ChangeNotifier {
               };
             })
             .toList();
+
+        if (refresh || currentPage == 0) {
+          jobcardList = newItems;
+        } else {
+          jobcardList.addAll(newItems);
+        }
+        if (rawList.isNotEmpty) {
+          currentPage++;
+        }
       }
     } catch (e) {
       print("❗ EXCEPTION: $e");
     }
     isLoading = false;
     isJobcardLoading = false;
+    isFetchingMore = false;
     notifyListeners();
   }
 }

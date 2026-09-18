@@ -10,6 +10,7 @@ import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_card.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 
@@ -1246,25 +1247,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           );
                           return;
                         }
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text("Confirm Submission"),
-                            content: const Text(
-                              "The inspection report is about to be submitted as the final version. Please review all inspection details, captured images/videos, audio recordings, conditions, notes, and comments carefully. Once submitted, the updated information will be treated as the final inspection data."
-                            ),
-                            actions: [
-                              TextButton(
-                                child: const Text("Cancel/Review"),
-                                  onPressed: () => Navigator.pop(context, false),
-                              ),
-                              TextButton(
-                                child: const Text("Confirm/Submit"),
-                                onPressed: () => Navigator.pop(context, true),
-                              ),
-                            ],
-                          ),
-                        );
+                        final confirm = await ConfirmSubmissionDialog.show(context);
                         if (confirm != true) return;
                         setState(() {
                           _isSubmitting = true;

@@ -290,7 +290,13 @@ class CustomerDetailsController extends ChangeNotifier {
     return false;
   }
 
-  Future<void> getFuelTypeList({String? defaultFuel}) async {
+  Future<void> getFuelTypeList({String? defaultFuel, bool force = false}) async {
+    if (!force && fuelTypeList.isNotEmpty) {
+      if (defaultFuel != null && fuelTypeList.any((e) => e["id"] == defaultFuel)) {
+        selectedFuelId = defaultFuel;
+      }
+      return;
+    }
     isLoading = true;
     notifyListeners();
     final url = Uri.parse(ApiServices.fuelList);
@@ -334,7 +340,13 @@ class CustomerDetailsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> getTransmissionList({String? defaultValue}) async {
+  Future<void> getTransmissionList({String? defaultValue, bool force = false}) async {
+    if (!force && transmissionTypeList.isNotEmpty) {
+      if (defaultValue != null && transmissionTypeList.any((e) => e["id"] == defaultValue)) {
+        selectedTransmissionId = defaultValue;
+      }
+      return;
+    }
     final url = Uri.parse(ApiServices.transmissionList);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -373,7 +385,13 @@ class CustomerDetailsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> getServiceTypeList({String? defaultValue}) async {
+  Future<void> getServiceTypeList({String? defaultValue, bool force = false}) async {
+    if (!force && serviceTypeList.isNotEmpty) {
+      if (defaultValue != null && serviceTypeList.any((e) => e["id"] == defaultValue)) {
+        selectedServiceTypeId = defaultValue;
+      }
+      return;
+    }
     final url = Uri.parse(ApiServices.serviceTypeList);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
