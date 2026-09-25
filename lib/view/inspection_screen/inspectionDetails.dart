@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'dart:async';
 // import 'dart:developer';
 import 'package:flutter/material.dart';
@@ -709,16 +710,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                               if (success) {
                                 // log(success.toString());
 
-                                ScaffoldMessenger.of(
-                                  parentContext,
-                                ).showSnackBar(
-                                  SnackBar(
-                                    backgroundColor: ColorConstants.greenColor,
-                                    content: Text(
-                                      "Technician Assigned Successfully",
-                                    ),
-                                  ),
-                                );
+                                CustomToast.showSuccess(parentContext, "Technician Assigned Successfully");
                                 if (userDepartment == 0 ||
                                     userDepartment == 1) {
                                   await parentContext
@@ -745,16 +737,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                 // log("Technician Assignment Failed");
 
                                 // log("======================================");
-                                ScaffoldMessenger.of(
-                                  parentContext,
-                                ).showSnackBar(
-                                  const SnackBar(
-                                    backgroundColor: ColorConstants.errorcolor,
-                                    content: Text(
-                                      "Technician Assignment Failed",
-                                    ),
-                                  ),
-                                );
+                                CustomToast.showError(parentContext, "Technician Assignment Failed");
                               }
                             },
                           ),
@@ -931,15 +914,11 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                   technicianName: technician["userName"].toString(),
                                 );
                                 if (res["success"] == true) {
-                                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    SnackBar(content: Text(res["message"] ?? "Technician Reassigned Successfully")),
-                                  );
+                                  CustomToast.showSuccess(parentContext, res["message"] ?? "Technician Reassigned Successfully");
                                   // Refresh Job Card details to update UI
                                   parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId!, forceRefresh: true);
                                 } else {
-                                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    SnackBar(content: Text(res["message"] ?? "Technician Reassignment Failed")),
-                                  );
+                                  CustomToast.showError(parentContext, res["message"] ?? "Technician Reassignment Failed");
                                 }
                               }
                             },

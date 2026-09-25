@@ -13,6 +13,7 @@ class InspectionFormController extends ChangeNotifier {
 
   int get totalTasks => _totalTasks;
   int get savedTasks => _savedTaskIds.length;
+  Set<int> get savedTaskIds => Set.unmodifiable(_savedTaskIds);
   double get progress => _totalTasks == 0 ? 0 : savedTasks / _totalTasks;
   bool get allTasksSaved => _totalTasks > 0 && savedTasks == _totalTasks;
 
@@ -42,7 +43,6 @@ class InspectionFormController extends ChangeNotifier {
   void markTaskSaved(int taskId) {
     if (_savedTaskIds.contains(taskId)) return;
     _savedTaskIds.add(taskId);
-    _readOnlyTaskIds.add(taskId);
     notifyListeners();
   }
 

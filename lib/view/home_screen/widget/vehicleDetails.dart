@@ -21,7 +21,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/controller/signatureSpeech_controller .dart';
-import 'package:inspection/utils/permission_service.dart';
 
 class VehicleDetails extends StatefulWidget {
   final int? jobId;
@@ -737,7 +736,6 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                 TextFormField(
                   controller: vehicleCtrl.nameController,
                   textCapitalization: TextCapitalization.characters,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   decoration: InputDecoration(
                     hintText: "Enter the Customer Name",
                     hintStyle: const TextStyle(
@@ -822,7 +820,6 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                       ),
                       DropdownButtonFormField<String>(
                         isExpanded: true,
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         decoration: InputDecoration(
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
@@ -1245,7 +1242,6 @@ class _VehicleDetailsState extends State<VehicleDetails> {
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(5),
       ],
-      autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (value) {
         if (value == null || value.isEmpty) {
           return "Registration number is required";
@@ -1454,10 +1450,11 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                   child: TextFormField(
                     controller: customerController.mobileNumController,
                     keyboardType: TextInputType.phone,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(10),
+                      LengthLimitingTextInputFormatter(
+                        customerController.selectedCountryCode == '+971' ? 9 : 10,
+                      ),
                     ],
                     decoration: InputDecoration(
                       label: RichText(
@@ -1543,6 +1540,13 @@ class _VehicleDetailsState extends State<VehicleDetails> {
                           .read<CustomerDetailsController>();
                       final vehicleCtrl = context
                           .read<VehicleDetailsController>();
+                      if (customerCtrl.selectedCountryCode == '+971' && value.startsWith('0')) {
+                        final clean = value.substring(1);
+                        customerCtrl.mobileNumController.value = TextEditingValue(
+                          text: clean,
+                          selection: TextSelection.collapsed(offset: clean.length),
+                        );
+                      }
                       if (customerCtrl.hasMobileChanged()) {
                         customerCtrl.customerStatusLabel = "New Customer";
                         customerCtrl.selectedVehicle = null;
@@ -1932,7 +1936,6 @@ class _VehicleDetailsState extends State<VehicleDetails> {
           keyboardType: keyboardType,
           textCapitalization: TextCapitalization.characters,
           inputFormatters: inputFormatters,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,

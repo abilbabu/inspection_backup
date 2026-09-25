@@ -9,6 +9,7 @@ import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:provider/provider.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 
 class CardiagramScreen extends StatefulWidget {
   final int? jobId;
@@ -247,27 +248,8 @@ class _CardiagramScreenState extends State<CardiagramScreen> {
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("Discard changes?"),
-            content: const Text(
-              "Unsaved changes will be cleared. Are you sure you want to go back?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("NO"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("YES"),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final res = await ConfirmSubmissionDialog.showDiscard(context);
+    return res ?? false;
   }
 }
 

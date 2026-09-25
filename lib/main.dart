@@ -1,4 +1,6 @@
 import 'package:camera/camera.dart';
+import 'package:camera_android/camera_android.dart';
+import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -10,6 +12,7 @@ List<CameraDescription> cameras = [];
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  CameraPlatform.instance = AndroidCamera();
   await dotenv.load(fileName: ".env");
   NetworkSyncManager().initialize();
   cameras = await availableCameras();

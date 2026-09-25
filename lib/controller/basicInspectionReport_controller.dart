@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
+import 'package:inspection/utils/local_upload_storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
@@ -269,6 +271,30 @@ class BasicInspectionReportController with ChangeNotifier {
           }
         }
 
+        String? extractVideoUrlFromDynamic(dynamic val) {
+          if (val == null) return null;
+          if (val is String && val.trim().isNotEmpty) return val.trim();
+          if (val is Map) {
+            final u = val["iaUrl"] ?? val["url"] ?? val["path"] ?? val["videoUrl"] ?? val["ia_url"];
+            if (u != null && u.toString().trim().isNotEmpty) return u.toString().trim();
+          }
+          if (val is List && val.isNotEmpty) {
+            for (var sub in val) {
+              final res = extractVideoUrlFromDynamic(sub);
+              if (res != null && res.isNotEmpty) return res;
+            }
+          }
+          return null;
+        }
+
+        external360Video ??= extractVideoUrlFromDynamic(attachments["external360"]) ??
+                             extractVideoUrlFromDynamic(attachments["external360Video"]) ??
+                             extractVideoUrlFromDynamic(attachments["360"]) ??
+                             extractVideoUrlFromDynamic(attachments["video360"]);
+
+        internal360Video ??= extractVideoUrlFromDynamic(attachments["internal360"]) ??
+                             extractVideoUrlFromDynamic(attachments["internal360Video"]);
+
         List external = attachments["externalImages"] ?? [];
         List internal = attachments["internalImages"] ?? [];
         for (var group in external) {
@@ -282,18 +308,24 @@ class BasicInspectionReportController with ChangeNotifier {
           for (var item in attachList) {
             int? iaType = item["iaType"];
             int? iaImageType = item["iaImageType"];
-            String? url = item["iaUrl"];
-            if (url == null || url.isEmpty) continue;
+            String? url = item["iaUrl"] ?? item["url"];
+            if (url == null || url.toString().trim().isEmpty) continue;
+            final cleanUrl = url.toString().trim();
             if (iaType == 0 && (iaImageType == 0 || iaImageType == null)) {
-              imageList.add({"url": url});
+              imageList.add({"url": cleanUrl});
               comment ??= item["iaInspectionNote"];
             }
             if (iaType == 2 && (iaImageType == 0 || iaImageType == null)) {
-              normalVideoUrl = url;
+              normalVideoUrl = cleanUrl;
               comment ??= item["iaInspectionNote"];
             }
-            if (iaType == 2 && iaImageType == 10) {
-              external360Video = url;
+            final bool is360 = iaImageType == 10 ||
+                item["is360"] == true ||
+                item["attachType"] == 10 ||
+                item["attachType"] == "10" ||
+                item["iaInspectionType"] == 0;
+            if (iaType == 2 && is360) {
+              external360Video = cleanUrl;
               external360Comment = item["iaInspectionNote"];
             }
           }
@@ -318,18 +350,24 @@ class BasicInspectionReportController with ChangeNotifier {
           for (var item in attachList) {
             int? iaType = item["iaType"];
             int? iaImageType = item["iaImageType"];
-            String? url = item["iaUrl"];
-            if (url == null || url.isEmpty) continue;
+            String? url = item["iaUrl"] ?? item["url"];
+            if (url == null || url.toString().trim().isEmpty) continue;
+            final cleanUrl = url.toString().trim();
             if (iaType == 0 && (iaImageType == 0 || iaImageType == null)) {
-              imageList.add({"url": url});
+              imageList.add({"url": cleanUrl});
               comment ??= item["iaInspectionNote"];
             }
             if (iaType == 2 && (iaImageType == 0 || iaImageType == null)) {
-              normalVideoUrl = url;
+              normalVideoUrl = cleanUrl;
               comment ??= item["iaInspectionNote"];
             }
-            if (iaType == 2 && iaImageType == 10) {
-              internal360Video = url;
+            final bool is360 = iaImageType == 10 ||
+                item["is360"] == true ||
+                item["attachType"] == 10 ||
+                item["attachType"] == "10" ||
+                item["iaInspectionType"] == 1;
+            if (iaType == 2 && is360) {
+              internal360Video = cleanUrl;
               internal360Comment = item["iaInspectionNote"];
             }
           }
@@ -416,6 +454,50 @@ class BasicInspectionReportController with ChangeNotifier {
           signature = {"url": attachments["signature"]};
         }
       }
+
+      // Local storage fallback for pending/recently captured 360 videos
+      try {
+        final pendingQueue = await LocalUploadStorageService.getQueue();
+        for (var task in pendingQueue) {
+          if (task.jobId == jobId) {
+            for (var m in task.mediaItems) {
+              if (m.is360 ||
+                  task.fields["attachType"] == "10" ||
+                  task.fields["inspectionImageId"] == "-10" ||
+                  task.fields["inspectionImageId"] == "-20") {
+                final f = File(m.filePath);
+                if (f.existsSync()) {
+                  final isExternal = task.fields["stage"] == "external360" ||
+                      task.fields["inspectionImageId"] == "-10" ||
+                      (task.fields["iaInspectionType"] ?? "0") == "0";
+                  if (isExternal) {
+                    external360Video ??= m.filePath;
+                  } else {
+                    internal360Video ??= m.filePath;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        final extDraft = await LocalUploadStorageService.getDraftMedia(
+            jobId: jobId, stageKey: 'external360');
+        if (extDraft != null && extDraft['video'] is File) {
+          final file = extDraft['video'] as File;
+          if (file.existsSync()) {
+            external360Video ??= file.path;
+          }
+        }
+        final intDraft = await LocalUploadStorageService.getDraftMedia(
+            jobId: jobId, stageKey: 'internal360');
+        if (intDraft != null && intDraft['video'] is File) {
+          final file = intDraft['video'] as File;
+          if (file.existsSync()) {
+            internal360Video ??= file.path;
+          }
+        }
+      } catch (_) {}
       if (external360Video != null && external360Video!.isNotEmpty) {
         initializeExternalVideo(external360Video!);
       }

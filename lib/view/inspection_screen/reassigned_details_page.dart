@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -110,6 +111,9 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         final Set<int> approvedReInspectionTaskIds = {};
         for (final list in summaryCtrl.groupedItems.values) {
           for (final item in list) {
+            if (item.taskId != null) {
+              _initialCompletedTaskIds.add(item.taskId!);
+            }
             if (item.viReInspection && item.taskId != null) {
               approvedReInspectionTaskIds.add(item.taskId!);
             }
@@ -120,40 +124,104 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         for (int i = 0; i < inspections.length; i++) {
           final inspection = inspections[i];
           final master = inspection["master"] ?? {};
-          final int vimInspectionType = master["vimInspectionType"] ?? 0;
-          final completedTasks = inspection["completedTasks"] ?? [];
+          final int vimInspectionType = master["vimInspectionType"] is num
+              ? (master["vimInspectionType"] as num).toInt()
+              : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
+          final List completedTasks = [];
+          if (inspection["completedTasks"] is List) {
+            completedTasks.addAll(inspection["completedTasks"]);
+          }
+          final rawInspectionTasks = inspection["inspectionTasks"];
+          if (rawInspectionTasks is List) {
+            for (final item in rawInspectionTasks) {
+              if (item is Map) {
+                if (item["tasks"] is List) {
+                  completedTasks.addAll(item["tasks"]);
+                } else {
+                  completedTasks.add(item);
+                }
+              }
+            }
+          }
           for (final savedTask in completedTasks) {
-            final int taskId = savedTask["viTaskId"];
-            _initialCompletedTaskIds.add(taskId);
-            final double reTime =
-                double.tryParse(
-                  savedTask["viReInspectionTime"]?.toString() ?? "",
-                ) ??
-                0.0;
-            if (savedTask["viReInspection"] == true ||
-                savedTask["viReInspection"] == 1 ||
-                savedTask["viReInspection"]?.toString() == "true" ||
-                reTime > 0.0 ||
-                (i > 0 && vimInspectionType == 2 && !isCustom)) {
-              if (approvedReInspectionTaskIds.contains(taskId)) {
-                _reInspectionTaskIds.add(taskId);
+            if (savedTask is Map) {
+              final rawId = savedTask["viTaskId"] ??
+                  savedTask["itcId"] ??
+                  savedTask["taskId"] ??
+                  savedTask["viInspectionTaskId"];
+              final int? taskId = rawId is num
+                  ? rawId.toInt()
+                  : int.tryParse(rawId?.toString() ?? "");
+              if (taskId == null) continue;
+              if (i == 0 || vimInspectionType != 2) {
+                _initialCompletedTaskIds.add(taskId);
+              }
+              final double reTime =
+                  double.tryParse(
+                    savedTask["viReInspectionTime"]?.toString() ??
+                        savedTask["vi_re_inspection_time"]?.toString() ??
+                        "",
+                  ) ??
+                  0.0;
+              final bool isReInsp = savedTask["viReInspection"] == true ||
+                  savedTask["viReInspection"] == 1 ||
+                  savedTask["viReInspection"]?.toString() == "true" ||
+                  savedTask["viReInspection"]?.toString() == "1" ||
+                  savedTask["vi_re_inspection"] == true ||
+                  savedTask["vi_re_inspection"] == 1 ||
+                  savedTask["vi_re_inspection"]?.toString() == "true" ||
+                  savedTask["vi_re_inspection"]?.toString() == "1" ||
+                  reTime > 0.0;
+              if (isReInsp || (i > 0 && vimInspectionType == 2 && !isCustom)) {
+                if (approvedReInspectionTaskIds.contains(taskId)) {
+                  _reInspectionTaskIds.add(taskId);
+                }
               }
             }
           }
         }
         final Set<int> reinspectedTaskIds = {};
-        for (int i = 1; i < inspections.length; i++) {
-          final completedTasks = inspections[i]["completedTasks"] ?? [];
-          for (final savedTask in completedTasks) {
-            final int taskId = savedTask["viTaskId"];
-            reinspectedTaskIds.add(taskId);
+        for (int i = 0; i < inspections.length; i++) {
+          final inspection = inspections[i];
+          final master = inspection["master"] ?? {};
+          final int vimInspectionType = master["vimInspectionType"] is num
+              ? (master["vimInspectionType"] as num).toInt()
+              : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
+          if (i > 0 || vimInspectionType == 2) {
+            final List completedTasks = [];
+            if (inspection["completedTasks"] is List) {
+              completedTasks.addAll(inspection["completedTasks"]);
+            }
+            final rawInspectionTasks = inspection["inspectionTasks"];
+            if (rawInspectionTasks is List) {
+              for (final item in rawInspectionTasks) {
+                if (item is Map) {
+                  if (item["tasks"] is List) {
+                    completedTasks.addAll(item["tasks"]);
+                  } else {
+                    completedTasks.add(item);
+                  }
+                }
+              }
+            }
+            for (final savedTask in completedTasks) {
+              if (savedTask is Map) {
+                final rawId = savedTask["viTaskId"] ??
+                    savedTask["itcId"] ??
+                    savedTask["taskId"] ??
+                    savedTask["viInspectionTaskId"];
+                final int? taskId = rawId is num
+                    ? rawId.toInt()
+                    : int.tryParse(rawId?.toString() ?? "");
+                if (taskId != null) {
+                  reinspectedTaskIds.add(taskId);
+                }
+              }
+            }
           }
         }
         for (final taskId in _reInspectionTaskIds) {
-          if (!reinspectedTaskIds.contains(taskId) ||
-              jobStatus == 10 ||
-              jobStatus == 11 ||
-              jobStatus == 18) {
+          if (!reinspectedTaskIds.contains(taskId)) {
             formCtrl.prepareTaskForReInspection(taskId);
           }
         }
@@ -513,12 +581,32 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   Widget _buildReadOnlyReInspectionList(
     InspectionsummarypageController summaryController,
   ) {
-    final reInspectionItems = summaryController.groupedItems.values
+    final formCtrl = context.watch<InspectionFormController>();
+    final detailsCtrl = context.watch<InspectionTypeDetailsController>();
+
+    final allSummaryItems = summaryController.groupedItems.values
         .expand((list) => list)
-        .where((item) => item.viReInspection)
         .toList();
 
-    reInspectionItems.sort((a, b) {
+    final Set<int> processedTaskIds = {};
+    final List<InspectionItem> originalReInspectionItems = [];
+    final List<InspectionItem> newlyAddedSummaryItems = [];
+
+    for (final item in allSummaryItems) {
+      if (!item.viReInspection || item.taskId == null) continue;
+
+      processedTaskIds.add(item.taskId!);
+      final bool isOriginal = _initialCompletedTaskIds.contains(item.taskId!) ||
+          item.originalStatus != null;
+
+      if (isOriginal) {
+        originalReInspectionItems.add(item);
+      } else {
+        newlyAddedSummaryItems.add(item);
+      }
+    }
+
+    originalReInspectionItems.sort((a, b) {
       int getWeight(InspectionStatus status) {
         if (status == InspectionStatus.replace) return 0;
         if (status == InspectionStatus.repair) return 1;
@@ -531,7 +619,67 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       ).compareTo(getWeight(b.originalStatus ?? b.status));
     });
 
-    if (reInspectionItems.isEmpty) {
+    final List<Map<String, dynamic>> extraNewlyAdded = [];
+    for (final taskId in formCtrl.savedTaskIds) {
+      if (!processedTaskIds.contains(taskId) &&
+          !_initialCompletedTaskIds.contains(taskId)) {
+        processedTaskIds.add(taskId);
+        Map<String, dynamic>? componentData;
+        for (final task in detailsCtrl.allTaskComponents) {
+          final id = task["itcId"];
+          final int idInt = id is num ? id.toInt() : int.tryParse(id?.toString() ?? "") ?? 0;
+          if (idInt == taskId) {
+            componentData = task;
+            break;
+          }
+        }
+        if (componentData == null) {
+          for (final entry in detailsCtrl.groupedTasks.entries) {
+            for (final t in entry.value) {
+              final comp = t["components"];
+              final id = comp?["itcId"];
+              final int idInt = id is num ? id.toInt() : int.tryParse(id?.toString() ?? "") ?? 0;
+              if (idInt == taskId) {
+                componentData = comp;
+                break;
+              }
+            }
+            if (componentData != null) break;
+          }
+        }
+
+        final taskSavedData = formCtrl.getTaskById(taskId);
+        final String title = componentData?["itcName"]?.toString() ?? "Component #$taskId";
+        final String category = componentData?["assemblyCodeName"]?.toString() ?? componentData?["repairGroupName"]?.toString() ?? "";
+
+        InspectionStatus status = InspectionStatus.repair;
+        if (taskSavedData != null && taskSavedData.condition != null) {
+          final cond = taskSavedData.condition!.toLowerCase();
+          if (cond == "good") {
+            status = InspectionStatus.good;
+          } else if (cond == "repair") {
+            status = InspectionStatus.repair;
+          } else if (cond == "replace") {
+            status = InspectionStatus.replace;
+          } else if (cond == "poor") {
+            status = InspectionStatus.poor;
+          } else if (cond == "n/a") {
+            status = InspectionStatus.na;
+          }
+        }
+
+        extraNewlyAdded.add({
+          "title": title,
+          "category": category,
+          "status": status,
+          "taskId": taskId,
+        });
+      }
+    }
+
+    if (originalReInspectionItems.isEmpty &&
+        newlyAddedSummaryItems.isEmpty &&
+        extraNewlyAdded.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -574,7 +722,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                 ),
               ],
             ),
-            ...reInspectionItems.map((item) {
+            ...originalReInspectionItems.map((item) {
               final originalStatus = item.originalStatus ?? item.status;
               return TableRow(
                 children: [
@@ -595,8 +743,137 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         color: originalStatus == InspectionStatus.replace
                             ? Colors.red
                             : originalStatus == InspectionStatus.repair
-                            ? Colors.orange
-                            : Colors.blue,
+                                ? Colors.orange
+                                : originalStatus == InspectionStatus.poor
+                                    ? Colors.amber.shade800
+                                    : Colors.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+            ...newlyAddedSummaryItems.map((item) {
+              final displayStatus = item.originalStatus ?? item.status;
+              return TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.category.isNotEmpty
+                                ? "${item.title} (${item.category})"
+                                : item.title,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ColorConstants.greenColor.withOpacity(0.15),
+                            border: Border.all(
+                              color: ColorConstants.greenColor,
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            "NEW",
+                            style: TextStyle(
+                              color: ColorConstants.greenColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Text(
+                      displayStatus.name.toUpperCase(),
+                      style: TextStyle(
+                        color: displayStatus == InspectionStatus.replace
+                            ? Colors.red
+                            : displayStatus == InspectionStatus.repair
+                                ? Colors.orange
+                                : displayStatus == InspectionStatus.poor
+                                    ? Colors.amber.shade800
+                                    : Colors.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+            ...extraNewlyAdded.map((item) {
+              final InspectionStatus displayStatus =
+                  item["status"] as InspectionStatus;
+              final String title = item["title"] as String;
+              final String category = item["category"] as String;
+              return TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            category.isNotEmpty
+                                ? "$title ($category)"
+                                : title,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ColorConstants.greenColor.withOpacity(0.15),
+                            border: Border.all(
+                              color: ColorConstants.greenColor,
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            "NEW",
+                            style: TextStyle(
+                              color: ColorConstants.greenColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Text(
+                      displayStatus.name.toUpperCase(),
+                      style: TextStyle(
+                        color: displayStatus == InspectionStatus.replace
+                            ? Colors.red
+                            : displayStatus == InspectionStatus.repair
+                                ? Colors.orange
+                                : displayStatus == InspectionStatus.poor
+                                    ? Colors.amber.shade800
+                                    : Colors.blue,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -624,10 +901,11 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       for (final task in controller.allTaskComponents) {
         final taskId = task["itcId"];
         if (taskId != null) {
-          final isReInspectionItem = _reInspectionTaskIds.contains(taskId);
-          final isSaved = formController.isTaskSaved(taskId);
+          final int idInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+          final isReInspectionItem = _reInspectionTaskIds.contains(idInt);
+          final isSaved = formController.isTaskSaved(idInt);
           final isNewComponent =
-              !_initialCompletedTaskIds.contains(taskId) && isSaved;
+              !_initialCompletedTaskIds.contains(idInt) && isSaved;
           if (isReInspectionItem || isNewComponent) {
             visibleTasks.add(Map<String, dynamic>.from(task));
           }
@@ -641,33 +919,46 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
           final components = task["components"];
           final taskId = components?["itcId"];
           if (taskId != null) {
-            final isReInspectionItem = _reInspectionTaskIds.contains(taskId);
-            final isSaved = formController.isTaskSaved(taskId);
+            final int idInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+            final isReInspectionItem = _reInspectionTaskIds.contains(idInt);
+            final isSaved = formController.isTaskSaved(idInt);
             final isNewComponent =
-                !_initialCompletedTaskIds.contains(taskId) && isSaved;
+                !_initialCompletedTaskIds.contains(idInt) && isSaved;
             if (isReInspectionItem || isNewComponent) {
               visibleTasks.add(Map<String, dynamic>.from(task));
-              addedTaskIds.add(taskId);
+              addedTaskIds.add(idInt);
             }
           }
         }
       }
       for (final task in controller.allTaskComponents) {
         final taskId = task["itcId"];
-        if (taskId != null && !addedTaskIds.contains(taskId)) {
-          final isReInspectionItem = _reInspectionTaskIds.contains(taskId);
-          final isSaved = formController.isTaskSaved(taskId);
-          final isNewComponent =
-              !_initialCompletedTaskIds.contains(taskId) && isSaved;
-          if (isReInspectionItem || isNewComponent) {
-            visibleTasks.add({"components": Map<String, dynamic>.from(task)});
-            addedTaskIds.add(taskId);
+        if (taskId != null) {
+          final int idInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+          if (!addedTaskIds.contains(idInt)) {
+            final isReInspectionItem = _reInspectionTaskIds.contains(idInt);
+            final isSaved = formController.isTaskSaved(idInt);
+            final isNewComponent =
+                !_initialCompletedTaskIds.contains(idInt) && isSaved;
+            if (isReInspectionItem || isNewComponent) {
+              visibleTasks.add({"components": Map<String, dynamic>.from(task)});
+              addedTaskIds.add(idInt);
+            }
           }
         }
       }
     }
 
-    if (visibleTasks.isEmpty) {
+    final String query = _searchController.text.trim().toLowerCase();
+    final List<Map<String, dynamic>> filteredTasks = query.isEmpty
+        ? visibleTasks
+        : visibleTasks.where((task) {
+            final components = isCustom ? task : (task["components"] ?? task);
+            final name = (components["itcName"] ?? "").toString().toLowerCase();
+            return name.contains(query);
+          }).toList();
+
+    if (filteredTasks.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 20),
         child: Center(
@@ -684,9 +975,9 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: visibleTasks.length,
+      itemCount: filteredTasks.length,
       itemBuilder: (context, index) {
-        final task = visibleTasks[index];
+        final task = filteredTasks[index];
         final bool isCustom =
             summaryCtrl.vimIfMasterId == null || summaryCtrl.vimIfMasterId == 0;
         final components = isCustom ? task : task["components"];
@@ -972,40 +1263,16 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       );
       if (!mounted) return;
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: ColorConstants.greenColor,
-            content: Text(
-              "Re-inspection report submitted successfully",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        );
+        CustomToast.showSuccess(context, "Re-inspection report submitted successfully");
         context.go(
           "/inspectionsummarypage",
           extra: {"jobId": widget.jobId, "flag": 2},
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: ColorConstants.errorcolor,
-            content: Text(
-              "Failed to submit re-inspection report",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        );
+        CustomToast.showError(context, "Failed to submit re-inspection report");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: ColorConstants.errorcolor,
-          content: Text(
-            "Unexpected error: $e",
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
-      );
+      CustomToast.showError(context, "Unexpected error: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -1139,28 +1406,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                                 status: 18,
                               );
                               if (success) {
-                                ScaffoldMessenger.of(
-                                  parentContext,
-                                ).showSnackBar(
-                                  const SnackBar(
-                                    backgroundColor: ColorConstants.greenColor,
-                                    content: Text(
-                                      "Technician Assigned for Re-Inspection",
-                                    ),
-                                  ),
-                                );
+                                CustomToast.showSuccess(parentContext, "Technician Assigned for Re-Inspection");
                                 parentContext.go("/home");
                               } else {
-                                ScaffoldMessenger.of(
-                                  parentContext,
-                                ).showSnackBar(
-                                  const SnackBar(
-                                    backgroundColor: ColorConstants.errorcolor,
-                                    content: Text(
-                                      "Technician Assignment Failed",
-                                    ),
-                                  ),
-                                );
+                                CustomToast.showError(parentContext, "Technician Assignment Failed");
                               }
                             },
                           ),
@@ -1227,13 +1476,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                       minChildSize: 0.95,
                       shouldCloseOnMinExtent: false,
                       builder: (context, scrollController) {
-                        final completedTasks = controller.filteredTaskComponents
-                            .where((task) {
-                              final taskId = task["itcId"];
-                              return taskId != null &&
-                                  formController.isTaskSaved(taskId);
-                            })
-                            .toList();
                         final pendingTasks = controller.filteredTaskComponents
                             .where((task) {
                               final taskId = task["itcId"];
@@ -1316,6 +1558,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                                   key: ValueKey(components["itcId"]),
                                   create: (_) => InspectioncardController(),
                                   child: InspectionCard(
+                                    categoryId:
+                                        components["itcCategoryId"] ??
+                                        components["categoryId"] ??
+                                        0,
                                     jobid: widget.jobId,
                                     taskid: components["itcId"],
                                     formid: formId,
@@ -1533,13 +1779,9 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                                   technicianName: technician["userName"].toString(),
                                 );
                                 if (res["success"] == true) {
-                                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    SnackBar(content: Text(res["message"] ?? "Technician Reassigned Successfully")),
-                                  );
+                                  CustomToast.showSuccess(parentContext, res["message"] ?? "Technician Reassigned Successfully");
                                 } else {
-                                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    SnackBar(content: Text(res["message"] ?? "Technician Reassignment Failed")),
-                                  );
+                                  CustomToast.showError(parentContext, res["message"] ?? "Technician Reassignment Failed");
                                 }
                                 parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId, forceRefresh: true);
                               }

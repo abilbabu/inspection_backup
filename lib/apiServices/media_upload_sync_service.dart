@@ -5,6 +5,7 @@ import 'package:inspection/model/upload_queue_model.dart';
 import 'package:inspection/utils/local_upload_storage_service.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
 
+import 'package:inspection/utils/media_compression_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MediaUploadSyncService {
@@ -64,8 +65,12 @@ class MediaUploadSyncService {
     }
 
     if (!hasValidFile && task.mediaItems.isNotEmpty) {
-      await LocalUploadStorageService.removeTask(task.id);
-      return false;
+      if (task.fields.containsKey("status") && task.fields["status"] == "3") {
+        task = task.copyWith(mediaItems: []);
+      } else {
+        await LocalUploadStorageService.removeTask(task.id);
+        return false;
+      }
     }
 
     await LocalUploadStorageService.updateTaskStatus(task.id, 'uploading');
@@ -162,8 +167,9 @@ class MediaUploadSyncService {
 
           MultipartFile multipartFile;
           if (item.is360) {
+            final fileToUpload = await MediaCompressionHelper.compressVideoFile(file);
             multipartFile = await MultipartFile.fromFile(
-              file.path,
+              fileToUpload.path,
               filename: "inspection_360_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
               contentType: http_parser.MediaType("video", "mp4"),
             );
@@ -182,8 +188,9 @@ class MediaUploadSyncService {
               contentType: http_parser.MediaType("audio", subType),
             );
           } else {
+            final fileToUpload = await MediaCompressionHelper.compressVideoFile(file);
             multipartFile = await MultipartFile.fromFile(
-              file.path,
+              fileToUpload.path,
               filename: "inspection_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
               contentType: http_parser.MediaType("video", "mp4"),
             );

@@ -60,12 +60,13 @@ class UploadQueueModel {
   UploadQueueModel copyWith({
     String? status,
     int? retryCount,
+    List<MediaItemQueue>? mediaItems,
   }) {
     return UploadQueueModel(
       id: this.id,
       jobId: this.jobId,
       endpointUrl: this.endpointUrl,
-      mediaItems: this.mediaItems,
+      mediaItems: mediaItems ?? this.mediaItems,
       fields: this.fields,
       status: status ?? this.status,
       retryCount: retryCount ?? this.retryCount,

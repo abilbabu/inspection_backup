@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/controller/basicInspectionReport_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
@@ -76,126 +78,149 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
     );
   }
 
-  Container _cardiagramSection(
+  Widget _cardiagramSection(
     BuildContext context,
-    BasicInspectionReportController controller,
+    BasicInspectionReportController reportController,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        color: ColorConstants.whiteColor,
-        boxShadow: ColorConstants.dashboardboxShadow,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Inspection Diagram",
-              style: ApptextstyleConstants.mediumText(
-                fontSize: 14,
-                color: ColorConstants.blackColor,
-              ),
-            ),
-            SizedBox(height: 12),
-            InkWell(
-              onTap: () {
-                context.push(
-                  '/fullScreenImage',
-                  extra: {
-                    'imageUrl': controller.diagram!["url"],
-                    'label': "Inspection Diagram",
-                  },
-                );
-              },
-              child: Container(
-                height: 320,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  color: ColorConstants.whiteColor,
-                  boxShadow: ColorConstants.dashboardboxShadow,
+    return Consumer<BasicinspController>(
+      builder: (context, basicCtrl, _) {
+        final serverDiagramUrl = reportController.diagram?["url"];
+        final localDiagramPath = basicCtrl.carDiagramPath;
+
+        Widget imageWidget;
+        if (serverDiagramUrl != null && serverDiagramUrl.toString().isNotEmpty) {
+          imageWidget = Image.network(
+            serverDiagramUrl.toString(),
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              if (localDiagramPath != null && File(localDiagramPath).existsSync()) {
+                return Image.file(File(localDiagramPath), fit: BoxFit.contain);
+              }
+              return const Center(child: Text("No Diagram Available"));
+            },
+          );
+        } else if (localDiagramPath != null && File(localDiagramPath).existsSync()) {
+          imageWidget = Image.file(
+            File(localDiagramPath),
+            fit: BoxFit.contain,
+          );
+        } else {
+          imageWidget = const Center(child: Text("No Diagram Available"));
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            color: ColorConstants.whiteColor,
+            boxShadow: ColorConstants.dashboardboxShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Inspection Diagram",
+                  style: ApptextstyleConstants.mediumText(
+                    fontSize: 14,
+                    color: ColorConstants.blackColor,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 7,
-                      child:
-                          controller.diagram != null &&
-                              controller.diagram!["url"] != null
-                          ? Image.network(
-                              controller.diagram!["url"],
-                              fit: BoxFit.contain,
-                            )
-                          : const Center(child: Text("No Diagram Available")),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () {
+                    final targetUrl = serverDiagramUrl ?? localDiagramPath;
+                    if (targetUrl != null) {
+                      context.push(
+                        '/fullScreenImage',
+                        extra: {
+                          'imageUrl': targetUrl,
+                          'label': "Inspection Diagram",
+                        },
+                      );
+                    }
+                  },
+                  child: Container(
+                    height: 320,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      color: ColorConstants.whiteColor,
+                      boxShadow: ColorConstants.dashboardboxShadow,
                     ),
-                    SizedBox(height: 5),
-                    Expanded(
-                      flex: 3,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: ColorConstants.activecolor,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Legend",
-                                  style: ApptextstyleConstants.regularText(
-                                    fontSize: 12,
-                                    color: ColorConstants.blackColor,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 7,
+                          child: imageWidget,
+                        ),
+                        const SizedBox(height: 5),
+                        Expanded(
+                          flex: 3,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: ColorConstants.activecolor,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Column(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: List.generate(
-                                    DummyDB.damageList.length,
-                                    (index) {
-                                      final item = DummyDB.damageList[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 4,
-                                        ),
-                                        child: Text(
-                                          "${item["emoji"]} ${item["label"]}",
-                                          style:
-                                              ApptextstyleConstants.lightText(
+                                  children: [
+                                    Text(
+                                      "Legend",
+                                      style: ApptextstyleConstants.regularText(
+                                        fontSize: 12,
+                                        color: ColorConstants.blackColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: List.generate(
+                                        DummyDB.damageList.length,
+                                        (index) {
+                                          final item = DummyDB.damageList[index];
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 4,
+                                            ),
+                                            child: Text(
+                                              "${item["emoji"]} ${item["label"]}",
+                                              style: ApptextstyleConstants.lightText(
                                                 color: item["color"],
                                                 fontSize: 11,
                                               ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                      ],
                     ),
-                    SizedBox(height: 10),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

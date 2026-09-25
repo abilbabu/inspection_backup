@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
@@ -200,20 +201,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (success) {
                             context.go("/home");
                           } else {
-                            ScaffoldMessenger.of(context)
-                              ..removeCurrentSnackBar()
-                              ..showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    "Login failed. Please check your credentials.",
-                                    style: TextStyle(
-                                      color: ColorConstants.whiteColor,
-                                    ),
-                                  ),
-                                  backgroundColor: ColorConstants.errorcolor,
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
+                            CustomToast.showError(
+                              context,
+                              "Login failed. Please check your credentials.",
+                            );
                           }
                         }
                       },

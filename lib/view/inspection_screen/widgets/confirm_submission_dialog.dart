@@ -6,6 +6,18 @@ class ConfirmSubmissionDialog extends StatelessWidget {
   final String content;
   final String confirmText;
   final String cancelText;
+  final String bannerText;
+  final IconData icon;
+  final Color iconBgColor;
+  final Color iconBorderColor;
+  final Color iconColor;
+  final Color bannerBgColor;
+  final Color bannerBorderColor;
+  final IconData bannerIcon;
+  final Color bannerIconColor;
+  final Color bannerTextColor;
+  final IconData confirmIcon;
+  final Gradient confirmGradient;
 
   const ConfirmSubmissionDialog({
     super.key,
@@ -14,6 +26,18 @@ class ConfirmSubmissionDialog extends StatelessWidget {
         "The inspection report is about to be submitted as the final version. Please review all inspection details, captured images/videos, audio recordings, conditions, notes, and comments carefully.",
     this.confirmText = "Confirm & Submit",
     this.cancelText = "Cancel & Review",
+    this.bannerText = "Submitting locks the inspection data as final.",
+    this.icon = Icons.assignment_turned_in_rounded,
+    this.iconBgColor = const Color(0xFFE0F2FE),
+    this.iconBorderColor = const Color(0xFFBAE6FD),
+    this.iconColor = ColorConstants.lightblueColor,
+    this.bannerBgColor = const Color(0xFFF0F9FF),
+    this.bannerBorderColor = const Color(0xFFBAE6FD),
+    this.bannerIcon = Icons.info_outline_rounded,
+    this.bannerIconColor = const Color(0xFF0284C7),
+    this.bannerTextColor = const Color(0xFF0369A1),
+    this.confirmIcon = Icons.check_circle_rounded,
+    this.confirmGradient = ColorConstants.buttonGradient,
   });
 
   static Future<bool?> show(BuildContext context) {
@@ -21,6 +45,61 @@ class ConfirmSubmissionDialog extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (context) => const ConfirmSubmissionDialog(),
+    );
+  }
+
+  static Future<bool?> showExit(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const ConfirmSubmissionDialog(
+        title: "Exit Basic Inspection?",
+        content:
+            "Are you sure you want to return to the dashboard? Your progress up to the last saved step and any captured media will be safely preserved.",
+        confirmText: "Exit to Home",
+        cancelText: "Stay & Resume",
+        bannerText: "Progress & captured media will be preserved.",
+        icon: Icons.logout_rounded,
+        iconBgColor: Color(0xFFFEF3C7),
+        iconBorderColor: Color(0xFFFDE68A),
+        iconColor: Color(0xFFD97706),
+        bannerBgColor: Color(0xFFFFFBEB),
+        bannerBorderColor: Color(0xFFFDE68A),
+        bannerIcon: Icons.shield_outlined,
+        bannerIconColor: Color(0xFFD97706),
+        bannerTextColor: Color(0xFFB45309),
+        confirmIcon: Icons.exit_to_app_rounded,
+      ),
+    );
+  }
+
+  static Future<bool?> showDiscard(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const ConfirmSubmissionDialog(
+        title: "Discard Changes?",
+        content:
+            "Unsaved changes on this step will be cleared. Are you sure you want to go back?",
+        confirmText: "Discard",
+        cancelText: "Keep Editing",
+        bannerText: "Unsaved changes will be cleared.",
+        icon: Icons.delete_outline_rounded,
+        iconBgColor: Color(0xFFFEE2E2),
+        iconBorderColor: Color(0xFFFCA5A5),
+        iconColor: Color(0xFFDC2626),
+        bannerBgColor: Color(0xFFFEF2F2),
+        bannerBorderColor: Color(0xFFFCA5A5),
+        bannerIcon: Icons.warning_amber_rounded,
+        bannerIconColor: Color(0xFFDC2626),
+        bannerTextColor: Color(0xFF991B1B),
+        confirmIcon: Icons.delete_forever_rounded,
+        confirmGradient: LinearGradient(
+          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
     );
   }
 
@@ -45,13 +124,13 @@ class ConfirmSubmissionDialog extends StatelessWidget {
               height: 68,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFE0F2FE),
-                border: Border.all(color: const Color(0xFFBAE6FD), width: 2),
+                color: iconBgColor,
+                border: Border.all(color: iconBorderColor, width: 2),
               ),
-              child: const Icon(
-                Icons.assignment_turned_in_rounded,
+              child: Icon(
+                icon,
                 size: 36,
-                color: ColorConstants.lightblueColor,
+                color: iconColor,
               ),
             ),
             const SizedBox(height: 18),
@@ -73,25 +152,25 @@ class ConfirmSubmissionDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
+                color: bannerBgColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBAE6FD)),
+                border: Border.all(color: bannerBorderColor),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
-                    Icons.info_outline_rounded,
+                    bannerIcon,
                     size: 20,
-                    color: Color(0xFF0284C7),
+                    color: bannerIconColor,
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "Submitting locks the inspection data as final.",
+                      bannerText,
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF0369A1),
+                        color: bannerTextColor,
                       ),
                     ),
                   ),
@@ -147,11 +226,11 @@ class ConfirmSubmissionDialog extends StatelessWidget {
                     height: 48,
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: ColorConstants.buttonGradient,
+                        gradient: confirmGradient,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: ColorConstants.lightblueColor.withOpacity(0.3),
+                            color: iconColor.withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -169,8 +248,8 @@ class ConfirmSubmissionDialog extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(
-                              Icons.check_circle_rounded,
+                            Icon(
+                              confirmIcon,
                               size: 17,
                               color: Colors.white,
                             ),

@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dio/dio.dart';
-import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
@@ -12,6 +10,7 @@ import 'package:inspection/model/upload_queue_model.dart';
 import 'package:inspection/utils/local_upload_storage_service.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:inspection/utils/permission_service.dart';
+import 'package:inspection/controller/inspectionfullscreenvideo_Controller.dart';
 import 'package:inspection/view/basicInspection_screen/widget/carDiagram_screen.dart';
 import 'package:inspection/view/basicInspection_screen/widget/signature_screen.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
@@ -228,45 +227,61 @@ class BasicinspController extends ChangeNotifier {
     return hasImage || hasVideo;
   }
 
-  bool validateMandatoryImage() {
+  /// Returns null if current step validation passes for NEXT button.
+  /// Otherwise returns the warning message string to be displayed to the user.
+  String? validateNextStepMessage() {
     if (isCurrentStageCompleted) {
       showValidation = false;
-      return true;
+      return null;
     }
     if (is360Stage) {
       if (_capturedVideo == null) {
         showValidation = true;
         notifyListeners();
-        return false;
+        return "Please capture 360 video before continuing.";
       }
       showValidation = false;
-      return true;
+      return null;
     }
-    if (currentStage == InspectionStage.additionalImages) {
-      bool hasImage = _capturedImages.any((img) => img != null);
-      if (!hasImage) {
+    if (currentStage == InspectionStage.diagram) {
+      if (_capturedImages.isEmpty || !_capturedImages.any((img) => img != null)) {
         showValidation = true;
         notifyListeners();
-        return false;
+        return "Please complete diagram before continuing.";
       }
       showValidation = false;
-      return true;
+      return null;
     }
-    final item = currentItem;
-    if (item == null) return false;
-    bool isMandatory = item['imageMandatory'] ?? false;
-    if (!isMandatory) {
+    if (currentStage == InspectionStage.signature) {
+      if (_capturedImages.isEmpty || _capturedImages.first == null) {
+        showValidation = true;
+        notifyListeners();
+        return "Please provide signature before continuing.";
+      }
       showValidation = false;
-      return true;
+      return null;
     }
+
+    // Image capture stages (internalImages, externalImages, additionalImages)
     bool hasImage = _capturedImages.any((img) => img != null);
-    if (!hasImage) {
-      showValidation = true;
-      notifyListeners();
-      return false;
+    if (hasImage) {
+      showValidation = false;
+      return null;
     }
-    showValidation = false;
-    return true;
+
+    // No image captured
+    showValidation = true;
+    notifyListeners();
+
+    if (isCurrentMandatory) {
+      return "Please capture the required image before continuing.";
+    } else {
+      return "Please capture an image or use Skip to continue.";
+    }
+  }
+
+  bool validateMandatoryImage() {
+    return validateNextStepMessage() == null;
   }
 
   Future<void> handleImageTap(
@@ -285,7 +300,7 @@ class BasicinspController extends ChangeNotifier {
     try {
       int currentAngle = 0;
       File? currentFile = mediaType == MediaType.image
-          ? _capturedImages[imageIndex]
+          ? (imageIndex >= 0 && imageIndex < _capturedImages.length ? _capturedImages[imageIndex] : null)
           : _capturedVideo;
       if (currentFile == null) {
         final dynamic result = await Navigator.push(
@@ -312,11 +327,14 @@ class BasicinspController extends ChangeNotifier {
             builder: (_) => mediaType == MediaType.image
                 ? FullScreenImageScreen(
                     imageFile: currentFile!,
-                    angle: currentAngle, // Passing the angle here
+                    angle: currentAngle,
                   )
-                : InspectionFullScreenVideo(
-                    videoUrl: currentFile!.path,
-                    label: "Video",
+                : ChangeNotifierProvider(
+                    create: (_) => InspectionFullscreenVideoController(),
+                    child: InspectionFullScreenVideo(
+                      videoUrl: currentFile!.path,
+                      label: "Video",
+                    ),
                   ),
           ),
         );
@@ -337,17 +355,22 @@ class BasicinspController extends ChangeNotifier {
             currentAngle = captureResult['angle'] ?? 0;
           } else if (captureResult is File) {
             currentFile = captureResult;
+            currentAngle = 0;
           }
           continue;
         }
         if (result is File) {
           if (mediaType == MediaType.image) {
             final compressed = await compressImage(result, angle: currentAngle);
-            await _deleteOldImage(_capturedImages[imageIndex]);
-            _capturedImages[imageIndex] = compressed;
+            if (imageIndex >= 0 && imageIndex < _capturedImages.length) {
+              await _deleteOldImage(_capturedImages[imageIndex], exceptFile: compressed);
+              _capturedImages[imageIndex] = compressed;
+            } else {
+              _capturedImages.add(compressed);
+            }
           } else {
             final compressedVideo = await compressVideo(result);
-            await _deleteOldVideo(_capturedVideo);
+            await _deleteOldVideo(_capturedVideo, exceptFile: compressedVideo);
             _capturedVideo = compressedVideo;
           }
           notifyListeners();
@@ -362,17 +385,23 @@ class BasicinspController extends ChangeNotifier {
     }
   }
 
-  Future<void> _deleteOldImage(File? file) async {
+  Future<void> _deleteOldImage(File? file, {File? exceptFile}) async {
     try {
       if (file != null && await file.exists()) {
+        if (exceptFile != null && file.path == exceptFile.path) {
+          return;
+        }
         await file.delete();
       }
     } catch (_) {}
   }
 
-  Future<void> _deleteOldVideo(File? file) async {
+  Future<void> _deleteOldVideo(File? file, {File? exceptFile}) async {
     try {
       if (file != null && await file.exists()) {
+        if (exceptFile != null && file.path == exceptFile.path) {
+          return;
+        }
         await file.delete();
       }
     } catch (_) {}
@@ -432,6 +461,73 @@ class BasicinspController extends ChangeNotifier {
         return aSort.compareTo(bSort);
       });
     } catch (e) {
+    }
+  }
+
+    String get currentStageKey {
+    final item = currentItem;
+    final itemIdStr = item != null ? item['id']?.toString() : currentStep.toString();
+    switch (currentStage) {
+      case InspectionStage.internalImages:
+        return 'internal_images_$itemIdStr';
+      case InspectionStage.internal360:
+        return 'internal_360';
+      case InspectionStage.externalImages:
+        return 'external_images_$itemIdStr';
+      case InspectionStage.additionalImages:
+        return 'additional_images_$currentStep';
+      case InspectionStage.external360:
+        return 'external_360';
+      case InspectionStage.diagram:
+        return 'diagram';
+      case InspectionStage.signature:
+        return 'signature';
+      case InspectionStage.completed:
+        return 'completed';
+    }
+  }
+
+  Future<void> _persistCurrentDraftMedia() async {
+    await LocalUploadStorageService.saveDraftMedia(
+      jobId: jobId,
+      stageKey: currentStageKey,
+      images: _capturedImages,
+      video: _capturedVideo,
+    );
+  }
+
+  Future<void> loadDraftMediaForCurrentStep() async {
+    final draft = await LocalUploadStorageService.getDraftMedia(
+      jobId: jobId,
+      stageKey: currentStageKey,
+    );
+    if (draft != null) {
+      final List<File?> draftImages = List<File?>.from(draft['images'] ?? []);
+      final File? draftVideo = draft['video'];
+
+      if (draftImages.isNotEmpty) {
+        for (int i = 0; i < _capturedImages.length && i < draftImages.length; i++) {
+          if (draftImages[i] != null && await draftImages[i]!.exists()) {
+            _capturedImages[i] = draftImages[i];
+          }
+        }
+      }
+      if (draftVideo != null && await draftVideo.exists()) {
+        _capturedVideo = draftVideo;
+      }
+
+      bool foundEmpty = false;
+      for (int i = 0; i < _capturedImages.length; i++) {
+        if (_capturedImages[i] == null) {
+          selectedBoxIndex = i;
+          foundEmpty = true;
+          break;
+        }
+      }
+      if (!foundEmpty && hasVideoRequirement) {
+        isVideoModeSelected = true;
+      }
+      notifyListeners();
     }
   }
 
@@ -588,7 +684,7 @@ class BasicinspController extends ChangeNotifier {
           'stage': InspectionStage.externalImages,
           'index': i,
           'id': images[i]['id'],
-          'isMandatory': isQuick ? false : (images[i]['imageMandatory'] ?? false),
+          'isMandatory': images[i]['imageMandatory'] ?? false,
         });
       }
       if (isQuick) {
@@ -724,10 +820,11 @@ class BasicinspController extends ChangeNotifier {
   }
 
   bool get isCurrentMandatory {
-    if (isQuick) return false;
     final item = currentItem;
-    if (item == null) return false;
-    return item['imageMandatory'] ?? false;
+    if (item != null && item['imageMandatory'] != null) {
+      return item['imageMandatory'] == true;
+    }
+    return false;
   }
 
   bool get is360Stage =>
@@ -847,6 +944,7 @@ class BasicinspController extends ChangeNotifier {
       isVideoModeSelected = true;
     }
     notifyListeners();
+    _persistCurrentDraftMedia();
   }
 
   Future<void> removeCapturedImage(int index) async {
@@ -856,6 +954,7 @@ class BasicinspController extends ChangeNotifier {
       selectedBoxIndex = index;
       isVideoModeSelected = false;
       notifyListeners();
+      _persistCurrentDraftMedia();
     }
   }
 
@@ -864,19 +963,18 @@ class BasicinspController extends ChangeNotifier {
     _capturedVideo = null;
     isVideoModeSelected = true;
     notifyListeners();
+    _persistCurrentDraftMedia();
   }
 
   Future<void> updateCapturedVideo(File videoFile) async {
     try {
-      isVideoLoading = true;
-      notifyListeners();
-      final compressed = await compressVideo(videoFile);
       await _deleteOldVideo(_capturedVideo);
-      _capturedVideo = compressed;
+      _capturedVideo = videoFile;
     } catch (e) {
     } finally {
       isVideoLoading = false;
       notifyListeners();
+      _persistCurrentDraftMedia();
     }
   }
 
@@ -900,6 +998,7 @@ class BasicinspController extends ChangeNotifier {
     isVideoModeSelected = is360Stage;
     showValidation = false;
     notifyListeners();
+    loadDraftMediaForCurrentStep();
   }
 
   void nextStep(BuildContext context) {
@@ -1137,6 +1236,7 @@ class BasicinspController extends ChangeNotifier {
       completedImageIds.add(skippedId);
       await LocalUploadStorageService.saveSkippedImageId(jobId, skippedId);
     }
+    await LocalUploadStorageService.clearDraftMedia(jobId: jobId, stageKey: currentStageKey);
     // When skipping on additionalImages, jump directly to external360
     // (or diagram if no 360 configured), bypassing remaining additional images.
     if (context.mounted) {
@@ -1215,7 +1315,7 @@ class BasicinspController extends ChangeNotifier {
     final bool hasNewMedia = is360Stage 
         ? (_capturedVideo != null) 
         : (_capturedImages.any((img) => img != null) || _capturedVideo != null);
-    if (isCurrentStageCompleted && !hasNewMedia) {
+    if (isCurrentStageCompleted && !hasNewMedia && status != 3) {
       return true;
     }
     if (item == null &&
@@ -1240,7 +1340,6 @@ class BasicinspController extends ChangeNotifier {
         return false;
       }
     }
-    final hasNet = await NetworkSyncManager().checkInternetConnection();
 
     isUploading = true;
     lastErrorMessage = "";
@@ -1248,16 +1347,6 @@ class BasicinspController extends ChangeNotifier {
     String imageId = "";
     List<Map<String, dynamic>> mediaItems = [];
     try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('userToken');
-      if (token == null || token.isEmpty) {
-        return false;
-      }
-      Dio dio = Dio()
-        ..options.headers = {
-          "Authorization": "Bearer $token",
-          "Accept": "application/json",
-        };
       int imageIdVal = 0;
       if (item != null) {
         imageIdVal = item['id'];
@@ -1297,282 +1386,72 @@ class BasicinspController extends ChangeNotifier {
         }
       }
 
-      if (!hasNet) {
-        print("🌐 [BasicInspController] Device is offline. Saving inspection step locally...");
-        List<MediaItemQueue> queueMediaItems = [];
-        for (var m in mediaItems) {
-          final File fileObj = m["file"];
-          final String typeVal = m["type"] ?? "0";
-          final bool is360Val = m["is360"] ?? false;
-          final int imgIndex = m["imgIndex"] ?? 0;
-          queueMediaItems.add(MediaItemQueue(
-            filePath: fileObj.path,
-            type: typeVal,
-            is360: is360Val,
-            imgIndex: imgIndex,
-          ));
-        }
-
-        final fields = <String, String>{
-          "jobId": jobId.toString(),
-          "job_id": jobId.toString(),
-          "inspectionImageId": imageId.toString(),
-          "inspection_image_id": imageId.toString(),
-          "status": status.toString(),
-          "inspectionNote": inspectionNote,
-          "additionalComment": additionalComment,
-          "attachType": currentAttachType.toString(),
-        };
-
-        await LocalUploadStorageService.enqueueOfflineTask(
-          jobId: jobId,
-          endpointUrl: ApiServices.basicInspection,
-          mediaItems: queueMediaItems,
-          fields: fields,
-        );
-
-        await NetworkSyncManager().refreshPendingCount();
-
-        if (!is360Stage && item != null) {
-          completedImageIds.add(item['id']);
-        }
-        if (currentStage == InspectionStage.additionalImages) {
-          completedImageIds.add(-100 - currentStep);
-        }
-        if (currentStage == InspectionStage.external360) {
-          completedImageIds.add(-10);
-          if (isQuick) _persistQuickStage('carDiagram');
-        }
-        if (currentStage == InspectionStage.internal360) {
-          completedImageIds.add(-20);
-        }
-        if (currentStage == InspectionStage.diagram) {
-          completedImageIds.add(-30);
-        }
-        if (currentStage == InspectionStage.signature) {
-          completedImageIds.add(-40);
-        }
-
-        print("💾 [BasicInspController] Saved inspection step locally for job $jobId.");
-        return true;
+      List<MediaItemQueue> queueMediaItems = [];
+      for (var m in mediaItems) {
+        final File fileObj = m["file"];
+        final String typeVal = m["type"] ?? "0";
+        final bool is360Val = m["is360"] ?? false;
+        final int imgIndex = m["imgIndex"] ?? 0;
+        queueMediaItems.add(MediaItemQueue(
+          filePath: fileObj.path,
+          type: typeVal,
+          is360: is360Val,
+          imgIndex: imgIndex,
+        ));
       }
 
-      if (mediaItems.isEmpty) {
-        FormData formData = FormData();
-        formData.fields.addAll([
-          MapEntry("jobId", jobId.toString()),
-          MapEntry("job_id", jobId.toString()),
-          MapEntry("inspectionImageId", imageId),
-          MapEntry("inspection_image_id", imageId),
-          MapEntry("status", status.toString()),
-          MapEntry("inspectionNote", inspectionNote),
-          MapEntry("additionalComment", additionalComment),
-          MapEntry("attachType", currentAttachType.toString()),
-        ]);
+      final fields = <String, String>{
+        "jobId": jobId.toString(),
+        "job_id": jobId.toString(),
+        "inspectionImageId": imageId.toString(),
+        "inspection_image_id": imageId.toString(),
+        "status": status.toString(),
+        "inspectionNote": inspectionNote,
+        "additionalComment": additionalComment,
+        "attachType": currentAttachType.toString(),
+      };
 
-        final response = await dio.post(
-          ApiServices.basicInspection,
-          data: formData,
-        );
+      await LocalUploadStorageService.enqueueOfflineTask(
+        jobId: jobId,
+        endpointUrl: ApiServices.basicInspection,
+        mediaItems: queueMediaItems,
+        fields: fields,
+      );
 
-        if (response.statusCode == 200) {
-          final resData = response.data;
-          if (resData is Map) {
-            final bodyStatusCode = resData['statusCode'];
-            final bodyStatus = resData['status'];
-            if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
-              return false;
-            }
-          }
-          if (!is360Stage && item != null) {
-            completedImageIds.add(item['id']);
-          }
-          if (currentStage == InspectionStage.additionalImages) {
-            completedImageIds.add(-100 - currentStep);
-          }
-          if (currentStage == InspectionStage.external360) {
-            completedImageIds.add(-10);
-            if (isQuick) _persistQuickStage('carDiagram');
-          }
-          if (currentStage == InspectionStage.internal360) {
-            completedImageIds.add(-20);
-          }
-          if (currentStage == InspectionStage.diagram) {
-            completedImageIds.add(-30);
-          }
-          if (currentStage == InspectionStage.signature) {
-            completedImageIds.add(-40);
-          }
+      if (!is360Stage && item != null) {
+        completedImageIds.add(item['id']);
+      }
+      if (currentStage == InspectionStage.additionalImages) {
+        completedImageIds.add(-100 - currentStep);
+      }
+      if (currentStage == InspectionStage.external360) {
+        completedImageIds.add(-10);
+        if (isQuick) _persistQuickStage('carDiagram');
+      }
+      if (currentStage == InspectionStage.internal360) {
+        completedImageIds.add(-20);
+      }
+      if (currentStage == InspectionStage.diagram) {
+        completedImageIds.add(-30);
+      }
+      if (currentStage == InspectionStage.signature) {
+        completedImageIds.add(-40);
+      }
 
-          // Clear any offline queue task & local media cache after successful online save
-          await LocalUploadStorageService.removeTaskByImageId(jobId, imageId);
-          await NetworkSyncManager().refreshPendingCount();
-          return true;
-        }
-        notifyListeners();
-        return false;
+      await LocalUploadStorageService.clearDraftMedia(jobId: jobId, stageKey: currentStageKey);
+      await NetworkSyncManager().refreshPendingCount();
+      if (status == 3) {
+        await NetworkSyncManager().syncIfConnected();
       } else {
-        FormData formData = FormData();
-        formData.fields.addAll([
-          MapEntry("jobId", jobId.toString()),
-          MapEntry("job_id", jobId.toString()),
-          MapEntry("inspectionImageId", imageId),
-          MapEntry("inspection_image_id", imageId),
-          MapEntry("status", status.toString()),
-          MapEntry("inspectionNote", inspectionNote),
-          MapEntry("additionalComment", additionalComment),
-          MapEntry("attachType", currentAttachType.toString()),
-        ]);
-
-        for (int i = 0; i < mediaItems.length; i++) {
-          final media = mediaItems[i];
-          final File fileObj = media["file"];
-          final String typeVal = media["type"];
-          final bool is360Val = media["is360"];
-
-          MultipartFile multipartFile;
-          if (is360Val) {
-            multipartFile = await MultipartFile.fromFile(
-              fileObj.path,
-              filename: "inspection_360_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
-              contentType: http_parser.MediaType("video", "mp4"),
-            );
-          } else if (typeVal == "0") {
-            final int imgIndex = media["imgIndex"];
-            String suffix = "image";
-            if (currentStage == InspectionStage.diagram) {
-              suffix = "diagram";
-            } else if (currentStage == InspectionStage.signature) {
-              suffix = "signature";
-            }
-            multipartFile = await MultipartFile.fromFile(
-              fileObj.path,
-              filename: "inspection_${suffix}_${imgIndex}_${DateTime.now().millisecondsSinceEpoch}.jpg",
-              contentType: http_parser.MediaType("image", "jpeg"),
-            );
-          } else {
-            multipartFile = await MultipartFile.fromFile(
-              fileObj.path,
-              filename: "inspection_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
-              contentType: http_parser.MediaType("video", "mp4"),
-            );
-          }
-
-          formData.files.add(MapEntry("mediaFiles[$i].file", multipartFile));
-          formData.fields.add(MapEntry("mediaFiles[$i].type", typeVal));
-        }
-        final response = await dio.post(
-          ApiServices.basicInspection,
-          data: formData,
-        );
-        if (response.statusCode != 200) {
-          notifyListeners();
-          return false;
-        }
-        final resData = response.data;
-        if (resData is Map) {
-          final bodyStatusCode = resData['statusCode'];
-          final bodyStatus = resData['status'];
-          if (bodyStatusCode == 400 || bodyStatusCode == "400" || bodyStatus == "FAILED") {
-            notifyListeners();
-            return false;
-          }
-        }
-
-        if (!is360Stage && item != null) {
-          completedImageIds.add(item['id']);
-        }
-        if (currentStage == InspectionStage.additionalImages) {
-          completedImageIds.add(-100 - currentStep);
-        }
-        if (currentStage == InspectionStage.external360) {
-          completedImageIds.add(-10);
-          if (isQuick) _persistQuickStage('carDiagram');
-        }
-        if (currentStage == InspectionStage.internal360) {
-          completedImageIds.add(-20);
-        }
-        if (currentStage == InspectionStage.diagram) {
-          completedImageIds.add(-30);
-        }
-        if (currentStage == InspectionStage.signature) {
-          completedImageIds.add(-40);
-        }
-
-        // Clear any offline queue task & local media cache after successful online save
-        for (var m in mediaItems) {
-          final File? fileObj = m["file"];
-          if (fileObj != null) {
-            await LocalUploadStorageService.cleanupFile(fileObj.path);
-          }
-        }
-        await LocalUploadStorageService.removeTaskByImageId(jobId, imageId);
-        await NetworkSyncManager().refreshPendingCount();
-        return true;
+        unawaited(NetworkSyncManager().syncIfConnected());
       }
-    } catch (e) {
-      print("📡 [BasicInspController] Network/Offline exception during upload: $e. Enqueuing task to local storage...");
-      try {
-        List<MediaItemQueue> queueMediaItems = [];
-        for (var m in mediaItems) {
-          final File fileObj = m["file"];
-          final String typeVal = m["type"] ?? "0";
-          final bool is360Val = m["is360"] ?? false;
-          final int imgIndex = m["imgIndex"] ?? 0;
-          queueMediaItems.add(MediaItemQueue(
-            filePath: fileObj.path,
-            type: typeVal,
-            is360: is360Val,
-            imgIndex: imgIndex,
-          ));
-        }
 
-        final fields = <String, String>{
-          "jobId": jobId.toString(),
-          "job_id": jobId.toString(),
-          "inspectionImageId": imageId.toString(),
-          "inspection_image_id": imageId.toString(),
-          "status": status.toString(),
-          "inspectionNote": inspectionNote,
-          "additionalComment": additionalComment,
-          "attachType": currentAttachType.toString(),
-        };
-
-        await LocalUploadStorageService.enqueueOfflineTask(
-          jobId: jobId,
-          endpointUrl: ApiServices.basicInspection,
-          mediaItems: queueMediaItems,
-          fields: fields,
-        );
-
-        await NetworkSyncManager().refreshPendingCount();
-
-        if (!is360Stage && item != null) {
-          completedImageIds.add(item['id']);
-        }
-        if (currentStage == InspectionStage.additionalImages) {
-          completedImageIds.add(-100 - currentStep);
-        }
-        if (currentStage == InspectionStage.external360) {
-          completedImageIds.add(-10);
-        }
-        if (currentStage == InspectionStage.internal360) {
-          completedImageIds.add(-20);
-        }
-        if (currentStage == InspectionStage.diagram) {
-          completedImageIds.add(-30);
-        }
-        if (currentStage == InspectionStage.signature) {
-          completedImageIds.add(-40);
-        }
-
-        print("💾 [BasicInspController] Saved inspection step locally for job $jobId.");
-        return true;
-      } catch (err) {
-        print("❌ [BasicInspController] Error saving task offline: $err");
-        lastErrorMessage = "Failed to save media locally. Please try again.";
-        return false;
-      }
+      print("💾 [BasicInspController] Saved inspection step to queue for job $jobId.");
+      return true;
+    } catch (err) {
+      print("❌ [BasicInspController] Error saving task to queue: $err");
+      lastErrorMessage = "Failed to save media locally. Please try again.";
+      return false;
     } finally {
       isUploading = false;
       notifyListeners();
@@ -1815,13 +1694,49 @@ class BasicinspController extends ChangeNotifier {
         }
       }
 
-      bool hasExternal360 = grouped["external360"] != null || grouped["360"] != null || grouped["video360"] != null;
+      bool hasValidContent(dynamic section) {
+        if (section == null) return false;
+        if (section is List) {
+          if (section.isEmpty) return false;
+          for (var item in section) {
+            if (item is Map) {
+              if ((item["url"] != null && item["url"].toString().isNotEmpty) ||
+                  (item["path"] != null && item["path"].toString().isNotEmpty) ||
+                  (item["attachments"] is List && (item["attachments"] as List).isNotEmpty)) {
+                return true;
+              }
+            } else if (item is String && item.isNotEmpty) {
+              return true;
+            }
+          }
+          return false;
+        }
+        if (section is Map) {
+          return (section["url"] != null && section["url"].toString().isNotEmpty) ||
+                 (section["path"] != null && section["path"].toString().isNotEmpty) ||
+                 (section["imageUrl"] != null && section["imageUrl"].toString().isNotEmpty) ||
+                 (section["signatureUrl"] != null && section["signatureUrl"].toString().isNotEmpty) ||
+                 (section["attachments"] is List && (section["attachments"] as List).isNotEmpty);
+        }
+        if (section is String) {
+          return section.isNotEmpty;
+        }
+        return false;
+      }
+
+      bool hasExternal360 = hasValidContent(grouped["external360"]) ||
+                            hasValidContent(grouped["360"]) ||
+                            hasValidContent(grouped["video360"]);
       if (!hasExternal360) {
         for (var att in allAttachments) {
           final isAtt360 = att["iaType"] == 2 && (att["iaImageType"] == 10 || att["is360"] == true || att["attachType"] == 10 || att["attachType"] == "10");
           if (isAtt360 && (att["iaInspectionType"] == 0 || isQuick)) {
-            hasExternal360 = true;
-            break;
+            final hasUrl = (att["iaUrl"] != null && att["iaUrl"].toString().isNotEmpty) ||
+                           (att["url"] != null && att["url"].toString().isNotEmpty);
+            if (hasUrl) {
+              hasExternal360 = true;
+              break;
+            }
           }
         }
       }
@@ -1829,12 +1744,16 @@ class BasicinspController extends ChangeNotifier {
         completedImageIds.add(-10);
       }
 
-      bool hasInternal360 = grouped["internal360"] != null;
+      bool hasInternal360 = hasValidContent(grouped["internal360"]);
       if (!hasInternal360) {
         for (var att in allAttachments) {
           if (att["iaType"] == 2 && (att["iaImageType"] == 10 || att["is360"] == true) && att["iaInspectionType"] == 1) {
-            hasInternal360 = true;
-            break;
+            final hasUrl = (att["iaUrl"] != null && att["iaUrl"].toString().isNotEmpty) ||
+                           (att["url"] != null && att["url"].toString().isNotEmpty);
+            if (hasUrl) {
+              hasInternal360 = true;
+              break;
+            }
           }
         }
       }
@@ -1842,39 +1761,11 @@ class BasicinspController extends ChangeNotifier {
         completedImageIds.add(-20);
       }
 
-      if (grouped["cardiagram"] != null) {
-        var cd = grouped["cardiagram"];
-        bool hasDiagramContent = false;
-        if (cd is String && cd.isNotEmpty) {
-          hasDiagramContent = true;
-        } else if (cd is Map) {
-          if ((cd["url"] != null && cd["url"].toString().isNotEmpty) ||
-              (cd["path"] != null && cd["path"].toString().isNotEmpty) ||
-              (cd["imageUrl"] != null && cd["imageUrl"].toString().isNotEmpty) ||
-              (cd["attachments"] is List && (cd["attachments"] as List).isNotEmpty)) {
-            hasDiagramContent = true;
-          }
-        }
-        if (hasDiagramContent) {
-          completedImageIds.add(-30);
-        }
+      if (hasValidContent(grouped["cardiagram"])) {
+        completedImageIds.add(-30);
       }
-      if (grouped["signature"] != null) {
-        var sig = grouped["signature"];
-        bool hasSigContent = false;
-        if (sig is String && sig.isNotEmpty) {
-          hasSigContent = true;
-        } else if (sig is Map) {
-          if ((sig["url"] != null && sig["url"].toString().isNotEmpty) ||
-              (sig["path"] != null && sig["path"].toString().isNotEmpty) ||
-              (sig["signatureUrl"] != null && sig["signatureUrl"].toString().isNotEmpty) ||
-              (sig["attachments"] is List && (sig["attachments"] as List).isNotEmpty)) {
-            hasSigContent = true;
-          }
-        }
-        if (hasSigContent) {
-          completedImageIds.add(-40);
-        }
+      if (hasValidContent(grouped["signature"])) {
+        completedImageIds.add(-40);
       }
 
       // Include pending offline local queue items so offline progress is maintained across app returns

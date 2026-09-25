@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/utils/permission_service.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
@@ -15,6 +16,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 
 class BasicinspScreen extends StatefulWidget {
   final int jobId;
@@ -206,28 +208,63 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     _applyZoom(baseLevels[_zoomIndex]);
   }
 
+  Future<void> _handleImageTap(
+    BasicinspController controller, {
+    required int imageIndex,
+    required MediaType mediaType,
+    int? maxDuration,
+  }) async {
+    if (controller.isBusy || _isRecording || _isStopping) return;
+
+    if (_cameraController != null) {
+      try {
+        await _cameraController!.dispose();
+      } catch (_) {}
+      _cameraController = null;
+      if (mounted) {
+        setState(() {
+          _isCameraReady = false;
+        });
+      }
+    }
+
+    try {
+      await controller.handleImageTap(
+        context,
+        imageIndex: imageIndex,
+        mediaType: mediaType,
+        maxDuration: maxDuration,
+      );
+    } finally {
+      if (mounted) {
+        await _initCamera(enableAudio: _isAudioEnabled);
+      }
+    }
+  }
+
   Future<void> _takePhoto(BasicinspController controller) async {
-    CameraController? cam = _cameraController;
-    if (cam == null || !cam.value.isInitialized || _isCapturing || controller.isBusy) return;
-    if (controller.isMaxImagesCaptured) {
-      if (controller.hasVideoRequirement) {
-        controller.selectVideoMode();
-        if (!_isAudioEnabled) {
-          await _initCamera(enableAudio: false);
+    if (_isCapturing || controller.isBusy) return;
+    setState(() => _isCapturing = true);
+
+    try {
+      if (_cameraController == null || !_cameraController!.value.isInitialized) {
+        await _initCamera(enableAudio: false);
+      }
+      CameraController? cam = _cameraController;
+      if (cam == null || !cam.value.isInitialized) return;
+
+      if (controller.isMaxImagesCaptured) {
+        if (controller.hasVideoRequirement) {
+          controller.selectVideoMode();
+          if (!_isAudioEnabled) {
+            await _initCamera(enableAudio: false);
+          }
+          return;
         }
+        CustomToast.showWarning(context, "Maximum images reached for this item");
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Maximum images reached for this item"),
-          duration: Duration(seconds: 1),
-          backgroundColor: ColorConstants.errorcolor,
-        ),
-      );
-      return;
-    }
-    setState(() => _isCapturing = true);
-    try {
+
       if (_isAudioEnabled) {
         await _initCamera(enableAudio: false);
         cam = _cameraController;
@@ -268,17 +305,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         photoFile,
         angle: angle,
       );
-      // Photo captured into box; camera stays open without auto-preview popup.
     } catch (e) {
       debugPrint("Error in _takePhoto: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to capture photo: ${e.toString()}"),
-            duration: const Duration(seconds: 2),
-            backgroundColor: ColorConstants.errorcolor,
-          ),
-        );
+        CustomToast.showError(context, "Failed to capture photo: ${e.toString()}");
       }
     } finally {
       if (mounted) setState(() => _isCapturing = false);
@@ -853,11 +883,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                         padding: const EdgeInsets.all(8.0),
                         child: CustomButtonTwo(
                           text: "SKIP",
-                          isDisabled: controller.isBusy || _isRecording || _isStopping,
+                          isDisabled: controller.isBusy || _isRecording || _isStopping || _isCapturing,
                           onPressed:
                               (controller.isBusy ||
                                   _isRecording ||
-                                  _isStopping)
+                                  _isStopping ||
+                                  _isCapturing)
                               ? null
                               : () {
                                   _notesFocusNode.unfocus();
@@ -886,10 +917,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                     border: Border.all(color: Colors.white, width: 3),
                   ),
                   child: Center(
-                    child: (_isStopping || controller.isVideoLoading || controller.isUploading)
+                    child: (_isStopping || _isCapturing || controller.isVideoLoading || controller.isUploading)
                         ? const CircularProgressIndicator(
                             color: Colors.white,
-                            strokeWidth: 2,
+                            strokeWidth: 2.5,
                           )
                         : Icon(
                             _isRecording
@@ -911,31 +942,19 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                 child: CustomButtonWidget(
                   text: "NEXT",
                   textSize: 14,
-                  showLoader: controller.isVideoLoading || controller.isUploading,
-                  isDisabled: controller.isBusy || _isRecording || _isStopping,
+                  showLoader: controller.isVideoLoading || controller.isUploading || _isCapturing,
+                  isDisabled: controller.isBusy || _isRecording || _isStopping || _isCapturing,
                   onPressed:
                       (controller.isBusy ||
                           _isRecording ||
-                          _isStopping)
+                          _isStopping ||
+                          _isCapturing)
                       ? null
                       : () async {
                           _notesFocusNode.unfocus();
-                          final isValid = controller.validateMandatoryImage();
-                          if (!isValid) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: ColorConstants.errorcolor,
-                                content: Text(
-                                  controller.is360Stage
-                                      ? "360 Video is mandatory"
-                                      : "Please capture required image",
-                                  style: ApptextstyleConstants.thinText(
-                                    color: ColorConstants.whiteColor,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            );
+                          final validationMsg = controller.validateNextStepMessage();
+                          if (validationMsg != null) {
+                            CustomToast.showWarning(context, validationMsg);
                             return;
                           }
                           final success = await controller.proceedStep(
@@ -946,20 +965,15 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                           if (success) {
                             controller.nextStep(context);
                             controller.notesController.clear();
+                            if (_cameraController == null || !_cameraController!.value.isInitialized) {
+                              _initCamera(enableAudio: controller.isVideoModeSelected || controller.is360Stage);
+                            }
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: ColorConstants.errorcolor,
-                                content: Text(
-                                  controller.lastErrorMessage.isNotEmpty
-                                      ? controller.lastErrorMessage
-                                      : "Failed to process inspection item.",
-                                  style: ApptextstyleConstants.thinText(
-                                    color: ColorConstants.whiteColor,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
+                            CustomToast.showError(
+                              context,
+                              controller.lastErrorMessage.isNotEmpty
+                                  ? controller.lastErrorMessage
+                                  : "Failed to process inspection item.",
                             );
                           }
                         },
@@ -980,23 +994,26 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     final file = controller.imageAt(index);
     final isSelected =
         !controller.isVideoModeSelected && controller.selectedBoxIndex == index;
-    final isBusy = controller.isBusy || _isRecording || _isStopping;
+    final isBusy = controller.isBusy || _isRecording || _isStopping || _isCapturing;
 
     return GestureDetector(
       onTap: isBusy
           ? null
-          : () {
+          : () async {
               _notesFocusNode.unfocus();
               if (file != null) {
                 // Open Preview directly if captured
-                controller.handleImageTap(
-                  context,
+                await _handleImageTap(
+                  controller,
                   imageIndex: index,
                   mediaType: MediaType.image,
                 );
               } else {
                 // Focus this box for upcoming photo capture
                 controller.selectBoxIndex(index);
+                if (_cameraController == null || !_cameraController!.value.isInitialized) {
+                  _initCamera(enableAudio: _isAudioEnabled);
+                }
               }
             },
       child: Stack(
@@ -1009,42 +1026,54 @@ class _BasicinspScreenState extends State<BasicinspScreen>
               color: Colors.black45,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: ColorConstants.whiteColor
+                color: isSelected ? ColorConstants.syanColor : ColorConstants.whiteColor,
+                width: isSelected ? 2 : 1,
               ),
             ),
-            child: file != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      color: Colors.white,
-                      width: double.infinity,
-                      height: double.infinity,
-                      child: Image.file(
-                        file,
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        height: double.infinity,
+            child: (_isCapturing && isSelected)
+                ? const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: ColorConstants.syanColor,
+                        strokeWidth: 2,
                       ),
                     ),
                   )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.camera_alt,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "Image ${index + 1}",
-                        style: TextStyle(
+                : file != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
                           color: Colors.white,
-                          fontSize: 10,
+                          width: double.infinity,
+                          height: double.infinity,
+                          child: Image.file(
+                            file,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
                         ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.camera_alt,
+                            color: isSelected ? ColorConstants.syanColor : Colors.white,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Image ${index + 1}",
+                            style: TextStyle(
+                              color: isSelected ? ColorConstants.syanColor : Colors.white,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
           ),
           if (file != null) ...[
             Positioned(
@@ -1053,9 +1082,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
               child: GestureDetector(
                 onTap: isBusy
                     ? null
-                    : () {
+                    : () async {
                         _notesFocusNode.unfocus();
-                        controller.removeCapturedImage(index);
+                        await controller.removeCapturedImage(index);
+                        if (mounted && (_cameraController == null || !_cameraController!.value.isInitialized)) {
+                          _initCamera(enableAudio: _isAudioEnabled);
+                        }
                       },
                 child: Container(
                   padding: const EdgeInsets.all(4),
@@ -1089,12 +1121,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     return GestureDetector(
       onTap: isBusy
           ? null
-          : () {
+          : () async {
               _notesFocusNode.unfocus();
               if (videoFile != null && !isVideoLoading) {
                 // Open Video Preview directly if captured
-                controller.handleImageTap(
-                  context,
+                await _handleImageTap(
+                  controller,
                   imageIndex: 0,
                   mediaType: MediaType.video,
                   maxDuration: duration,
@@ -1102,6 +1134,9 @@ class _BasicinspScreenState extends State<BasicinspScreen>
               } else if (!isVideoLoading) {
                 // Select Video Mode
                 controller.selectVideoMode();
+                if (_cameraController == null || !_cameraController!.value.isInitialized) {
+                  _initCamera(enableAudio: true);
+                }
               }
             },
       child: Stack(
@@ -1114,7 +1149,8 @@ class _BasicinspScreenState extends State<BasicinspScreen>
               color: Colors.black45,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color:  ColorConstants.whiteColor
+                color: isSelected ? ColorConstants.syanColor : ColorConstants.whiteColor,
+                width: isSelected ? 2 : 1,
               ),
             ),
             child: isVideoLoading
@@ -1161,14 +1197,14 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                     children: [
                       Icon(
                         Icons.videocam,
-                        color: Colors.white,
+                        color: isSelected ? ColorConstants.syanColor : Colors.white,
                         size: 24,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         "Video",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: isSelected ? ColorConstants.syanColor : Colors.white,
                           fontSize: 10,
                         ),
                       ),
@@ -1176,16 +1212,18 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                   ),
           ),
           if (videoFile != null && !isVideoLoading) ...[
-
             Positioned(
               top: -6,
               right: -6,
               child: GestureDetector(
                 onTap: isBusy
                     ? null
-                    : () {
+                    : () async {
                         _notesFocusNode.unfocus();
-                        controller.removeCapturedVideo();
+                        await controller.removeCapturedVideo();
+                        if (mounted && (_cameraController == null || !_cameraController!.value.isInitialized)) {
+                          _initCamera(enableAudio: _isAudioEnabled);
+                        }
                       },
                 child: Container(
                   padding: const EdgeInsets.all(4),
@@ -1259,27 +1297,8 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("Discard changes?"),
-            content: const Text(
-              "Unsaved changes will be cleared. Are you sure you want to go back?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("NO"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("YES"),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final result = await ConfirmSubmissionDialog.showExit(context);
+    return result ?? false;
   }
 
   Widget _inspectionShimmer() {

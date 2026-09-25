@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
@@ -311,16 +312,7 @@ class _CustomerdetailsState extends State<Customerdetails> {
                                             final isValid = _formKey.currentState!
                                                 .validate();
                                             if (isValid == false) {
-                                              ScaffoldMessenger.of(context)
-                                                ..removeCurrentSnackBar()
-                                                ..showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      "Please fix the errors in the form",
-                                                    ),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
+                                              CustomToast.showWarning(context, "Please fix the errors in the form");
                                               return;
                                             }
                                             setState(() => isLoading = true);
@@ -357,33 +349,11 @@ class _CustomerdetailsState extends State<Customerdetails> {
                                                 );
                                               } else {
                                                 setState(() => isLoading = false);
-                                                ScaffoldMessenger.of(context)
-                                                  ..removeCurrentSnackBar()
-                                                  ..showSnackBar(
-                                                    SnackBar(
-                                                      content: const Text(
-                                                        "Failed to upload vehicle details",
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                        ),
-                                                      ),
-                                                      backgroundColor:
-                                                          ColorConstants.errorcolor,
-                                                    ),
-                                                  );
+                                                CustomToast.showError(context, "Failed to upload vehicle details");
                                               }
                                             } catch (e) {
                                               setState(() => isLoading = false);
-                                              ScaffoldMessenger.of(context)
-                                                ..removeCurrentSnackBar()
-                                                ..showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      "Something went wrong: $e",
-                                                    ),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
+                                              CustomToast.showError(context, "Something went wrong: $e");
                                             }
                                           },
                                   ),
@@ -420,7 +390,6 @@ class _CustomerdetailsState extends State<Customerdetails> {
       children: [
         Expanded(
           child: DropdownButtonFormField<String>(
-            autovalidateMode: AutovalidateMode.onUserInteraction,
             decoration: InputDecoration(
               label: RichText(
                 text: TextSpan(
@@ -715,7 +684,6 @@ class _CustomerdetailsState extends State<Customerdetails> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                autovalidateMode: AutovalidateMode.onUserInteraction,
                 isExpanded: true,
                 decoration: InputDecoration(
                   label: RichText(
@@ -866,7 +834,6 @@ class _CustomerdetailsState extends State<Customerdetails> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                autovalidateMode: AutovalidateMode.onUserInteraction,
                 isExpanded: true,
                 decoration: InputDecoration(
                   label: RichText(
@@ -955,7 +922,6 @@ class _CustomerdetailsState extends State<Customerdetails> {
             SizedBox(width: 10),
             Expanded(
               child: DropdownButtonFormField<String>(
-                autovalidateMode: AutovalidateMode.onUserInteraction,
                 isExpanded: true,
                 decoration: InputDecoration(
                   label: RichText(

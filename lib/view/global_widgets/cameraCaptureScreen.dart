@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/utils/permission_service.dart';
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
@@ -187,13 +188,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     } catch (e) {
       debugPrint("Error in _takePhoto: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to capture photo: ${e.toString()}"),
-            duration: const Duration(seconds: 2),
-            backgroundColor: ColorConstants.errorcolor,
-          ),
-        );
+        CustomToast.showError(context, "Failed to capture photo: ${e.toString()}");
       }
     } finally {
       if (mounted) setState(() => _isCapturing = false);

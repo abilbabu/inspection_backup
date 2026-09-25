@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/inspectionCard_controller.dart';
@@ -1236,15 +1237,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                       onPressed: () async {
                         if (_reInspectionTaskIds.isNotEmpty &&
                             _commentController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              backgroundColor: ColorConstants.errorcolor,
-                              content: Text(
-                                "Technician Comments are mandatory when re-inspection items are selected.",
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          );
+                          CustomToast.showWarning(context, "Technician Comments are mandatory when re-inspection items are selected.");
                           return;
                         }
                         final confirm = await ConfirmSubmissionDialog.show(context);
@@ -1291,17 +1284,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           );
                           if (!mounted) return;
                           if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: ColorConstants.greenColor,
-                                content: Text(
-                                  widget.inspectionTypeId == 2
-                                      ? "Custom inspection complete"
-                                      : "Inspection report submitted successfully",
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            );
+                            CustomToast.showSuccess(context, widget.inspectionTypeId == 2 ? "Custom inspection complete" : "Inspection report submitted successfully");
                             final isCustom = widget.inspectionFormId == 0;
                             context.go(
                               "/inspectionsummarypage",
@@ -1311,26 +1294,10 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                               },
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: ColorConstants.errorcolor,
-                                content: Text(
-                                  "Failed to submit inspection report",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            );
+                            CustomToast.showError(context, "Failed to submit inspection report");
                           }
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: ColorConstants.errorcolor,
-                              content: Text(
-                                "Unexpected error: $e",
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          );
+                          CustomToast.showError(context, "Unexpected error: $e");
                         } finally {
                           if (mounted) {
                             setState(() {

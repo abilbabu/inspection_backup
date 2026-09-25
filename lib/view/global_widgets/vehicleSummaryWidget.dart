@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 // ignore_for_file: use_build_context_synchronously, camel_case_types
 
 import 'package:flutter/material.dart';
@@ -240,19 +241,9 @@ class _vehicleSummaryWidgetState extends State<VehicleSummaryWidget> {
                                               );
                                               if (success) {
                                                 context.read<JobcarddetailsController>().postJobCardDetails(widget.jobId!);
-                                                scaffold.showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text("Complaint updated successfully"),
-                                                    backgroundColor: ColorConstants.greenColor,
-                                                  ),
-                                                );
+                                                CustomToast.showSuccess(context, "Complaint updated successfully");
                                               } else {
-                                                scaffold.showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text("Failed to update complaint"),
-                                                    backgroundColor: ColorConstants.errorcolor,
-                                                  ),
-                                                );
+                                                CustomToast.showError(context, "Failed to update complaint");
                                               }
                                             },
                                           ),

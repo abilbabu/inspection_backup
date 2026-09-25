@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
@@ -655,8 +656,8 @@ class InspectioncardController extends ChangeNotifier {
       return false;
     }
     isLoading = false;
-    isSuccess = true;
-    showSaveButton = false;
+    isSuccess = formController.isTaskReadOnly(taskId);
+    showSaveButton = true;
     markSaved();
     formController.markTaskSaved(taskId);
     notifyListeners();
@@ -664,15 +665,7 @@ class InspectioncardController extends ChangeNotifier {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    CustomToast.showWarning(context, message);
   }
 
   Future<ApiResponse> saveSingleInspectionTask({
@@ -977,8 +970,8 @@ class InspectioncardController extends ChangeNotifier {
       return false;
     }
     isLoading = false;
-    isSuccess = true;
-    showSaveButton = false;
+    isSuccess = formController.isTaskReadOnly(taskId);
+    showSaveButton = true;
     markSaved();
     formController.markTaskSaved(taskId);
     notifyListeners();

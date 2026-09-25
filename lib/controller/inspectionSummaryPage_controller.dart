@@ -422,12 +422,21 @@ class InspectionsummarypageController extends ChangeNotifier {
             final existing = categoryMap[taskKey];
             final wasReInspection = existing?.viReInspection ?? false;
             final double reTime =
-                double.tryParse(task["viReInspectionTime"]?.toString() ?? "") ??
+                double.tryParse(
+                  task["viReInspectionTime"]?.toString() ??
+                      task["vi_re_inspection_time"]?.toString() ??
+                      "",
+                ) ??
                 0.0;
             final isReInspection =
                 task["viReInspection"] == true ||
                 task["viReInspection"] == 1 ||
                 task["viReInspection"]?.toString() == "true" ||
+                task["viReInspection"]?.toString() == "1" ||
+                task["vi_re_inspection"] == true ||
+                task["vi_re_inspection"] == 1 ||
+                task["vi_re_inspection"]?.toString() == "true" ||
+                task["vi_re_inspection"]?.toString() == "1" ||
                 reTime > 0.0;
 
             final String note = (task["viNote"] ?? "").toString();

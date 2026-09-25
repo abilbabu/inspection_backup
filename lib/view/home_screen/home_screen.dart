@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -1367,14 +1368,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text("Feature coming soon"),
-          duration: Duration(seconds: 2),
-        ),
-      );
+    CustomToast.showInfo(context, "Feature coming soon");
   }
 
   Widget inspectionCard(Map<String, dynamic> data) {

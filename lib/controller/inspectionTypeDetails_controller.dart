@@ -298,16 +298,49 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       }
 
       final int vimInspectionType = inspection["master"]?["vimInspectionType"] ?? 0;
-      final completedTasks = inspection["completedTasks"] ?? [];
+      final List completedTasks = [];
+      if (inspection["completedTasks"] is List) {
+        completedTasks.addAll(inspection["completedTasks"]);
+      }
+      final rawInspectionTasks = inspection["inspectionTasks"];
+      if (rawInspectionTasks is List) {
+        for (final item in rawInspectionTasks) {
+          if (item is Map) {
+            if (item["tasks"] is List) {
+              completedTasks.addAll(item["tasks"]);
+            } else if (item.containsKey("viTaskId")) {
+              completedTasks.add(item);
+            }
+          }
+        }
+      }
 
       for (final savedTask in completedTasks) {
-        final int taskId = savedTask["viTaskId"];
+        if (savedTask is! Map) continue;
+        final rawId = savedTask["viTaskId"] ??
+            savedTask["itcId"] ??
+            savedTask["taskId"] ??
+            savedTask["viInspectionTaskId"];
+        final int? taskId = rawId is num
+            ? rawId.toInt()
+            : int.tryParse(rawId?.toString() ?? "");
+        if (taskId == null) continue;
+
         final double reTime =
-            double.tryParse(savedTask["viReInspectionTime"]?.toString() ?? "") ??
+            double.tryParse(
+              savedTask["viReInspectionTime"]?.toString() ??
+                  savedTask["vi_re_inspection_time"]?.toString() ??
+                  "",
+            ) ??
             0.0;
         final bool isReInspectionItem = savedTask["viReInspection"] == true ||
             savedTask["viReInspection"] == 1 ||
             savedTask["viReInspection"]?.toString() == "true" ||
+            savedTask["viReInspection"]?.toString() == "1" ||
+            savedTask["vi_re_inspection"] == true ||
+            savedTask["vi_re_inspection"] == 1 ||
+            savedTask["vi_re_inspection"]?.toString() == "true" ||
+            savedTask["vi_re_inspection"]?.toString() == "1" ||
             reTime > 0.0;
 
         // Skip prefilling for reinspection items if this is the initial/previous run (type != 2)
@@ -333,8 +366,13 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         final List<String?> imageUrl = List<String?>.filled(3, null);
         String? audioUrl;
         for (final a in attachments) {
-          if (a["type"] == 0) {
-            if (a["url"] != null) {
+          final rawType = a["iaType"] ?? a["type"];
+          final int type = rawType is num
+              ? rawType.toInt()
+              : int.tryParse(rawType?.toString() ?? "") ?? 0;
+          final String? url = (a["iaUrl"] ?? a["url"])?.toString();
+          if (type == 0) {
+            if (url != null && url.isNotEmpty) {
               final rawSlot = a["iaImageType"] ?? a["imageType"] ?? a["ia_image_type"];
               int slotIndex = 0;
               if (rawSlot != null) {
@@ -342,14 +380,14 @@ class InspectionTypeDetailsController extends ChangeNotifier {
               }
               if (slotIndex >= 0 && slotIndex < 3) {
                 if (imageUrl[slotIndex] == null) {
-                  imageUrl[slotIndex] = a["url"];
+                  imageUrl[slotIndex] = url;
                 }
               }
             }
-          } else if (a["type"] == 1) {
-            audioUrl ??= a["url"];
-          } else if (a["type"] == 2) {
-            videoUrl ??= a["url"];
+          } else if (type == 1) {
+            audioUrl ??= url;
+          } else if (type == 2) {
+            videoUrl ??= url;
           }
         }
 
@@ -383,7 +421,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
     }
 
     if (tasksToUpdate.isNotEmpty) {
-      formController.batchUpdateTasks(tasksToUpdate, savedIdsToMark, savedIdsToMark);
+      formController.batchUpdateTasks(tasksToUpdate, savedIdsToMark, {});
     }
     notifyListeners();
   }
@@ -499,20 +537,63 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       }
     });
 
+    for (final task in allTaskComponents) {
+      final int id = task["itcId"] is int
+          ? task["itcId"]
+          : int.tryParse(task["itcId"].toString()) ?? 0;
+      if (id != 0) {
+        componentByItcId.putIfAbsent(id, () => task);
+      }
+    }
+
     final List<InspectionTaskData> tasksToUpdate = [];
     final Set<int> savedIdsToMark = {};
 
     for (final inspection in inspections) {
       final int vimInspectionType = inspection["master"]?["vimInspectionType"] ?? 0;
-      final completedTasks = inspection["completedTasks"] ?? [];
+      final List completedTasks = [];
+      if (inspection["completedTasks"] is List) {
+        completedTasks.addAll(inspection["completedTasks"]);
+      }
+      final rawInspectionTasks = inspection["inspectionTasks"];
+      if (rawInspectionTasks is List) {
+        for (final item in rawInspectionTasks) {
+          if (item is Map) {
+            if (item["tasks"] is List) {
+              completedTasks.addAll(item["tasks"]);
+            } else if (item.containsKey("viTaskId")) {
+              completedTasks.add(item);
+            }
+          }
+        }
+      }
+
       for (final savedTask in completedTasks) {
-        final int savedTaskId = savedTask["viTaskId"];
+        if (savedTask is! Map) continue;
+        final rawId = savedTask["viTaskId"] ??
+            savedTask["itcId"] ??
+            savedTask["taskId"] ??
+            savedTask["viInspectionTaskId"];
+        final int? savedTaskId = rawId is num
+            ? rawId.toInt()
+            : int.tryParse(rawId?.toString() ?? "");
+        if (savedTaskId == null) continue;
+
         final double reTime =
-            double.tryParse(savedTask["viReInspectionTime"]?.toString() ?? "") ??
+            double.tryParse(
+              savedTask["viReInspectionTime"]?.toString() ??
+                  savedTask["vi_re_inspection_time"]?.toString() ??
+                  "",
+            ) ??
             0.0;
         final bool isReInspectionItem = savedTask["viReInspection"] == true ||
             savedTask["viReInspection"] == 1 ||
             savedTask["viReInspection"]?.toString() == "true" ||
+            savedTask["viReInspection"]?.toString() == "1" ||
+            savedTask["vi_re_inspection"] == true ||
+            savedTask["vi_re_inspection"] == 1 ||
+            savedTask["vi_re_inspection"]?.toString() == "true" ||
+            savedTask["vi_re_inspection"]?.toString() == "1" ||
             reTime > 0.0;
 
         // Skip prefilling for reinspection items if this is the initial/previous run (type != 2)
@@ -538,8 +619,13 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         final List<String?> imageUrl = List<String?>.filled(3, null);
         String? audioUrl;
         for (final a in attachments) {
-          if (a["type"] == 0) {
-            if (a["url"] != null) {
+          final rawType = a["iaType"] ?? a["type"];
+          final int type = rawType is num
+              ? rawType.toInt()
+              : int.tryParse(rawType?.toString() ?? "") ?? 0;
+          final String? url = (a["iaUrl"] ?? a["url"])?.toString();
+          if (type == 0) {
+            if (url != null && url.isNotEmpty) {
               final rawSlot = a["iaImageType"] ?? a["imageType"] ?? a["ia_image_type"];
               int slotIndex = 0;
               if (rawSlot != null) {
@@ -547,14 +633,14 @@ class InspectionTypeDetailsController extends ChangeNotifier {
               }
               if (slotIndex >= 0 && slotIndex < 3) {
                 if (imageUrl[slotIndex] == null) {
-                  imageUrl[slotIndex] = a["url"];
+                  imageUrl[slotIndex] = url;
                 }
               }
             }
-          } else if (a["type"] == 1) {
-            audioUrl ??= a["url"];
-          } else if (a["type"] == 2) {
-            videoUrl ??= a["url"];
+          } else if (type == 1) {
+            audioUrl ??= url;
+          } else if (type == 2) {
+            videoUrl ??= url;
           }
         }
 
@@ -571,41 +657,41 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           components["viReInspection"] =
               savedTask["viReInspection"] ?? false;
           components["attachments"] = attachments;
-
-          final categoryId = components["categoryId"];
-          tasksToUpdate.add(
-            InspectionTaskData(
-              categoryId: categoryId is int ? categoryId : null,
-              jobId: data["jobId"],
-              taskId: savedTaskId,
-              formId: inspection["inspectionFormId"],
-              condition: _asBool(savedTask["viGood"])
-                  ? "Good"
-                  : _asBool(savedTask["viRepair"])
-                  ? "Repair"
-                  : _asBool(savedTask["viReplace"])
-                  ? "Replace"
-                  : _asBool(savedTask["viPoor"])
-                  ? "Poor"
-                  : _asBool(savedTask["viNotApplicable"])
-                  ? "N/A"
-                  : null,
-              note: savedTask["viNote"] ?? "",
-              description: savedTask["viDescription"] ?? "",
-              imageUrls: imageUrl.any((u) => u != null) ? imageUrl : null,
-              audioUrl: audioUrl,
-              videoUrl: videoUrl,
-              inserted: true,
-              isSaved: true,
-            ),
-          );
-          savedIdsToMark.add(savedTaskId);
         }
+
+        final categoryId = components?["categoryId"];
+        tasksToUpdate.add(
+          InspectionTaskData(
+            categoryId: categoryId is int ? categoryId : null,
+            jobId: data["jobId"],
+            taskId: savedTaskId,
+            formId: inspection["inspectionFormId"],
+            condition: _asBool(savedTask["viGood"])
+                ? "Good"
+                : _asBool(savedTask["viRepair"])
+                ? "Repair"
+                : _asBool(savedTask["viReplace"])
+                ? "Replace"
+                : _asBool(savedTask["viPoor"])
+                ? "Poor"
+                : _asBool(savedTask["viNotApplicable"])
+                ? "N/A"
+                : null,
+            note: savedTask["viNote"] ?? "",
+            description: savedTask["viDescription"] ?? "",
+            imageUrls: imageUrl.any((u) => u != null) ? imageUrl : null,
+            audioUrl: audioUrl,
+            videoUrl: videoUrl,
+            inserted: true,
+            isSaved: true,
+          ),
+        );
+        savedIdsToMark.add(savedTaskId);
       }
     }
 
     if (tasksToUpdate.isNotEmpty) {
-      formController.batchUpdateTasks(tasksToUpdate, savedIdsToMark, savedIdsToMark);
+      formController.batchUpdateTasks(tasksToUpdate, savedIdsToMark, {});
     }
     notifyListeners();
   }
@@ -770,6 +856,7 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       final results = await Future.wait([
         getInspectionDetailsById(jobId),
         postInspectionTypeDetails(inspectionFormId, updateLoading: false),
+        getComponentList(),
       ]);
       final inspectionResponse = results[0];
       if (inspectionResponse.success == true &&

@@ -18,9 +18,13 @@ import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:inspection/utils/local_upload_storage_service.dart';
 import 'package:inspection/view/widgets/offline_sync_status_badge.dart';
+
+import 'package:inspection/view/widgets/job_upload_status_widget.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 
 class SignatureScreen extends StatefulWidget {
   final int jobId;
@@ -35,6 +39,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
   late TextEditingController _additionalCommentController;
   bool _isCommentInitialized = false;
   bool _isSubmitting = false;
+  bool _isSyncComplete = false;
 
   @override
   void initState() {
@@ -55,12 +60,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
 
   Future<File?> _saveSignature() async {
     if (_controller.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please provide a signature"),
-          backgroundColor: ColorConstants.errorcolor,
-        ),
-      );
+      CustomToast.showWarning(context, "Please provide a signature");
       return null;
     }
     final bytes = await _controller.toPngBytes();
@@ -129,8 +129,8 @@ class _SignatureScreenState extends State<SignatureScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-              BasicInspectionPreview(jobId: widget.jobId),
-              const SizedBox(height: 12),
+                      BasicInspectionPreview(jobId: widget.jobId),
+                      const SizedBox(height: 12),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
@@ -274,6 +274,15 @@ class _SignatureScreenState extends State<SignatureScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+              JobUploadStatusWidget(
+                jobId: widget.jobId,
+                onSyncStatusChanged: (isComplete) {
+                  if (mounted && _isSyncComplete != isComplete) {
+                    setState(() => _isSyncComplete = isComplete);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: SizedBox(
@@ -306,19 +315,21 @@ class _SignatureScreenState extends State<SignatureScreen> {
                             ? "Please wait..."
                             : controller.isCompleted
                             ? "COMPLETED"
-                            : "SUBMIT",
+                            : (!_isSyncComplete ? "Syncing Media Files..." : "SUBMIT"),
                         textSize: 16,
                         textColor: Colors.white,
                         isDisabled:
                             _isSubmitting ||
                             controller.isUploading ||
                             controller.isCompleted ||
-                            reportLoading,
+                            reportLoading ||
+                            !_isSyncComplete,
                         showLoader: _isSubmitting || controller.isUploading,
                         onPressed: (_isSubmitting ||
                                 controller.isUploading ||
                                 controller.isCompleted ||
-                                reportLoading)
+                                reportLoading ||
+                                !_isSyncComplete)
                             ? null
                             : () async {
                                 if (_isSubmitting) return;
@@ -333,6 +344,18 @@ class _SignatureScreenState extends State<SignatureScreen> {
                                     if (mounted) setState(() => _isSubmitting = false);
                                     return;
                                   }
+                                  final stats = await LocalUploadStorageService.getJobUploadStats(widget.jobId);
+                                  if ((stats['failed'] ?? 0) > 0) {
+                                    if (mounted) {
+                                      setState(() => _isSubmitting = false);
+                                      CustomToast.showError(
+                                        context,
+                                        "Some inspection files could not be uploaded. Please retry failed uploads before submitting.",
+                                      );
+                                    }
+                                    return;
+                                  }
+
                                   controller.currentStage =
                                       InspectionStage.signature;
                                   controller.setSignatureFile(file);
@@ -342,19 +365,20 @@ class _SignatureScreenState extends State<SignatureScreen> {
                                     additionalComment: additionalComment,
                                   );
                                   if (!success) {
-                                    if (mounted) setState(() => _isSubmitting = false);
+                                    if (mounted) {
+                                      setState(() => _isSubmitting = false);
+                                      if (controller.lastErrorMessage.isNotEmpty) {
+                                        CustomToast.showError(context, controller.lastErrorMessage);
+                                      }
+                                    }
                                     return;
                                   }
                                   controller.isCompleted = true;
                                   _clearAllData(context);
                                   if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        "Basic inspection completed successfully",
-                                      ),
-                                      backgroundColor: ColorConstants.greenColor,
-                                    ),
+                                  CustomToast.showSuccess(
+                                    context,
+                                    "Basic inspection completed successfully",
                                   );
                                   await Future.delayed(
                                     const Duration(seconds: 2),
@@ -374,7 +398,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
                   ),
                 ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -451,27 +475,8 @@ class _SignatureScreenState extends State<SignatureScreen> {
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("Discard changes?"),
-            content: const Text(
-              "Unsaved changes will be cleared. Are you sure you want to go back?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("NO"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("YES"),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final res = await ConfirmSubmissionDialog.showDiscard(context);
+    return res ?? false;
   }
 
   

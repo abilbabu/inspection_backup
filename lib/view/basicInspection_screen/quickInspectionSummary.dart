@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -17,10 +18,12 @@ import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
 import 'package:http/http.dart' as http;
 import 'package:hugeicons/hugeicons.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/signatureSpeech_controller .dart';
+import 'package:inspection/view/widgets/job_upload_status_widget.dart';
 
 class QuickInspectionSummaryPage extends StatefulWidget {
   final int jobId;
@@ -36,6 +39,7 @@ class _QuickInspectionSummaryPageState
   late SignatureController _signatureController;
   late TextEditingController _complaintController;
   bool _isLoading = false;
+  bool _isSyncComplete = false;
 
   @override
   void initState() {
@@ -77,12 +81,7 @@ class _QuickInspectionSummaryPageState
 
   Future<File?> _saveSignature() async {
     if (_signatureController.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please provide a signature"),
-          backgroundColor: ColorConstants.errorcolor,
-        ),
-      );
+      CustomToast.showWarning(context, "Please provide a signature");
       return null;
     }
     final bytes = await _signatureController.toPngBytes();
@@ -328,18 +327,30 @@ class _QuickInspectionSummaryPageState
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 12),
+                            JobUploadStatusWidget(
+                              jobId: widget.jobId,
+                              onSyncStatusChanged: (isComplete) {
+                                if (mounted && _isSyncComplete != isComplete) {
+                                  setState(() => _isSyncComplete = isComplete);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
                               height: 48,
                               child: CustomButtonWidget(
                                 text: _isLoading
                                     ? "Please wait..."
-                                    : "Complete Quick Inspection",
+                                    : (!_isSyncComplete
+                                        ? "Syncing Media Files..."
+                                        : "Complete Quick Inspection"),
                                 textSize: 16,
-                                isDisabled: _isLoading || basicCtrl.isUploading,
+                                isDisabled:
+                                    _isLoading || basicCtrl.isUploading || !_isSyncComplete,
                                 showLoader: _isLoading,
-                                onPressed: _isLoading || basicCtrl.isUploading
+                                onPressed: _isLoading || basicCtrl.isUploading || !_isSyncComplete
                                     ? null
                                     : () async {
                                         if (_isLoading) return;
@@ -347,6 +358,17 @@ class _QuickInspectionSummaryPageState
                                           _isLoading = true;
                                         });
                                         try {
+                                          final stats = await LocalUploadStorageService.getJobUploadStats(widget.jobId);
+                                          if ((stats['failed'] ?? 0) > 0) {
+                                            if (mounted) {
+                                              setState(() => _isLoading = false);
+                                              CustomToast.showError(
+                                                context,
+                                                "Some inspection files could not be uploaded. Please retry failed uploads before submitting.",
+                                              );
+                                            }
+                                            return;
+                                          }
                                           final file = await _saveSignature();
                                           if (file == null) {
                                             if (mounted) setState(() => _isLoading = false);
@@ -368,16 +390,9 @@ class _QuickInspectionSummaryPageState
                                                 .markQuickInspectionCompleted();
                                             _clearAllCache(context);
                                             if (mounted) {
-                                              ScaffoldMessenger.of(
+                                              CustomToast.showSuccess(
                                                 context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Quick inspection completed successfully",
-                                                  ),
-                                                  backgroundColor:
-                                                      ColorConstants.greenColor,
-                                                ),
+                                                "Quick inspection completed successfully",
                                               );
                                               await Future.delayed(
                                                 const Duration(seconds: 1),
@@ -390,16 +405,9 @@ class _QuickInspectionSummaryPageState
                                           } else {
                                             if (mounted) {
                                               setState(() => _isLoading = false);
-                                              ScaffoldMessenger.of(
+                                              CustomToast.showError(
                                                 context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Failed to upload signature. Check offline sync.",
-                                                  ),
-                                                  backgroundColor:
-                                                      ColorConstants.errorcolor,
-                                                ),
+                                                "Failed to upload signature. Check offline sync.",
                                               );
                                             }
                                           }
@@ -474,26 +482,7 @@ class _QuickInspectionSummaryPageState
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("Discard changes?"),
-            content: const Text(
-              "Unsaved changes will be cleared. Are you sure you want to go back?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("NO"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("YES"),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final res = await ConfirmSubmissionDialog.showDiscard(context);
+    return res ?? false;
   }
 }

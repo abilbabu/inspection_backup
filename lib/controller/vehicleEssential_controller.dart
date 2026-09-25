@@ -282,8 +282,13 @@ class VehicleessentialController extends ChangeNotifier {
             ),
           );
           if (captureResult == null) return;
-          currentFile = captureResult['file'];
-          currentAngle = captureResult['angle'];
+          if (captureResult is Map) {
+            currentFile = captureResult['file'];
+            currentAngle = captureResult['angle'] ?? 0;
+          } else if (captureResult is File) {
+            currentFile = captureResult;
+            currentAngle = 0;
+          }
           continue;
         }
         if (result is File) {

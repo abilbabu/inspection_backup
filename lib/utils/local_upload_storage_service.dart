@@ -98,6 +98,49 @@ class LocalUploadStorageService {
         .toList();
   }
 
+  /// Get queue statistics for a specific job ID
+  static Future<Map<String, int>> getJobUploadStats(int jobId) async {
+    final queue = await getQueue();
+    final jobTasks = queue.where((t) => t.jobId == jobId).toList();
+
+    int pending = 0;
+    int uploading = 0;
+    int failed = 0;
+
+    for (var task in jobTasks) {
+      if (task.status == 'uploading') {
+        uploading++;
+      } else if (task.status == 'failed') {
+        failed++;
+      } else {
+        pending++;
+      }
+    }
+
+    return {
+      'pending': pending,
+      'uploading': uploading,
+      'failed': failed,
+      'totalQueue': jobTasks.length,
+    };
+  }
+
+  /// Reset failed tasks for a specific job ID back to pending with 0 retry count
+  static Future<void> resetFailedTasksForJob(int jobId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<UploadQueueModel> tasks = await getQueue();
+    bool updated = false;
+    for (int i = 0; i < tasks.length; i++) {
+      if (tasks[i].jobId == jobId && tasks[i].status == 'failed') {
+        tasks[i] = tasks[i].copyWith(status: 'pending', retryCount: 0);
+        updated = true;
+      }
+    }
+    if (updated) {
+      await _saveQueue(prefs, tasks);
+    }
+  }
+
   /// Update task status and retry count
   static Future<void> updateTaskStatus(
     String taskId,
@@ -194,6 +237,105 @@ class LocalUploadStorageService {
       return list.map((s) => int.tryParse(s) ?? 0).where((id) => id != 0).toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  /// Save unfinalized draft media (images/video) for a specific job and stage
+  static Future<void> saveDraftMedia({
+    required int jobId,
+    required String stageKey,
+    List<File?>? images,
+    File? video,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'draft_media_${jobId}_$stageKey';
+
+      List<String> imagePaths = [];
+      if (images != null) {
+        for (var img in images) {
+          if (img != null && await img.exists()) {
+            final persistentPath = await copyToPersistentStorage(img.path);
+            imagePaths.add(persistentPath);
+          } else {
+            imagePaths.add('');
+          }
+        }
+      }
+
+      String videoPath = '';
+      if (video != null && await video.exists()) {
+        videoPath = await copyToPersistentStorage(video.path);
+      }
+
+      final draftData = {
+        'images': imagePaths,
+        'video': videoPath,
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      await prefs.setString(key, jsonEncode(draftData));
+    } catch (e) {
+      print("⚠️ [LocalUploadStorageService] Error saving draft media: $e");
+    }
+  }
+
+  /// Load unfinalized draft media for a specific job and stage
+  static Future<Map<String, dynamic>?> getDraftMedia({
+    required int jobId,
+    required String stageKey,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'draft_media_${jobId}_$stageKey';
+      final String? raw = prefs.getString(key);
+      if (raw == null || raw.isEmpty) return null;
+
+      final Map<String, dynamic> data = jsonDecode(raw);
+      List<dynamic> rawImages = data['images'] ?? [];
+      List<File?> imageFiles = [];
+      for (var pathStr in rawImages) {
+        final p = pathStr.toString();
+        if (p.isNotEmpty) {
+          final f = File(p);
+          if (await f.exists()) {
+            imageFiles.add(f);
+            continue;
+          }
+        }
+        imageFiles.add(null);
+      }
+
+      File? videoFile;
+      final String vPath = (data['video'] ?? '').toString();
+      if (vPath.isNotEmpty) {
+        final f = File(vPath);
+        if (await f.exists()) {
+          videoFile = f;
+        }
+      }
+
+      return {
+        'images': imageFiles,
+        'video': videoFile,
+      };
+    } catch (e) {
+      print("⚠️ [LocalUploadStorageService] Error getting draft media: $e");
+      return null;
+    }
+  }
+
+  /// Clear unfinalized draft media for a specific job and stage after step is finalized or skipped
+  static Future<void> clearDraftMedia({
+    required int jobId,
+    required String stageKey,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'draft_media_${jobId}_$stageKey';
+      await prefs.remove(key);
+    } catch (e) {
+      print("⚠️ [LocalUploadStorageService] Error clearing draft media: $e");
     }
   }
 

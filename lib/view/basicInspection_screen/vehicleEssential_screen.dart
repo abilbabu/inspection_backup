@@ -7,12 +7,14 @@ import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/vehicleEssential_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:inspection/controller/signatureSpeech_controller .dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 
 class VehicleEssentialScreen extends StatefulWidget {
   final int? jobId;
@@ -44,29 +46,8 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text("Discard changes?"),
-              content: const Text(
-                "Unsaved changes will be cleared. Are you sure you want to go back?",
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text("NO"),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text("YES"),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
+    final res = await ConfirmSubmissionDialog.showDiscard(context);
+    return res ?? false;
   }
 
   @override
@@ -161,18 +142,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                                    if (vehicleCtrl.isLoading || isCheckingSettings) return;
                                    if (vehicleCtrl.selectedDocumentTypeId ==
                                        null) {
-                                     ScaffoldMessenger.of(context).showSnackBar(
-                                       const SnackBar(
-                                         backgroundColor:
-                                             ColorConstants.errorcolor,
-                                         content: Text(
-                                           "Select Document Type",
-                                           style: TextStyle(
-                                             color: ColorConstants.whiteColor,
-                                           ),
-                                         ),
-                                       ),
-                                     );
+                                     CustomToast.showWarning(context, "Select Document Type");
                                      return;
                                    }
 
@@ -186,19 +156,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                                      });
                                      if (!isConfigured) {
                                        if (mounted) {
-                                         ScaffoldMessenger.of(context).showSnackBar(
-                                           SnackBar(
-                                             backgroundColor: ColorConstants.errorcolor,
-                                             duration: const Duration(seconds: 4),
-                                             content: Text(
-                                               "Quick Inspection settings have not been configured. Please contact the administrator to configure the Quick Inspection settings before proceeding.",
-                                               style: ApptextstyleConstants.thinText(
-                                                 color: ColorConstants.whiteColor,
-                                                 fontSize: 12,
-                                               ),
-                                             ),
-                                           ),
-                                         );
+                                         CustomToast.showWarning(context, "Quick Inspection settings have not been configured. Please contact the administrator to configure the Quick Inspection settings before proceeding.");
                                        }
                                        return;
                                      }
@@ -218,18 +176,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                                        extra: widget.jobId,
                                      );
                                    } else {
-                                     ScaffoldMessenger.of(context).showSnackBar(
-                                       const SnackBar(
-                                         backgroundColor:
-                                             ColorConstants.errorcolor,
-                                         content: Text(
-                                           "Failed to save vehicle essentials",
-                                           style: TextStyle(
-                                             color: ColorConstants.whiteColor,
-                                           ),
-                                         ),
-                                       ),
-                                     );
+                                     CustomToast.showError(context, "Failed to save vehicle essentials");
                                    }
                                  },
                               ),
