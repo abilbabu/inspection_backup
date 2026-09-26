@@ -181,6 +181,8 @@ class InspectioncardController extends ChangeNotifier {
   bool get isReplace => selectedOption == "Replace";
   bool get isNotApplicable => selectedOption == "N/A";
 
+  bool get isConditionMandatory => isReplace || isRepair || isPoor;
+
   void setSelectedOption(String value) {
     selectedOption = value;
     showSaveButton = true;
@@ -611,9 +613,10 @@ class InspectioncardController extends ChangeNotifier {
     if (isNotApplicable) {
     } else {
       final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
-      if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
+      final bool effectivePhotoMandatory = isConditionMandatory;
+      if (effectivePhotoMandatory && !hasAtLeastOneImage) {
         setValidationError(
-          "Inspection photo is required",
+          "Please capture at least one image for this component because the selected condition requires an image.",
           ValidationType.image,
         );
         _showSnackBar(context, validationError!);
@@ -929,9 +932,13 @@ class InspectioncardController extends ChangeNotifier {
       return false;
     }
     final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
+    final bool effectivePhotoMandatory = isConditionMandatory;
 
-    if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
-      setValidationError("Inspection photo is required", ValidationType.image);
+    if (effectivePhotoMandatory && !hasAtLeastOneImage) {
+      setValidationError(
+        "Please capture at least one image for this component because the selected condition requires an image.",
+        ValidationType.image,
+      );
 
       _showValidationDialog(context, validationError!);
       return false;

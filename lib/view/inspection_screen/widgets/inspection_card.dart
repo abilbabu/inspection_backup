@@ -179,7 +179,8 @@ class _InspectionCardState extends State<InspectionCard> {
                     builder: (context) {
                       final bool canShowImages =
                           widget.inspectionTaskPhotoFlag ||
-                          widget.allowMultipleImage;
+                          widget.allowMultipleImage ||
+                          cardController.isConditionMandatory;
                       final bool hasVideo = widget.allowVideo;
                       final int imageCount = canShowImages
                           ? (widget.allowMultipleImage ? (hasVideo ? 3 : 3) : 1)
@@ -465,8 +466,7 @@ class _InspectionCardState extends State<InspectionCard> {
                     ),
                   ],
                 ),
-                if (widget.allowMultipleImage &&
-                    widget.inspectionPhotoMandatory)
+                if (cardController.isConditionMandatory)
                   Builder(
                     builder: (context) {
                       final hasImage = cardController.capturedImages.any(
@@ -555,6 +555,13 @@ class _InspectionCardState extends State<InspectionCard> {
     );
   }
 
+  bool _isSlotMandatory(InspectioncardController controller, int index) {
+    if (index == 0) {
+      return controller.isConditionMandatory;
+    }
+    return false;
+  }
+
   Widget _imageBox(
     InspectioncardController controller,
     int index,
@@ -562,6 +569,7 @@ class _InspectionCardState extends State<InspectionCard> {
   ) {
     final image = controller.imageAt(index);
     final int currentAngle = controller.getAngleAt(index);
+    final bool isMandatory = _isSlotMandatory(controller, index);
     return GestureDetector(
       onTap: () async {
         if (image != null) {
@@ -609,6 +617,7 @@ class _InspectionCardState extends State<InspectionCard> {
         }
       },
       child: _mediaBox(
+        isMandatory: isMandatory,
         child: image != null
             ? Transform.rotate(
                 // Converts integer degrees to radians for Flutter Transform
@@ -628,7 +637,28 @@ class _InspectionCardState extends State<InspectionCard> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   )
-                : const Icon(Icons.camera_alt, color: Colors.grey),
+                : Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Icon(
+                        Icons.camera_alt,
+                        color: isMandatory ? Colors.red : Colors.grey,
+                      ),
+                      if (isMandatory)
+                        const Positioned(
+                          top: 4,
+                          right: 6,
+                          child: Text(
+                            '*',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
       ),
     );
   }
@@ -704,14 +734,17 @@ class _InspectionCardState extends State<InspectionCard> {
     );
   }
 
-  Widget _mediaBox({required Widget child}) {
+  Widget _mediaBox({required Widget child, bool isMandatory = false}) {
     return Container(
       width: 70,
       height: 70,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         color: Colors.grey[200],
-        border: Border.all(color: Colors.black12, width: 1.5),
+        border: Border.all(
+          color: isMandatory ? Colors.red : Colors.black12,
+          width: isMandatory ? 2.0 : 1.5,
+        ),
       ),
       child: ClipRRect(borderRadius: BorderRadius.circular(8), child: child),
     );

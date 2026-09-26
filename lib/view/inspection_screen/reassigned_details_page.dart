@@ -111,9 +111,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         final Set<int> approvedReInspectionTaskIds = {};
         for (final list in summaryCtrl.groupedItems.values) {
           for (final item in list) {
-            if (item.taskId != null) {
-              _initialCompletedTaskIds.add(item.taskId!);
-            }
             if (item.viReInspection && item.taskId != null) {
               approvedReInspectionTaskIds.add(item.taskId!);
             }
@@ -173,7 +170,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                   savedTask["vi_re_inspection"]?.toString() == "1" ||
                   reTime > 0.0;
               if (isReInsp || (i > 0 && vimInspectionType == 2 && !isCustom)) {
-                if (approvedReInspectionTaskIds.contains(taskId)) {
+                if (approvedReInspectionTaskIds.contains(taskId) || (i > 0 && vimInspectionType == 2)) {
                   _reInspectionTaskIds.add(taskId);
                 }
               }
@@ -236,6 +233,21 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     }
   }
 
+  Future<bool> _showExitConfirmation() async {
+    final result = await ConfirmSubmissionDialog.showDiscard(context);
+    return result ?? false;
+  }
+
+  void _handleBackNavigation() async {
+    final shouldExit = await _showExitConfirmation();
+    if (!shouldExit || !mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go("/home");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final summaryCtrl = context.watch<InspectionsummarypageController>();
@@ -255,17 +267,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvoked: (didPop) async {
         if (didPop) return;
-        context.go("/home");
+        _handleBackNavigation();
       },
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: CustomAppBar(
           title: "Re-Inspection Details",
-          onBackPress: () {
-            context.go("/home");
-          },
+          onBackPress: _handleBackNavigation,
         ),
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -650,7 +660,18 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
         final taskSavedData = formCtrl.getTaskById(taskId);
         final String title = componentData?["itcName"]?.toString() ?? "Component #$taskId";
-        final String category = componentData?["assemblyCodeName"]?.toString() ?? componentData?["repairGroupName"]?.toString() ?? "";
+        final String assemblyDesc = componentData?["assemblyCodeDesc"]?.toString().trim() ?? "";
+        final String assemblyName = componentData?["assemblyCodeName"]?.toString().trim() ?? "";
+        final String repairGroup = componentData?["repairGroupName"]?.toString().trim() ?? "";
+
+        String category = "";
+        if (assemblyDesc.isNotEmpty && assemblyDesc != "D") {
+          category = assemblyDesc;
+        } else if (assemblyName.isNotEmpty && assemblyName != "D") {
+          category = assemblyName;
+        } else if (repairGroup.isNotEmpty && repairGroup != "D") {
+          category = repairGroup;
+        }
 
         InspectionStatus status = InspectionStatus.repair;
         if (taskSavedData != null && taskSavedData.condition != null) {
@@ -729,7 +750,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                   Padding(
                     padding: const EdgeInsets.all(10.0),
                     child: Text(
-                      item.category.isNotEmpty
+                      (item.category.isNotEmpty && item.category != "D")
                           ? "${item.title} (${item.category})"
                           : item.title,
                       style: const TextStyle(fontSize: 12),
@@ -765,7 +786,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            item.category.isNotEmpty
+                            (item.category.isNotEmpty && item.category != "D")
                                 ? "${item.title} (${item.category})"
                                 : item.title,
                             style: const TextStyle(fontSize: 12),
@@ -830,7 +851,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            category.isNotEmpty
+                            (category.isNotEmpty && category != "D")
                                 ? "$title ($category)"
                                 : title,
                             style: const TextStyle(fontSize: 12),

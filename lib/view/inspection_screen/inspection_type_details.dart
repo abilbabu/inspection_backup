@@ -92,31 +92,8 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text("Discard changes?"),
-              content: const Text("Are you sure you want to go back?"),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(false);
-                  },
-                  child: const Text("NO"),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(true);
-                  },
-                  child: const Text("YES"),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
+    final result = await ConfirmSubmissionDialog.showDiscard(context);
+    return result ?? false;
   }
 
   void _handleBackNavigation() async {

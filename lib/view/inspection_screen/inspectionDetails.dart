@@ -1,4 +1,5 @@
 import 'package:inspection/utils/custom_toast.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'dart:async';
 // import 'dart:developer';
 import 'package:flutter/material.dart';
@@ -83,27 +84,8 @@ class _InspectionDetailsState extends State<InspectionDetails> {
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text("Discard changes?"),
-              content: const Text("Are you sure you want to go back?"),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text("NO"),
-                ),
-                ElevatedButton(
-                  onPressed: () =>   context.push("/jobcarddetails", extra: widget.jobId),
-                  child: const Text("YES"),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
+    final result = await ConfirmSubmissionDialog.showDiscard(context);
+    return result ?? false;
   }
 
   @override
