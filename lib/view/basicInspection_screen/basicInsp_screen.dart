@@ -10,6 +10,7 @@ import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/utils/permission_service.dart';
+import 'package:inspection/utils/security_service.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -151,6 +152,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
 
   @override
   void dispose() {
+    SecurityService.enableScreenshot();
     WidgetsBinding.instance.removeObserver(this);
     _notesFocusNode.dispose();
     _recordTimer?.cancel();
@@ -243,7 +245,17 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Future<void> _takePhoto(BasicinspController controller) async {
-    if (_isCapturing || controller.isBusy) return;
+    if (_isCapturing ||
+        _isRecording ||
+        _isStopping ||
+        controller.isBusy) {
+      return;
+    }
+    if (_cameraController == null ||
+        !_cameraController!.value.isInitialized ||
+        _cameraController!.value.isRecordingVideo) {
+      return;
+    }
     setState(() => _isCapturing = true);
 
     try {
@@ -320,12 +332,18 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       await _initCamera(enableAudio: false);
     }
     final cam = _cameraController;
-    if (cam == null || !cam.value.isInitialized || cam.value.isRecordingVideo || _isRecording || controller.isBusy) {
+    if (cam == null ||
+        !cam.value.isInitialized ||
+        cam.value.isRecordingVideo ||
+        _isRecording ||
+        _isStopping ||
+        controller.isBusy) {
       return;
     }
     final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
     if (!hasMic) return;
     try {
+      await SecurityService.disableScreenshot();
       await cam.startVideoRecording();
       final maxDuration = controller.is360Stage
           ? controller.current360Duration
@@ -345,6 +363,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         }
       });
     } catch (e) {
+      await SecurityService.enableScreenshot();
     }
   }
 
@@ -363,6 +382,8 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       // Video captured into box; camera stays open without auto-preview popup.
     } catch (e) {
       if (mounted) setState(() => _isStopping = false);
+    } finally {
+      await SecurityService.enableScreenshot();
     }
   }
 
@@ -907,7 +928,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                     ? (_isRecording
                           ? () => _stopRecording(controller)
                           : () => _startRecording(controller))
-                    : () => _takePhoto(controller),
+                    : (_isRecording ? null : () => _takePhoto(controller)),
                 child: Container(
                   width: 68,
                   height: 68,

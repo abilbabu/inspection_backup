@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/utils/permission_service.dart';
+import 'package:inspection/utils/security_service.dart';
 import 'package:inspection/utils/custom_toast.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -153,7 +154,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _takePhoto() async {
-    if (_isCapturing || _controller == null || !_controller!.value.isInitialized) return;
+    if (_isCapturing ||
+        _isRecording ||
+        _isStopping ||
+        _controller == null ||
+        !_controller!.value.isInitialized ||
+        _controller!.value.isRecordingVideo) {
+      return;
+    }
     setState(() => _isCapturing = true);
     try {
       XFile file;
@@ -196,10 +204,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _startRecording() async {
-    if (_controller == null || !_controller!.value.isInitialized || _controller!.value.isRecordingVideo) {
+    if (_controller == null ||
+        !_controller!.value.isInitialized ||
+        _controller!.value.isRecordingVideo ||
+        _isRecording) {
       return;
     }
     try {
+      await SecurityService.disableScreenshot();
       await _controller!.startVideoRecording();
       setState(() {
         _isRecording = true;
@@ -216,6 +228,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         }
       });
     } catch (e) {
+      await SecurityService.enableScreenshot();
     }
   }
 
@@ -237,6 +250,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       if (mounted) {
         setState(() => _isStopping = false);
       }
+    } finally {
+      await SecurityService.enableScreenshot();
     }
   }
 
@@ -304,6 +319,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   @override
   void dispose() {
+    SecurityService.enableScreenshot();
     _debounce?.cancel();
     _recordTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -545,26 +561,43 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
 class CameraShimmerLoader extends StatelessWidget {
   const CameraShimmerLoader({super.key});
+
+  Widget _shimmerBox() {
+    return Shimmer(
+      duration: const Duration(seconds: 2),
+      interval: const Duration(milliseconds: 500),
+      color: ColorConstants.lightblackColor,
+      colorOpacity: 0.6,
+      enabled: true,
+      direction: const ShimmerDirection.fromLTRB(),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: ColorConstants.borderGreyColor,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 40),
-        child: Shimmer(
-          duration: const Duration(seconds: 2),
-          interval: const Duration(milliseconds: 500),
-          color: ColorConstants.lightblackColor,
-          colorOpacity: 0.6,
-          enabled: true,
-          direction: const ShimmerDirection.fromLTRB(),
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: ColorConstants.borderGreyColor,
-            ),
-          ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 15,
+          vertical: 40,
+        ),
+        child: Column(
+          children: [
+            Expanded(child: _shimmerBox()),
+            const SizedBox(height: 15),
+            Expanded(child: _shimmerBox()),
+            const SizedBox(height: 15),
+            Expanded(child: _shimmerBox()),
+            const SizedBox(height: 15),
+            Expanded(child: _shimmerBox()),
+          ],
         ),
       ),
     );

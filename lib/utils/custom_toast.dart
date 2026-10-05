@@ -10,7 +10,7 @@ class CustomToast {
     required String message,
     String? title,
     ToastType type = ToastType.info,
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = const Duration(seconds: 1),
   }) {
     if (!context.mounted) return;
     final scaffold = ScaffoldMessenger.of(context);
@@ -124,19 +124,63 @@ class CustomToast {
     scaffold.showSnackBar(snackBar);
   }
 
-  static void showError(BuildContext context, String message, {String? title}) {
-    show(context, message: message, title: title, type: ToastType.error);
+  static void showError(
+    BuildContext context,
+    String message, {
+    String? title,
+    Duration duration = const Duration(seconds: 1),
+  }) {
+    show(
+      context,
+      message: message,
+      title: title,
+      type: ToastType.error,
+      duration: duration,
+    );
   }
 
-  static void showWarning(BuildContext context, String message, {String? title}) {
-    show(context, message: message, title: title, type: ToastType.warning);
+  static void showWarning(
+    BuildContext context,
+    String message, {
+    String? title,
+    Duration duration = const Duration(seconds: 1),
+  }) {
+    show(
+      context,
+      message: message,
+      title: title,
+      type: ToastType.warning,
+      duration: duration,
+    );
   }
 
-  static void showSuccess(BuildContext context, String message, {String? title}) {
-    show(context, message: message, title: title, type: ToastType.success);
+  static void showSuccess(
+    BuildContext context,
+    String message, {
+    String? title,
+    Duration duration = const Duration(seconds: 1),
+  }) {
+    show(
+      context,
+      message: message,
+      title: title,
+      type: ToastType.success,
+      duration: duration,
+    );
   }
 
-  static void showInfo(BuildContext context, String message, {String? title}) {
-    show(context, message: message, title: title, type: ToastType.info);
+  static void showInfo(
+    BuildContext context,
+    String message, {
+    String? title,
+    Duration duration = const Duration(seconds: 1),
+  }) {
+    show(
+      context,
+      message: message,
+      title: title,
+      type: ToastType.info,
+      duration: duration,
+    );
   }
 }
