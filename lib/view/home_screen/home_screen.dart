@@ -1918,6 +1918,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
+        if (userDepartment == 2 || userDepartment == 5) {
+          context.go("/inspectiondetails", extra: jobId);
+          return;
+        }
         if (jobStatus == 10 || jobStatus == 11 || jobStatus == 18) {
           context.go("/reassigneddetails", extra: jobId);
           return;

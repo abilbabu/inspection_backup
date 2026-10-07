@@ -437,8 +437,14 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
     final bool isQuick = _isQuickInspection(item);
 
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
+        final prefs = await SharedPreferences.getInstance();
+        final userDept = int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
+        if (userDept == 2 || userDept == 5) {
+          context.go("/inspectiondetails", extra: jobId);
+          return;
+        }
         if (jobStatus == 10 || jobStatus == 11 || jobStatus == 18) {
           context.go("/reassigneddetails", extra: jobId);
           return;

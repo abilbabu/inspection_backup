@@ -235,16 +235,18 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                           padding: const EdgeInsets.all(8.0),
                           child: CustomButtonTwo(
                             text: " + CUSTOM INSPECTION",
-                            onPressed: () {
-                              context.push(
-                                "/inspectiontypedetailspage",
-                                extra: {
-                                  "jobId": widget.jobId,
-                                  "inspectionTypeId": 2,
-                                  "inspectionFormId": 0,
-                                },
-                              );
-                            },
+                            onPressed: (userDepartment == 2 || userDepartment == 5)
+                                ? null
+                                : () {
+                                    context.push(
+                                      "/inspectiontypedetailspage",
+                                      extra: {
+                                        "jobId": widget.jobId,
+                                        "inspectionTypeId": 2,
+                                        "inspectionFormId": 0,
+                                      },
+                                    );
+                                  },
                           ),
                         ),
                       ]
@@ -518,29 +520,32 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                     text: (item["inspectionFormName"] ?? "No Name")
                         .toUpperCase(),
                     textSize: 16,
-                    onPressed: () async {
-                      // PREDEFINED ALREADY ASSIGNED
-                      if (navigateDirectly) {
-                        context.push(
-                          "/inspectiontypedetailspage",
-                          extra: {
-                            "jobId": widget.jobId,
-                            "inspectionFormId": item["inspectionFormId"],
-                          },
-                        );
-                        return;
-                      }
+                    onPressed: (navigateDirectly && (userDepartment == 2 || userDepartment == 5))
+                        ? null
+                        : () async {
+                            // PREDEFINED ALREADY ASSIGNED
+                            if (navigateDirectly) {
+                              if (userDepartment == 2 || userDepartment == 5) return;
+                              context.push(
+                                "/inspectiontypedetailspage",
+                                extra: {
+                                  "jobId": widget.jobId,
+                                  "inspectionFormId": item["inspectionFormId"],
+                                },
+                              );
+                              return;
+                            }
 
-                      // FIRST TIME ASSIGNMENT
-                      if (userDepartment == 0 ||
-                          userDepartment == 1 ||
-                          userDepartment == 2 ||
-                          userDepartment == 5) {
-                        await showTechnicianBottomSheet(
-                          inspectionFormId: item["inspectionFormId"],
-                        );
-                      }
-                    },
+                            // FIRST TIME ASSIGNMENT
+                            if (userDepartment == 0 ||
+                                userDepartment == 1 ||
+                                userDepartment == 2 ||
+                                userDepartment == 5) {
+                              await showTechnicianBottomSheet(
+                                inspectionFormId: item["inspectionFormId"],
+                              );
+                            }
+                          },
                   ),
                 );
               },

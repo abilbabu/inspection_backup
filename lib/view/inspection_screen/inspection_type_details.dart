@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/utils/custom_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -50,6 +51,22 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final deptVal = prefs.get("userDepartment");
+      final deptId = int.tryParse(deptVal?.toString() ?? "0") ?? 0;
+      if (deptId == 2 || deptId == 5) {
+        if (mounted) {
+          CustomToast.showError(context, "Access Denied: Supervisors and Job Controllers cannot access inspection details.");
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go("/home");
+          }
+        }
+        return;
+      }
+
       final detailsController = context.read<InspectionTypeDetailsController>();
       final formController = context.read<InspectionFormController>();
 
