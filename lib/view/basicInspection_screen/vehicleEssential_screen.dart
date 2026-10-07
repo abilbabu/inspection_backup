@@ -11,7 +11,6 @@ import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
-import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:provider/provider.dart';
 import 'package:inspection/controller/signatureSpeech_controller .dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
@@ -38,10 +37,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
     super.initState();
     Future.microtask(() {
       final controller = context.read<VehicleessentialController>();
-      controller.getvehicleEssentialList();
-      if (widget.jobId != null) {
-        controller.fetchCustomerComplaint(widget.jobId!);
-      }
+      controller.initScreenData(widget.jobId);
     });
   }
 

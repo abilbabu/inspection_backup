@@ -21,6 +21,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 class VehicleessentialController extends ChangeNotifier {
   bool isLoading = false;
   bool isDataLoading = false;
+  int? currentJobId;
   Map<int, bool> selectedCheckBox = {};
   Map<int, String> checkBoxType = {};
   String notes = '';
@@ -117,6 +118,36 @@ class VehicleessentialController extends ChangeNotifier {
     }
   }
 
+  Future<void> initScreenData(int? jobId) async {
+    if (jobId == null) {
+      await getvehicleEssentialList();
+      return;
+    }
+
+    if (currentJobId != jobId) {
+      currentJobId = jobId;
+      selectedCheckBox.clear();
+      checkBoxType.clear();
+      notes = '';
+      notesController.clear();
+      complaintController.clear();
+      selectedDocumentTypeId = null;
+      _capturedImages = List.generate(1, (_) => null);
+      inspectionType = null;
+
+      await getvehicleEssentialList();
+      await fetchCustomerComplaint(jobId);
+    } else {
+      // Same job returned to: ensure essential list is loaded if it was empty, but preserve selections
+      if (checkBoxType.isEmpty) {
+        await getvehicleEssentialList();
+      }
+      if (complaintController.text.trim().isEmpty) {
+        await fetchCustomerComplaint(jobId);
+      }
+    }
+  }
+
   Future<void> fetchCustomerComplaint(int jobId) async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -135,8 +166,28 @@ class VehicleessentialController extends ChangeNotifier {
         if (basicResponse.statusCode == 200) {
           final basicDecoded = jsonDecode(basicResponse.body);
           final basicData = basicDecoded['data'];
-          if (basicData != null && basicData['jobInspectionType'] != null) {
-            inspectionType = basicData['jobInspectionType'].toString();
+          if (basicData != null) {
+            if (basicData['jobInspectionType'] != null) {
+              inspectionType = basicData['jobInspectionType'].toString();
+            }
+            if (selectedDocumentTypeId == null && basicData['vimDocType'] != null) {
+              selectedDocumentTypeId = int.tryParse(basicData['vimDocType'].toString());
+            }
+            if (notes.isEmpty && basicData['note'] != null && basicData['note'].toString().trim().isNotEmpty) {
+              notes = basicData['note'].toString().trim();
+              notesController.text = notes;
+            }
+            if (basicData['essentialDetails'] != null && basicData['essentialDetails'] is List) {
+              final savedEssentials = basicData['essentialDetails'] as List;
+              for (var ess in savedEssentials) {
+                if (ess is Map && ess['veId'] != null) {
+                  final veId = ess['veId'] as int;
+                  if (!selectedCheckBox.containsKey(veId) || selectedCheckBox[veId] == false) {
+                    selectedCheckBox[veId] = true;
+                  }
+                }
+              }
+            }
           }
         }
       } catch (e) {
@@ -158,7 +209,7 @@ class VehicleessentialController extends ChangeNotifier {
           if (inspectionType == null) {
             inspectionType = jobcard['inspectionType']?.toString();
           }
-          if (jobcard['customerComplaint'] != null) {
+          if (complaintController.text.trim().isEmpty && jobcard['customerComplaint'] != null) {
             complaintController.text = jobcard['customerComplaint'].toString();
           }
           notifyListeners();
@@ -194,8 +245,10 @@ class VehicleessentialController extends ChangeNotifier {
 
   Future<void> getvehicleEssentialList({String? defaultValue}) async {
     final url = Uri.parse(ApiServices.getvehicleEssentialList);
-    isDataLoading = true;
-    notifyListeners();
+    if (checkBoxType.isEmpty) {
+      isDataLoading = true;
+      notifyListeners();
+    }
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
@@ -208,14 +261,14 @@ class VehicleessentialController extends ChangeNotifier {
       );
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
-        final List list = res["data"];
+        final List list = res["data"] ?? [];
+        final existingSelections = Map<int, bool>.from(selectedCheckBox);
         checkBoxType.clear();
-        selectedCheckBox.clear();
         for (final item in list) {
           final int id = item["veId"];
           final String name = item["veName"];
           checkBoxType[id] = name;
-          selectedCheckBox[id] = false;
+          selectedCheckBox[id] = existingSelections[id] ?? false;
         }
       }
     } catch (e) {
@@ -347,7 +400,9 @@ class VehicleessentialController extends ChangeNotifier {
         "jobId": jobId,
         "vId": vId,
         "type": 0,
-        "note": notes,
+        "note": notesController.text.trim().isNotEmpty
+            ? notesController.text.trim()
+            : notes,
         "docType": selectedDocumentTypeId,
         "status": 2,
         "veId": getSelectedIds(),
@@ -398,7 +453,9 @@ class VehicleessentialController extends ChangeNotifier {
           "jobId": jobId,
           "vId": vId,
           "type": 0,
-          "note": notes,
+          "note": notesController.text.trim().isNotEmpty
+              ? notesController.text.trim()
+              : notes,
           "docType": selectedDocumentTypeId,
           "status": 2,
           "veId": getSelectedIds(),
@@ -433,17 +490,19 @@ class VehicleessentialController extends ChangeNotifier {
   void clearData() {
     isLoading = false;
     isDataLoading = false;
+    currentJobId = null;
     selectedCheckBox.clear();
     checkBoxType.clear();
     notes = '';
     notesController.clear();
     complaintController.clear();
     selectedDocumentTypeId = null;
-    _capturedImages[0] = null;
+    _capturedImages = List.generate(1, (_) => null);
     silenceTimer?.cancel();
     _speechToText.stop();
     isListening = false;
     showListeningUI = false;
+    inspectionType = null;
     notifyListeners();
   }
 }
