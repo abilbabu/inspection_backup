@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
+import 'package:inspection/view/inspection_screen/widgets/video_recapture_warning_dialog.dart';
 
 class BasicinspScreen extends StatefulWidget {
   final int jobId;
@@ -32,6 +33,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   CameraController? _cameraController;
   bool _isCameraReady = false;
   bool _isCapturing = false;
+  bool _isStarting = false;
   bool _isRecording = false;
   bool _isStopping = false;
 
@@ -328,42 +330,62 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Future<void> _startRecording(BasicinspController controller) async {
+    if (_isStarting ||
+        _isStopping ||
+        _isCapturing ||
+        _isRecording ||
+        controller.isBusy) {
+      return;
+    }
+    setState(() => _isStarting = true);
     if (!_isAudioEnabled) {
       await _initCamera(enableAudio: false);
     }
     final cam = _cameraController;
     if (cam == null ||
         !cam.value.isInitialized ||
-        cam.value.isRecordingVideo ||
-        _isRecording ||
-        _isStopping ||
-        controller.isBusy) {
+        cam.value.isRecordingVideo) {
+      if (mounted) setState(() => _isStarting = false);
       return;
     }
     final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
-    if (!hasMic) return;
+    if (!hasMic) {
+      if (mounted) setState(() => _isStarting = false);
+      return;
+    }
     try {
       await SecurityService.disableScreenshot();
       await cam.startVideoRecording();
       final maxDuration = controller.is360Stage
           ? controller.current360Duration
           : (controller.currentItem?['videoDuration'] ?? 30);
-      setState(() {
-        _isRecording = true;
-        _remainingSeconds = maxDuration;
-      });
+      if (mounted) {
+        setState(() {
+          _isStarting = false;
+          _isRecording = true;
+          _remainingSeconds = maxDuration;
+        });
+      }
       _recordTimer?.cancel();
       _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (_remainingSeconds <= 1) {
           _stopRecording(controller);
         } else {
-          setState(() {
-            _remainingSeconds--;
-          });
+          if (mounted) {
+            setState(() {
+              _remainingSeconds--;
+            });
+          }
         }
       });
     } catch (e) {
       await SecurityService.enableScreenshot();
+      if (mounted) {
+        setState(() {
+          _isStarting = false;
+          _isRecording = false;
+        });
+      }
     }
   }
 
@@ -922,7 +944,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
 
               // Shutter / Camera / Record Button
               GestureDetector(
-                onTap: (_isStopping || _isCapturing || controller.isBusy)
+                onTap: (_isStarting || _isStopping || _isCapturing || controller.isBusy)
                     ? null
                     : (controller.isVideoModeSelected || controller.is360Stage)
                     ? (_isRecording
@@ -934,14 +956,27 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                   height: 68,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: ColorConstants.buttonGradient,
-                    border: Border.all(color: Colors.white, width: 3),
+                    gradient: _isRecording
+                        ? const LinearGradient(
+                            colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : ColorConstants.buttonGradient,
+                    border: Border.all(
+                      color: _isRecording ? Colors.redAccent : Colors.white,
+                      width: 3,
+                    ),
                   ),
                   child: Center(
-                    child: (_isStopping || _isCapturing || controller.isVideoLoading || controller.isUploading)
-                        ? const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
+                    child: (_isStarting || _isStopping || _isCapturing || controller.isVideoLoading || controller.isUploading)
+                        ? const SizedBox(
+                            width: 26,
+                            height: 26,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
                           )
                         : Icon(
                             _isRecording
@@ -1140,26 +1175,45 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     final isBusy = controller.isBusy || _isRecording || _isStopping;
 
     return GestureDetector(
-      onTap: isBusy
-          ? null
-          : () async {
-              _notesFocusNode.unfocus();
-              if (videoFile != null && !isVideoLoading) {
-                // Open Video Preview directly if captured
-                await _handleImageTap(
-                  controller,
-                  imageIndex: 0,
-                  mediaType: MediaType.video,
-                  maxDuration: duration,
-                );
-              } else if (!isVideoLoading) {
-                // Select Video Mode
-                controller.selectVideoMode();
-                if (_cameraController == null || !_cameraController!.value.isInitialized) {
-                  _initCamera(enableAudio: true);
-                }
+      onTap: () async {
+        _notesFocusNode.unfocus();
+        if (isVideoLoading) {
+          final res = await VideoRecaptureWarningDialog.show(
+            context,
+            title: "Video is Processing",
+            bannerText: "Video operation is in progress",
+            content:
+                "A video capture or processing operation is already in progress. Please wait for it to finish, close this message, or delete the current video before attempting another capture.",
+            onDelete: () async {
+              await controller.removeCapturedVideo();
+              if (mounted &&
+                  (_cameraController == null ||
+                      !_cameraController!.value.isInitialized)) {
+                _initCamera(enableAudio: _isAudioEnabled);
               }
             },
+          );
+          return;
+        }
+        if (isBusy) return;
+
+        if (videoFile != null) {
+          // Open Video Preview directly if captured
+          await _handleImageTap(
+            controller,
+            imageIndex: 0,
+            mediaType: MediaType.video,
+            maxDuration: duration,
+          );
+        } else {
+          // Select Video Mode
+          controller.selectVideoMode();
+          if (_cameraController == null ||
+              !_cameraController!.value.isInitialized) {
+            _initCamera(enableAudio: true);
+          }
+        }
+      },
       child: Stack(
         clipBehavior: Clip.none,
         children: [

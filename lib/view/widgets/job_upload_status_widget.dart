@@ -35,6 +35,17 @@ class _JobUploadStatusWidgetState extends State<JobUploadStatusWidget> {
   void initState() {
     super.initState();
     _fetchStats();
+    NetworkSyncManager().addListener(_onSyncManagerUpdate);
+  }
+
+  void _onSyncManagerUpdate() {
+    _fetchStats();
+  }
+
+  @override
+  void dispose() {
+    NetworkSyncManager().removeListener(_onSyncManagerUpdate);
+    super.dispose();
   }
 
   Future<void> _fetchStats() async {
@@ -77,7 +88,6 @@ class _JobUploadStatusWidgetState extends State<JobUploadStatusWidget> {
     return ListenableBuilder(
       listenable: syncManager,
       builder: (context, _) {
-        _fetchStats();
         if (_isLoadingStats) {
           return const SizedBox.shrink();
         }

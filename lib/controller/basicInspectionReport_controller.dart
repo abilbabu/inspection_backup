@@ -49,72 +49,68 @@ class BasicInspectionReportController with ChangeNotifier {
 
   Future<void> initializeExternalVideo(String url) async {
     try {
-      externalVideoController?.dispose();
-      externalVideoController = VideoPlayerController.network(url);
-      await externalVideoController!.initialize();
-      externalVideoDuration = externalVideoController!.value.duration;
+      if (externalVideoController != null && isExternalVideoInitialized && external360Video == url) {
+        return;
+      }
+      final oldController = externalVideoController;
+      VideoPlayerController newController;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        newController = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else {
+        newController = VideoPlayerController.file(File(url));
+      }
+      await newController.initialize();
+      oldController?.removeListener(_externalVideoListener);
+      oldController?.dispose();
+
+      externalVideoController = newController;
+      externalVideoDuration = newController.value.duration;
       isExternalVideoInitialized = true;
       isExternalVideoPlaying = false;
-      externalVideoController!.addListener(_externalVideoListener);
+      newController.addListener(_externalVideoListener);
       notifyListeners();
     } catch (e) {
+      debugPrint("Error initializing external 360 video: $e");
     }
   }
 
   Future<void> initializeInternalVideo(String url) async {
     try {
-      internalVideoController?.dispose();
-      internalVideoController = VideoPlayerController.network(url);
-      await internalVideoController!.initialize();
-      internalVideoDuration = internalVideoController!.value.duration;
+      if (internalVideoController != null && isInternalVideoInitialized && internal360Video == url) {
+        return;
+      }
+      final oldController = internalVideoController;
+      VideoPlayerController newController;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        newController = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else {
+        newController = VideoPlayerController.file(File(url));
+      }
+      await newController.initialize();
+      oldController?.removeListener(_internalVideoListener);
+      oldController?.dispose();
+
+      internalVideoController = newController;
+      internalVideoDuration = newController.value.duration;
       isInternalVideoInitialized = true;
       isInternalVideoPlaying = false;
-      internalVideoController!.addListener(_internalVideoListener);
+      newController.addListener(_internalVideoListener);
       notifyListeners();
     } catch (e) {
+      debugPrint("Error initializing internal 360 video: $e");
     }
   }
 
   void _externalVideoListener() {
     if (externalVideoController == null) return;
-
-    final isPlaying = externalVideoController!.value.isPlaying;
-    final newPosition = externalVideoController!.value.position;
-
-    bool needsNotify = false;
-    if (isPlaying != isExternalVideoPlaying) {
-      isExternalVideoPlaying = isPlaying;
-      needsNotify = true;
-    }
-    if (newPosition.inSeconds != externalVideoPosition.inSeconds) {
-      externalVideoPosition = newPosition;
-      needsNotify = true;
-    }
-
-    if (needsNotify) {
-      notifyListeners();
-    }
+    isExternalVideoPlaying = externalVideoController!.value.isPlaying;
+    externalVideoPosition = externalVideoController!.value.position;
   }
 
   void _internalVideoListener() {
     if (internalVideoController == null) return;
-
-    final isPlaying = internalVideoController!.value.isPlaying;
-    final newPosition = internalVideoController!.value.position;
-
-    bool needsNotify = false;
-    if (isPlaying != isInternalVideoPlaying) {
-      isInternalVideoPlaying = isPlaying;
-      needsNotify = true;
-    }
-    if (newPosition.inSeconds != internalVideoPosition.inSeconds) {
-      internalVideoPosition = newPosition;
-      needsNotify = true;
-    }
-
-    if (needsNotify) {
-      notifyListeners();
-    }
+    isInternalVideoPlaying = internalVideoController!.value.isPlaying;
+    internalVideoPosition = internalVideoController!.value.position;
   }
 
   void toggleExternalPlayPause() {
@@ -156,18 +152,16 @@ class BasicInspectionReportController with ChangeNotifier {
   }
 
   Future<void> getBasicInspection(int jobId, {bool forceRefresh = false}) async {
-    if (forceRefresh) {
-      _loadedJobId = null;
-    }
-    if (_loadedJobId == jobId) {
+    final bool isInitial = _loadedJobId != jobId;
+    if (_loadedJobId == jobId && !forceRefresh) {
       isBasicInspectionLoading = false;
       notifyListeners();
       return;
     }
     _loadedJobId = jobId;
-    isBasicInspectionLoading = true;
-    notifyListeners();
-    try {
+    if (isInitial) {
+      isBasicInspectionLoading = true;
+      notifyListeners();
       externalVideoController?.dispose();
       internalVideoController?.dispose();
       externalVideoController = null;
@@ -186,6 +180,8 @@ class BasicInspectionReportController with ChangeNotifier {
       additionalImageGroups.clear();
       diagram = null;
       signature = null;
+    }
+    try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
       final response = await http.post(

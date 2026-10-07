@@ -8,6 +8,7 @@ import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
+import 'package:inspection/view/inspection_screen/widgets/video_recapture_warning_dialog.dart';
 import 'package:provider/provider.dart';
 
 class InspectionCard extends StatefulWidget {
@@ -73,6 +74,7 @@ class InspectionCard extends StatefulWidget {
 class _InspectionCardState extends State<InspectionCard> {
   final FocusNode noteFocusNode = FocusNode();
   final FocusNode descriptionFocusNode = FocusNode();
+  bool _isHandlingVideoTap = false;
 
   @override
   void dispose() {
@@ -665,62 +667,88 @@ class _InspectionCardState extends State<InspectionCard> {
 
   Widget _videoBox(InspectioncardController controller, BuildContext context) {
     return GestureDetector(
-      onTap: controller.isVideoLoading
-          ? null
-          : () async {
-              final rootContext = Navigator.of(
+      onTap: () async {
+        if (_isHandlingVideoTap) return;
+        _isHandlingVideoTap = true;
+        try {
+          if (controller.isVideoLoading) {
+            final dialogRes = await VideoRecaptureWarningDialog.show(
+              context,
+              title: "Video is Processing",
+              bannerText: "Video operation is in progress",
+              content:
+                  "A video capture or processing operation is already in progress. Please wait for it to finish, close this message, or delete the current video before attempting another capture.",
+              onDelete: () async {
+                await controller.removeCapturedVideo();
+              },
+            );
+            if (dialogRes == VideoRecaptureDialogResult.delete) {
+              controller.markChanged();
+            }
+            return;
+          }
+
+          final rootContext = Navigator.of(
+            context,
+            rootNavigator: true,
+          ).context;
+          if (controller.capturedVideo != null) {
+            final result = await Navigator.push<String>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => InspectionFullScreenVideo(
+                  videoUrl: controller.capturedVideo!.path,
+                  label: "Video",
+                ),
+              ),
+            );
+            if (result == "recapture") {
+              final formController = context.read<InspectionFormController>();
+              final allowed = await formController.checkUnsavedBeforeEditing(
                 context,
-                rootNavigator: true,
-              ).context;
-              if (controller.capturedVideo != null) {
-                final result = await Navigator.push<String>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => InspectionFullScreenVideo(
-                      videoUrl: controller.capturedVideo!.path,
-                      label: "Video",
-                    ),
-                  ),
-                );
-                if (result == "recapture") {
-                  final formController = context.read<InspectionFormController>();
-                  final allowed = await formController.checkUnsavedBeforeEditing(
-                    context,
-                    widget.taskid,
-                    controller,
-                  );
-                  if (!allowed) return;
-                  await controller.handleImageTap(
-                    rootContext,
-                    imageIndex: 0,
-                    mediaType: MediaType.video,
-                    isRecapture: true,
-                  );
-                  controller.markChanged();
-                }
-              } else {
-                final formController = context.read<InspectionFormController>();
-                final allowed = await formController.checkUnsavedBeforeEditing(
-                  context,
-                  widget.taskid,
-                  controller,
-                );
-                if (!allowed) return;
-                await controller.handleImageTap(
-                  rootContext,
-                  imageIndex: 0,
-                  mediaType: MediaType.video,
-                );
-                controller.markChanged();
-              }
-            },
+                widget.taskid,
+                controller,
+              );
+              if (!allowed) return;
+              await controller.handleImageTap(
+                rootContext,
+                imageIndex: 0,
+                mediaType: MediaType.video,
+                isRecapture: true,
+              );
+              controller.markChanged();
+            }
+          } else {
+            final formController = context.read<InspectionFormController>();
+            final allowed = await formController.checkUnsavedBeforeEditing(
+              context,
+              widget.taskid,
+              controller,
+            );
+            if (!allowed) return;
+            await controller.handleImageTap(
+              rootContext,
+              imageIndex: 0,
+              mediaType: MediaType.video,
+            );
+            controller.markChanged();
+          }
+        } finally {
+          _isHandlingVideoTap = false;
+        }
+      },
       child: _mediaBox(
         child: controller.isVideoLoading
             ? const Center(
                 child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      ColorConstants.syanColor,
+                    ),
+                  ),
                 ),
               )
             : controller.capturedVideo != null

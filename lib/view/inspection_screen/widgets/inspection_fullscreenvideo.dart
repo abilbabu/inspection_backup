@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/fullScreenVideos.dart';
+import 'package:inspection/view/inspection_screen/widgets/video_recapture_warning_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
@@ -30,6 +32,7 @@ class InspectionFullScreenVideo extends StatefulWidget {
 class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
   late VideoPlayerController _controller;
   bool _initialized = false;
+  bool _isHandlingRecapture = false;
 
   bool get _effectiveReadOnly =>
       widget.isReadOnly ||
@@ -54,6 +57,42 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleRecapture(
+    BuildContext context,
+    InspectionFullscreenVideoController controller,
+  ) async {
+    if (_isHandlingRecapture) return;
+    _isHandlingRecapture = true;
+    try {
+      if (controller.isUploading) {
+        final result = await VideoRecaptureWarningDialog.show(
+          context,
+          title: "Operation in Progress",
+          bannerText: "Video is currently being processed",
+          content:
+              "A video capture or processing operation is already in progress. Please wait for it to finish, close this message, or delete the current video before attempting another capture.",
+          onDelete: () async {
+            try {
+              final file = File(widget.videoUrl);
+              if (await file.exists()) {
+                await file.delete();
+              }
+            } catch (_) {}
+          },
+        );
+        if (result == VideoRecaptureDialogResult.delete && context.mounted) {
+          Navigator.pop(context, "recapture");
+        }
+        return;
+      }
+
+      debugPrint("Recapture triggered in fullscreen video");
+      Navigator.pop(context, "recapture");
+    } finally {
+      _isHandlingRecapture = false;
+    }
   }
 
   void _togglePlayPause() {
@@ -223,10 +262,7 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
                               right: 12,
                               child: GestureDetector(
                                 behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  debugPrint("Recapture clicked in fullscreen video");
-                                  Navigator.pop(context, "recapture");
-                                },
+                                onTap: () => _handleRecapture(context, controller),
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
@@ -276,10 +312,7 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
                   const SizedBox(height: 20),
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      debugPrint("Recapture clicked on video instruction row");
-                      Navigator.pop(context, "recapture");
-                    },
+                    onTap: () => _handleRecapture(context, controller),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(
@@ -348,15 +381,5 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
         ),
       ),
     );
-  }
-
-  Future<Size> _getVideoSize() async {
-    final value = _controller.value;
-
-    if (!value.isInitialized) {
-      return const Size(1, 1);
-    }
-
-    return Size(value.size.width, value.size.height);
   }
 }

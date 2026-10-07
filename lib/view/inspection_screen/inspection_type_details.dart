@@ -1210,8 +1210,20 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                   : CustomButtonWidget(
                       text: "SUBMIT INSPECTION REPORT",
                       textSize: 16,
-                      isDisabled: formController.savedTasks == 0,
+                      isDisabled: widget.inspectionTypeId == 2
+                          ? formController.savedTasks == 0
+                          : false,
                       onPressed: () async {
+                        if (widget.inspectionTypeId != 2) {
+                          if (formController.savedTasks < formController.totalTasks ||
+                              formController.savedTasks == 0) {
+                            CustomToast.showWarning(
+                              context,
+                              "No task inspections completed",
+                            );
+                            return;
+                          }
+                        }
                         if (_reInspectionTaskIds.isNotEmpty &&
                             _commentController.text.trim().isEmpty) {
                           CustomToast.showWarning(context, "Technician Comments are mandatory when re-inspection items are selected.");

@@ -381,6 +381,16 @@ class InspectioncardController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> removeCapturedVideo() async {
+    if (_capturedVideo != null) {
+      await _deleteOldVideo(_capturedVideo);
+      _capturedVideo = null;
+    }
+    isVideoLoading = false;
+    markChanged();
+    notifyListeners();
+  }
+
   Future<void> _deleteOldVideo(File? file) async {
     try {
       if (file != null && await file.exists()) {

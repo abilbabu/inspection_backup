@@ -33,6 +33,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   CameraController? _controller;
   bool _ready = false;
   bool _isCapturing = false;
+  bool _isStarting = false;
   bool _isRecording = false;
   bool _isStopping = false;
   double _currentZoom = 1.0;
@@ -155,6 +156,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Future<void> _takePhoto() async {
     if (_isCapturing ||
+        _isStarting ||
         _isRecording ||
         _isStopping ||
         _controller == null ||
@@ -204,16 +206,26 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Future<void> _startRecording() async {
-    if (_controller == null ||
+    if (_isStarting ||
+        _isStopping ||
+        _isCapturing ||
+        _isRecording ||
+        _controller == null ||
         !_controller!.value.isInitialized ||
-        _controller!.value.isRecordingVideo ||
-        _isRecording) {
+        _controller!.value.isRecordingVideo) {
       return;
     }
+    setState(() {
+      _isStarting = true;
+      _isCapturing = true;
+    });
     try {
       await SecurityService.disableScreenshot();
       await _controller!.startVideoRecording();
+      if (!mounted) return;
       setState(() {
+        _isStarting = false;
+        _isCapturing = false;
         _isRecording = true;
         _remainingSeconds = _maxVideoSeconds;
       });
@@ -222,24 +234,38 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         if (_remainingSeconds <= 1) {
           _stopRecording();
         } else {
-          setState(() {
-            _remainingSeconds--;
-          });
+          if (mounted) {
+            setState(() {
+              _remainingSeconds--;
+            });
+          }
         }
       });
     } catch (e) {
       await SecurityService.enableScreenshot();
+      if (mounted) {
+        setState(() {
+          _isStarting = false;
+          _isCapturing = false;
+          _isRecording = false;
+        });
+      }
     }
   }
 
   Future<void> _stopRecording() async {
-    if (_controller == null || !_controller!.value.isRecordingVideo || _isStopping) return;
+    if (_isStopping ||
+        _controller == null ||
+        !_controller!.value.isRecordingVideo) {
+      return;
+    }
+    _recordTimer?.cancel();
+    setState(() {
+      _isStopping = true;
+    });
     try {
-      setState(() {
-        _isStopping = true;
-      });
-      _recordTimer?.cancel();
       final XFile file = await _controller!.stopVideoRecording();
+      if (!mounted) return;
       setState(() {
         _isRecording = false;
         _isStopping = false;
@@ -525,34 +551,62 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   Widget _buildCaptureButton() {
+    final bool isBusy = _isStarting || _isStopping || _isCapturing;
     return GestureDetector(
-      onTap: (_isStopping || _isCapturing)
+      onTap: isBusy
           ? null
           : widget.isVideo
           ? (_isRecording ? _stopRecording : _startRecording)
           : _takePhoto,
-      child: Container(
-        width: 70,
-        height: 70,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 74,
+        height: 74,
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: ColorConstants.buttonGradient,
+          border: Border.all(
+            color: _isRecording ? Colors.redAccent : Colors.white,
+            width: 3,
+          ),
+          color: Colors.black26,
         ),
-        child: Center(
-          child: (_isStopping || _isCapturing)
-              ? const CircularProgressIndicator(
-                  color: ColorConstants.whiteColor,
-                  strokeWidth: 2,
-                )
-              : Icon(
-                  _isRecording
-                      ? Icons.stop
-                      : widget.isVideo
-                      ? Icons.camera
-                      : Icons.camera,
-                  color: ColorConstants.whiteColor,
-                  size: 40,
-                ),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: _isRecording
+                ? const LinearGradient(
+                    colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : ColorConstants.buttonGradient,
+          ),
+          child: Center(
+            child: isBusy
+                ? const SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      color: ColorConstants.whiteColor,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : _isRecording
+                ? Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  )
+                : Icon(
+                    widget.isVideo ? Icons.videocam : Icons.camera_alt,
+                    color: ColorConstants.whiteColor,
+                    size: 32,
+                  ),
+          ),
         ),
       ),
     );
