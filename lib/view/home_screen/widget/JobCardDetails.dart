@@ -505,8 +505,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
     InspectionsummarypageController controller,
     Map<String, dynamic> item,
   ) {
+    final userDept = context.read<JobcarddetailsController>().userDepartment;
     return InkWell(
-      onTap: () {
+      onTap: (userDept == 2 || userDept == 5) ? null : () {
         final rawJobId = item['jobId'];
         final rawInspections = item['inspections'];
         final inspectionTypeid = controller.vimInspectionTypeId;
