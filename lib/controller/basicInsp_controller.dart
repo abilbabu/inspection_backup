@@ -1409,6 +1409,7 @@ class BasicinspController extends ChangeNotifier {
         "inspectionNote": inspectionNote,
         "additionalComment": additionalComment,
         "attachType": currentAttachType.toString(),
+        "stage": currentStageKey,
       };
 
       await LocalUploadStorageService.enqueueOfflineTask(

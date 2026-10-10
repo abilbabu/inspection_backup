@@ -318,8 +318,7 @@ class BasicInspectionReportController with ChangeNotifier {
             final bool is360 = iaImageType == 10 ||
                 item["is360"] == true ||
                 item["attachType"] == 10 ||
-                item["attachType"] == "10" ||
-                item["iaInspectionType"] == 0;
+                item["attachType"] == "10";
             if (iaType == 2 && is360) {
               external360Video = cleanUrl;
               external360Comment = item["iaInspectionNote"];
@@ -360,8 +359,7 @@ class BasicInspectionReportController with ChangeNotifier {
             final bool is360 = iaImageType == 10 ||
                 item["is360"] == true ||
                 item["attachType"] == 10 ||
-                item["attachType"] == "10" ||
-                item["iaInspectionType"] == 1;
+                item["attachType"] == "10";
             if (iaType == 2 && is360) {
               internal360Video = cleanUrl;
               internal360Comment = item["iaInspectionNote"];
@@ -457,18 +455,23 @@ class BasicInspectionReportController with ChangeNotifier {
         for (var task in pendingQueue) {
           if (task.jobId == jobId) {
             for (var m in task.mediaItems) {
-              if (m.is360 ||
+              final isTask360 = m.is360 ||
                   task.fields["attachType"] == "10" ||
                   task.fields["inspectionImageId"] == "-10" ||
-                  task.fields["inspectionImageId"] == "-20") {
+                  task.fields["inspectionImageId"] == "-20";
+              if (isTask360) {
                 final f = File(m.filePath);
                 if (f.existsSync()) {
-                  final isExternal = task.fields["stage"] == "external360" ||
-                      task.fields["inspectionImageId"] == "-10" ||
-                      (task.fields["iaInspectionType"] ?? "0") == "0";
+                  final stage = task.fields["stage"] ?? "";
+                  final isExternal = stage == "external360" ||
+                      stage == "external_360" ||
+                      task.fields["inspectionImageId"] == "-10";
+                  final isInternal = stage == "internal360" ||
+                      stage == "internal_360" ||
+                      task.fields["inspectionImageId"] == "-20";
                   if (isExternal) {
                     external360Video ??= m.filePath;
-                  } else {
+                  } else if (isInternal) {
                     internal360Video ??= m.filePath;
                   }
                 }
@@ -478,7 +481,9 @@ class BasicInspectionReportController with ChangeNotifier {
         }
 
         final extDraft = await LocalUploadStorageService.getDraftMedia(
-            jobId: jobId, stageKey: 'external360');
+                jobId: jobId, stageKey: 'external_360') ??
+            await LocalUploadStorageService.getDraftMedia(
+                jobId: jobId, stageKey: 'external360');
         if (extDraft != null && extDraft['video'] is File) {
           final file = extDraft['video'] as File;
           if (file.existsSync()) {
@@ -486,7 +491,9 @@ class BasicInspectionReportController with ChangeNotifier {
           }
         }
         final intDraft = await LocalUploadStorageService.getDraftMedia(
-            jobId: jobId, stageKey: 'internal360');
+                jobId: jobId, stageKey: 'internal_360') ??
+            await LocalUploadStorageService.getDraftMedia(
+                jobId: jobId, stageKey: 'internal360');
         if (intDraft != null && intDraft['video'] is File) {
           final file = intDraft['video'] as File;
           if (file.existsSync()) {
