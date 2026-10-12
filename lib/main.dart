@@ -7,6 +7,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:inspection/config/multiProviderAccess/multiProviderAccess.dart';
 import 'package:inspection/router_services/router_services.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
+import 'package:inspection/utils/storage_audit_service.dart';
+import 'package:inspection/utils/storage_cleanup_service.dart';
 
 List<CameraDescription> cameras = [];
 
@@ -15,6 +17,9 @@ Future<void> main() async {
   CameraPlatform.instance = AndroidCamera();
   await dotenv.load(fileName: ".env");
   NetworkSyncManager().initialize();
+  // Safe background routine cleanup and storage diagnostics
+  StorageCleanupService.instance.runRoutineCleanup();
+  StorageAuditService.instance.logSnapshot("App Startup");
   cameras = await availableCameras();
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

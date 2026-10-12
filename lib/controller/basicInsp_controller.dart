@@ -362,6 +362,13 @@ class BasicinspController extends ChangeNotifier {
         if (result is File) {
           if (mediaType == MediaType.image) {
             final compressed = await compressImage(result, angle: currentAngle);
+            if (compressed.path != result.path) {
+              try {
+                if (await result.exists()) {
+                  await result.delete();
+                }
+              } catch (_) {}
+            }
             if (imageIndex >= 0 && imageIndex < _capturedImages.length) {
               await _deleteOldImage(_capturedImages[imageIndex], exceptFile: compressed);
               _capturedImages[imageIndex] = compressed;
@@ -370,6 +377,13 @@ class BasicinspController extends ChangeNotifier {
             }
           } else {
             final compressedVideo = await compressVideo(result);
+            if (compressedVideo.path != result.path) {
+              try {
+                if (await result.exists()) {
+                  await result.delete();
+                }
+              } catch (_) {}
+            }
             await _deleteOldVideo(_capturedVideo, exceptFile: compressedVideo);
             _capturedVideo = compressedVideo;
           }

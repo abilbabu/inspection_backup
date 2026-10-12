@@ -352,11 +352,25 @@ class InspectioncardController extends ChangeNotifier {
         if (result is File) {
           if (mediaType == MediaType.image) {
             final compressed = await compressImage(result);
+            if (compressed.path != result.path) {
+              try {
+                if (await result.exists()) {
+                  await result.delete();
+                }
+              } catch (_) {}
+            }
             await _deleteOldImage(_capturedImages[imageIndex]);
             _capturedImages[imageIndex] = compressed;
             setAngleAt(imageIndex, currentAngle);
           } else {
             final compressedVideo = await compressVideo(result);
+            if (compressedVideo.path != result.path) {
+              try {
+                if (await result.exists()) {
+                  await result.delete();
+                }
+              } catch (_) {}
+            }
             await _deleteOldVideo(_capturedVideo);
             _capturedVideo = compressedVideo;
           }
@@ -778,6 +792,19 @@ class InspectioncardController extends ChangeNotifier {
           ? jsonDecode(response.data)
           : response.data;
       if (response.statusCode == 200) {
+        // Safe cleanup: The media has been successfully uploaded to the server.
+        // Clean up temporary local files so they don't occupy storage permanently.
+        for (final img in _capturedImages) {
+          if (img != null) {
+            await LocalUploadStorageService.cleanupFile(img.path);
+          }
+        }
+        if (_capturedVideo != null) {
+          await LocalUploadStorageService.cleanupFile(_capturedVideo!.path);
+        }
+        if (recordedFilePath != null) {
+          await LocalUploadStorageService.cleanupFile(recordedFilePath);
+        }
         return ApiResponse(
           success: true,
           data: decoded?['data'],
