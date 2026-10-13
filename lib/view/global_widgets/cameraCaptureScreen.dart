@@ -58,6 +58,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _maxVideoSeconds = widget.videoDuration ?? 30;
     _remainingSeconds = _maxVideoSeconds;
+    _flashMode = widget.isVideo ? FlashMode.off : FlashMode.auto;
     _initCamera();
   }
 
@@ -132,17 +133,46 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   Future<void> _toggleFlash() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
-    setState(() {
-      _flashMode = _flashMode == FlashMode.off
-          ? FlashMode.auto
-          : _flashMode == FlashMode.auto
-          ? FlashMode.always
-          : FlashMode.off;
-    });
+
+    FlashMode nextMode;
+    if (widget.isVideo || _isRecording) {
+      // In video capture mode or while recording: toggle flashlight (torch) ON / OFF
+      nextMode = _flashMode == FlashMode.torch ? FlashMode.off : FlashMode.torch;
+    } else {
+      // In photo capture mode: cycle off -> auto -> always -> torch -> off
+      switch (_flashMode) {
+        case FlashMode.off:
+          nextMode = FlashMode.auto;
+          break;
+        case FlashMode.auto:
+          nextMode = FlashMode.always;
+          break;
+        case FlashMode.always:
+          nextMode = FlashMode.torch;
+          break;
+        case FlashMode.torch:
+          nextMode = FlashMode.off;
+          break;
+      }
+    }
+
     try {
-      await _controller!.setFlashMode(_flashMode);
-    } on CameraException catch (_) {
-      _flashMode = FlashMode.off;
+      await _controller!.setFlashMode(nextMode);
+      if (mounted) {
+        setState(() {
+          _flashMode = nextMode;
+        });
+      }
+    } on CameraException catch (e) {
+      debugPrint("CameraException setting flash mode: $e");
+      try {
+        await _controller!.setFlashMode(FlashMode.off);
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _flashMode = FlashMode.off;
+        });
+      }
     }
   }
 
@@ -154,8 +184,20 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         return Icons.flash_auto;
       case FlashMode.always:
         return Icons.flash_on;
-      default:
-        return Icons.flash_off;
+      case FlashMode.torch:
+        return Icons.flashlight_on;
+    }
+  }
+
+  Color get _flashColor {
+    switch (_flashMode) {
+      case FlashMode.torch:
+        return Colors.amberAccent;
+      case FlashMode.always:
+        return Colors.amber;
+      case FlashMode.auto:
+      case FlashMode.off:
+        return ColorConstants.whiteColor;
     }
   }
 
@@ -206,6 +248,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         CustomToast.showError(context, "Failed to capture photo: ${e.toString()}");
       }
     } finally {
+      if (!widget.isVideo && _flashMode == FlashMode.torch) {
+        try {
+          _controller?.setFlashMode(FlashMode.auto);
+          _flashMode = FlashMode.auto;
+        } catch (_) {}
+      }
       if (mounted) setState(() => _isCapturing = false);
     }
   }
@@ -227,6 +275,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     try {
       await SecurityService.disableScreenshot();
       await _controller!.startVideoRecording();
+
+      // If user enabled flashlight via icon, keep it ON during recording
+      if (_flashMode == FlashMode.torch) {
+        try {
+          await _controller!.setFlashMode(FlashMode.torch);
+        } catch (e) {
+          debugPrint("Failed to re-apply flashlight during video recording: $e");
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _isStarting = false;
@@ -271,6 +329,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     try {
       final XFile file = await _controller!.stopVideoRecording();
       final videoFile = File(file.path);
+
+      // Automatically turn flashlight OFF when recording ends if it was ON
+      if (_flashMode == FlashMode.torch) {
+        try {
+          await _controller!.setFlashMode(FlashMode.off);
+          _flashMode = FlashMode.off;
+        } catch (_) {}
+      }
+
       if (!mounted) return;
       setState(() {
         _isRecording = false;
@@ -417,6 +484,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     _debounce?.cancel();
     _recordTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    try {
+      _controller?.setFlashMode(FlashMode.off);
+    } catch (_) {}
     _controller?.dispose();
     _controller = null;
     SystemChrome.setPreferredOrientations([
@@ -475,7 +545,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 child: IconButton(
                   icon: Icon(
                     _flashIcon,
-                    color: ColorConstants.whiteColor,
+                    color: _flashColor,
                     size: 28,
                   ),
                   onPressed: _toggleFlash,

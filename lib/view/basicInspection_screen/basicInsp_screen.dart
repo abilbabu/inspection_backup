@@ -48,6 +48,9 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   final List<double> baseLevels = [1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
   int _zoomIndex = 0;
   FlashMode _flashMode = FlashMode.auto;
+  int? _trackedStep;
+  InspectionStage? _trackedStage;
+  bool? _trackedVideoMode;
 
   Timer? _recordTimer;
   int _remainingSeconds = 30;
@@ -238,25 +241,83 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     WidgetsBinding.instance.removeObserver(this);
     _notesFocusNode.dispose();
     _recordTimer?.cancel();
+    try {
+      _cameraController?.setFlashMode(FlashMode.off);
+    } catch (_) {}
     _cameraController?.dispose();
     _cameraController = null;
     super.dispose();
   }
 
-  Future<void> _toggleFlash() async {
+  Future<void> _toggleFlash({bool? isVideoMode}) async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
     }
-    setState(() {
-      _flashMode = _flashMode == FlashMode.off
-          ? FlashMode.auto
-          : _flashMode == FlashMode.auto
-          ? FlashMode.always
-          : FlashMode.off;
-    });
+    final controller = _inspController;
+    final bool inVideo = isVideoMode ??
+        _isRecording ||
+        (controller != null &&
+            (controller.isVideoModeSelected || controller.is360Stage));
+
+    FlashMode nextMode;
+    if (inVideo) {
+      // In video mode or recording: toggle flashlight (torch) ON / OFF
+      nextMode = _flashMode == FlashMode.torch ? FlashMode.off : FlashMode.torch;
+    } else {
+      // In photo mode: cycle off -> auto -> always -> torch -> off
+      switch (_flashMode) {
+        case FlashMode.off:
+          nextMode = FlashMode.auto;
+          break;
+        case FlashMode.auto:
+          nextMode = FlashMode.always;
+          break;
+        case FlashMode.always:
+          nextMode = FlashMode.torch;
+          break;
+        case FlashMode.torch:
+          nextMode = FlashMode.off;
+          break;
+      }
+    }
+
     try {
-      await _cameraController!.setFlashMode(_flashMode);
-    } catch (_) {}
+      await _cameraController!.setFlashMode(nextMode);
+      if (mounted) {
+        setState(() {
+          _flashMode = nextMode;
+        });
+      }
+    } catch (e) {
+      debugPrint("CameraException setting flash mode: $e");
+      try {
+        await _cameraController!.setFlashMode(FlashMode.off);
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _flashMode = FlashMode.off;
+        });
+      }
+    }
+  }
+
+  Future<void> _resetFlashForSection([BasicinspController? ctrl]) async {
+    final controller = ctrl ?? _inspController;
+    final bool isVideo = controller != null &&
+        (controller.isVideoModeSelected || controller.is360Stage);
+    final targetMode = isVideo ? FlashMode.off : FlashMode.auto;
+
+    _flashMode = targetMode;
+    if (_cameraController != null && _cameraController!.value.isInitialized) {
+      try {
+        await _cameraController!.setFlashMode(targetMode);
+      } catch (e) {
+        debugPrint("Error resetting flash for section: $e");
+      }
+    }
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   IconData get _flashIcon {
@@ -267,8 +328,20 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         return Icons.flash_auto;
       case FlashMode.always:
         return Icons.flash_on;
-      default:
-        return Icons.flash_off;
+      case FlashMode.torch:
+        return Icons.flashlight_on;
+    }
+  }
+
+  Color get _flashColor {
+    switch (_flashMode) {
+      case FlashMode.torch:
+        return Colors.amberAccent;
+      case FlashMode.always:
+        return Colors.amber;
+      case FlashMode.auto:
+      case FlashMode.off:
+        return Colors.white;
     }
   }
 
@@ -302,6 +375,9 @@ class _BasicinspScreenState extends State<BasicinspScreen>
 
     if (_cameraController != null) {
       try {
+        await _cameraController!.setFlashMode(FlashMode.off);
+      } catch (_) {}
+      try {
         await _cameraController!.dispose();
       } catch (_) {}
       _cameraController = null;
@@ -322,6 +398,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     } finally {
       if (mounted) {
         await _initCamera(enableAudio: _isAudioEnabled);
+        await _resetFlashForSection(controller);
       }
     }
   }
@@ -350,6 +427,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       if (controller.isMaxImagesCaptured) {
         if (controller.hasVideoRequirement) {
           controller.selectVideoMode();
+          if (_flashMode == FlashMode.auto || _flashMode == FlashMode.always) {
+            _flashMode = FlashMode.off;
+            _cameraController?.setFlashMode(FlashMode.off).catchError((_) {});
+          }
           if (!_isAudioEnabled) {
             await _initCamera(enableAudio: false);
           }
@@ -399,12 +480,21 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         photoFile,
         angle: angle,
       );
+      if (mounted) {
+        _resetFlashForSection(controller);
+      }
     } catch (e) {
       debugPrint("Error in _takePhoto: $e");
       if (mounted) {
         CustomToast.showError(context, "Failed to capture photo: ${e.toString()}");
       }
     } finally {
+      if (_flashMode == FlashMode.torch) {
+        try {
+          await _cameraController?.setFlashMode(FlashMode.auto);
+          _flashMode = FlashMode.auto;
+        } catch (_) {}
+      }
       if (mounted) setState(() => _isCapturing = false);
     }
   }
@@ -436,6 +526,16 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     try {
       await SecurityService.disableScreenshot();
       await cam.startVideoRecording();
+
+      // If user enabled flashlight via icon, keep it ON during recording
+      if (_flashMode == FlashMode.torch) {
+        try {
+          await cam.setFlashMode(FlashMode.torch);
+        } catch (e) {
+          debugPrint("Failed to re-apply flashlight during video recording: $e");
+        }
+      }
+
       final maxDuration = controller.is360Stage
           ? controller.current360Duration
           : (controller.currentItem?['videoDuration'] ?? 30);
@@ -477,6 +577,15 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       _recordTimer?.cancel();
       final XFile file = await cam.stopVideoRecording();
       final videoFile = File(file.path);
+
+      // Automatically turn flashlight OFF when recording ends if it was ON
+      if (_flashMode == FlashMode.torch) {
+        try {
+          await cam.setFlashMode(FlashMode.off);
+          _flashMode = FlashMode.off;
+        } catch (_) {}
+      }
+
       setState(() {
         _isRecording = false;
         _isStopping = false;
@@ -525,6 +634,25 @@ class _BasicinspScreenState extends State<BasicinspScreen>
             child: Consumer<BasicinspController>(
               builder: (context, controller, child) {
                 _inspController = controller;
+
+                // Next Section: Reset flashlight when moving to next step, stage, or mode
+                final bool isVideo = controller.isVideoModeSelected || controller.is360Stage;
+                final bool sectionChanged = _trackedStep != null &&
+                    (_trackedStep != controller.currentStep ||
+                     _trackedStage != controller.currentStage ||
+                     _trackedVideoMode != isVideo);
+                _trackedStep = controller.currentStep;
+                _trackedStage = controller.currentStage;
+                _trackedVideoMode = isVideo;
+
+                if (sectionChanged && !_isRecording) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_isRecording) {
+                      _resetFlashForSection(controller);
+                    }
+                  });
+                }
+
                 if (controller.isLoading) {
                   return Padding(
                     padding: const EdgeInsets.all(16),
@@ -818,8 +946,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            icon: Icon(_flashIcon, color: Colors.white, size: 22),
-            onPressed: _toggleFlash,
+            icon: Icon(_flashIcon, color: _flashColor, size: 22),
+            onPressed: () => _toggleFlash(
+              isVideoMode: controller.isVideoModeSelected ||
+                  controller.is360Stage ||
+                  _isRecording,
+            ),
           ),
         ],
       ),
@@ -1030,6 +1162,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                               : () {
                                   _notesFocusNode.unfocus();
                                   controller.skipStep(context);
+                                  _resetFlashForSection(controller);
                                 },
                         ),
                       )
@@ -1115,6 +1248,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                           if (success) {
                             controller.nextStep(context);
                             controller.notesController.clear();
+                            _resetFlashForSection(controller);
                             if (_cameraController == null || !_cameraController!.value.isInitialized) {
                               _initCamera(enableAudio: controller.isVideoModeSelected || controller.is360Stage);
                             }
@@ -1161,6 +1295,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
               } else {
                 // Focus this box for upcoming photo capture
                 controller.selectBoxIndex(index);
+                _resetFlashForSection(controller);
                 if (_cameraController == null || !_cameraController!.value.isInitialized) {
                   _initCamera(enableAudio: _isAudioEnabled);
                 }
@@ -1302,6 +1437,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         } else {
           // Select Video Mode
           controller.selectVideoMode();
+          _resetFlashForSection(controller);
           if (_cameraController == null ||
               !_cameraController!.value.isInitialized) {
             _initCamera(enableAudio: true);
