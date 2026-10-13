@@ -13,6 +13,7 @@ class LocalUploadStorageService {
     if (sourcePath.isEmpty) return sourcePath;
     final file = File(sourcePath);
     if (!await file.exists()) return sourcePath;
+    if (sourcePath.contains('offline_media')) return sourcePath;
 
     try {
       final docDir = await getApplicationDocumentsDirectory();

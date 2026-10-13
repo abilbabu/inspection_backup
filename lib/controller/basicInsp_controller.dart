@@ -982,13 +982,18 @@ class BasicinspController extends ChangeNotifier {
 
   Future<void> updateCapturedVideo(File videoFile) async {
     try {
-      await _deleteOldVideo(_capturedVideo);
+      if (!await videoFile.exists() || await videoFile.length() <= 0) {
+        debugPrint("⚠️ [BasicinspController] Invalid video file: ${videoFile.path}");
+        return;
+      }
+      await _deleteOldVideo(_capturedVideo, exceptFile: videoFile);
       _capturedVideo = videoFile;
     } catch (e) {
+      debugPrint("⚠️ [BasicinspController] Error updating captured video: $e");
     } finally {
       isVideoLoading = false;
       notifyListeners();
-      _persistCurrentDraftMedia();
+      await _persistCurrentDraftMedia();
     }
   }
 
@@ -1837,14 +1842,34 @@ class VideoPreviewWidget extends StatefulWidget {
 
 class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
   late VideoPlayerController _controller;
+  bool _isInit = false;
+
   @override
   void initState() {
     super.initState();
+    _initPlayer();
+  }
+
+  void _initPlayer() {
+    _isInit = false;
     _controller = VideoPlayerController.file(widget.file)
       ..initialize().then((_) {
-        _controller.pause();
-        setState(() {});
+        if (mounted) {
+          _controller.pause();
+          setState(() => _isInit = true);
+        }
+      }).catchError((e) {
+        debugPrint("Error initializing VideoPreviewWidget: $e");
       });
+  }
+
+  @override
+  void didUpdateWidget(VideoPreviewWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.file.path != widget.file.path) {
+      _controller.dispose();
+      _initPlayer();
+    }
   }
 
   @override
@@ -1855,8 +1880,13 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_controller.value.isInitialized) {
-      return Container(color: Colors.black12);
+    if (!_isInit || !_controller.value.isInitialized) {
+      return Container(
+        color: Colors.black26,
+        child: const Center(
+          child: Icon(Icons.videocam, color: Colors.white54, size: 28),
+        ),
+      );
     }
     return FittedBox(
       fit: BoxFit.cover,

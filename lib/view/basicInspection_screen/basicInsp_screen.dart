@@ -36,6 +36,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   bool _isStarting = false;
   bool _isRecording = false;
   bool _isStopping = false;
+  BasicinspController? _inspController;
+  bool _isHandlingPause = false;
+  AppLifecycleState? _lastLifecycleState;
+  int _cameraInitCounter = 0;
 
   double _currentZoom = 1.0;
   double _minZoom = 1.0;
@@ -71,8 +75,11 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       _cameraController = null;
     }
 
-    final hasPermission = await PermissionService.instance.requestCameraPermission(context);
-    if (!hasPermission) return;
+    final status = await Permission.camera.status;
+    if (!status.isGranted) {
+      final hasPermission = await PermissionService.instance.requestCameraPermission(context);
+      if (!hasPermission) return;
+    }
     final bool hasMic = enableAudio ? await Permission.microphone.isGranted : false;
     try {
       final cameras = await availableCameras();
@@ -123,6 +130,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       }
       _cameraController = controller;
       _isAudioEnabled = enableAudio && hasMic;
+      _cameraInitCounter++;
       setState(() => _isCameraReady = true);
     } catch (e) {
       debugPrint("Error in _initCamera: $e");
@@ -132,23 +140,95 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final CameraController? cameraController = _cameraController;
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
-      if (mounted && _isCameraReady) {
+  Future<void> _handleAppPaused() async {
+    if (_isHandlingPause) return;
+    _isHandlingPause = true;
+
+    try {
+      _recordTimer?.cancel();
+      final cam = _cameraController;
+      if (cam != null && cam.value.isInitialized && cam.value.isRecordingVideo) {
+        try {
+          final XFile file = await cam.stopVideoRecording();
+          final videoFile = File(file.path);
+          if (await videoFile.exists() && await videoFile.length() > 0) {
+            if (_inspController != null) {
+              await _inspController!.updateCapturedVideo(videoFile);
+            }
+          }
+        } catch (e) {
+          debugPrint("⚠️ Error auto-saving video on app pause: $e");
+        }
+      }
+    } finally {
+      _isRecording = false;
+      _isStarting = false;
+      _isStopping = false;
+      await SecurityService.enableScreenshot();
+      if (mounted) {
         setState(() => _isCameraReady = false);
       }
-      if (cameraController != null) {
-        cameraController.dispose();
-        _cameraController = null;
-      }
-    } else if (state == AppLifecycleState.resumed) {
-      Permission.camera.status.then((status) {
-        if (status.isGranted && mounted) {
-          _initCamera(enableAudio: _isAudioEnabled);
-        }
+      try {
+        await _cameraController?.dispose();
+      } catch (_) {}
+      _cameraController = null;
+      _isHandlingPause = false;
+    }
+  }
+
+  Future<void> _handleAppResumed() async {
+    while (_isHandlingPause) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    if (!mounted) return;
+
+    // Ensure recording UI state is cleared on reopen so it never shows stuck recording
+    _recordTimer?.cancel();
+    if (_isRecording || _isStarting || _isStopping) {
+      setState(() {
+        _isRecording = false;
+        _isStarting = false;
+        _isStopping = false;
       });
+    }
+
+    // Delay for Android Surface/Activity to be fully active before reopening camera
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    try {
+      final status = await Permission.camera.status;
+      if (status.isGranted && mounted) {
+        // Live viewfinder preview ONLY needs video stream (enableAudio: false) to prevent audio conflicts
+        await _initCamera(enableAudio: false);
+      }
+      if (_inspController != null) {
+        await _inspController!.loadDraftMediaForCurrentStep();
+      }
+    } catch (e) {
+      debugPrint("⚠️ Error in _handleAppResumed: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _isStarting = false;
+          _isStopping = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final previous = _lastLifecycleState;
+    _lastLifecycleState = state;
+
+    // Only pause when actively going from foreground to background
+    if (state == AppLifecycleState.paused ||
+        (state == AppLifecycleState.inactive && previous == AppLifecycleState.resumed)) {
+      _handleAppPaused();
+    } else if (state == AppLifecycleState.resumed) {
+      _handleAppResumed();
     }
   }
 
@@ -396,14 +476,23 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       setState(() => _isStopping = true);
       _recordTimer?.cancel();
       final XFile file = await cam.stopVideoRecording();
+      final videoFile = File(file.path);
       setState(() {
         _isRecording = false;
         _isStopping = false;
       });
-      await controller.updateCapturedVideo(File(file.path));
+      if (await videoFile.exists() && await videoFile.length() > 0) {
+        await controller.updateCapturedVideo(videoFile);
+      }
       // Video captured into box; camera stays open without auto-preview popup.
     } catch (e) {
-      if (mounted) setState(() => _isStopping = false);
+      debugPrint("Error in _stopRecording: $e");
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _isStopping = false;
+        });
+      }
     } finally {
       await SecurityService.enableScreenshot();
     }
@@ -414,6 +503,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     return ChangeNotifierProvider(
       create: (_) {
         final controller = BasicinspController(jobId: widget.jobId);
+        _inspController = controller;
         Future.microtask(() async {
           await controller.getBasicimageList();
         });
@@ -423,7 +513,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         return PopScope(
           canPop: false,
           onPopInvoked: (_) async {
-            final controller = Provider.of<BasicinspController>(context, listen: false);
+            final controller = _inspController ?? Provider.of<BasicinspController>(context, listen: false);
             if (controller.isBusy || _isRecording || _isStopping) return;
             if (await _showExitConfirmation()) {
               context.go('/home');
@@ -434,6 +524,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
             body: SafeArea(
             child: Consumer<BasicinspController>(
               builder: (context, controller, child) {
+                _inspController = controller;
                 if (controller.isLoading) {
                   return Padding(
                     padding: const EdgeInsets.all(16),
@@ -617,7 +708,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
             scale: scale,
             child: Center(
               child: (_cameraController != null && _cameraController!.value.isInitialized)
-                  ? CameraPreview(_cameraController!)
+                  ? CameraPreview(
+                      _cameraController!,
+                      key: ValueKey('cam_preview_${_cameraController!.cameraId}_$_cameraInitCounter'),
+                    )
                   : const CameraShimmerLoader(),
             ),
           ),
