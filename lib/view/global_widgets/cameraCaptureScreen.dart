@@ -36,6 +36,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   bool _isStarting = false;
   bool _isRecording = false;
   bool _isStopping = false;
+  bool _isHandlingPause = false;
+  File? _autoSavedVideo;
+  AppLifecycleState? _lastLifecycleState;
+  int _cameraInitCounter = 0;
   double _currentZoom = 1.0;
   double _minZoom = 1.0;
   double _maxZoom = 10.0;
@@ -117,6 +121,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         return;
       }
       _controller = controller;
+      _cameraInitCounter++;
       setState(() => _ready = true);
     } catch (e) {
       if (mounted) {
@@ -265,16 +270,23 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     });
     try {
       final XFile file = await _controller!.stopVideoRecording();
+      final videoFile = File(file.path);
       if (!mounted) return;
       setState(() {
         _isRecording = false;
         _isStopping = false;
         _remainingSeconds = _maxVideoSeconds;
       });
-      Navigator.pop(context, File(file.path));
+      if (await videoFile.exists() && await videoFile.length() > 0) {
+        Navigator.pop(context, videoFile);
+      }
     } catch (e) {
+      debugPrint("Error in _stopRecording in CameraCaptureScreen: $e");
       if (mounted) {
-        setState(() => _isStopping = false);
+        setState(() {
+          _isRecording = false;
+          _isStopping = false;
+        });
       }
     } finally {
       await SecurityService.enableScreenshot();
@@ -323,23 +335,79 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     _baseZoom = _currentZoom;
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final CameraController? cameraController = _controller;
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
-      if (mounted && _ready) {
+  Future<void> _handleAppPaused() async {
+    if (_isHandlingPause) return;
+    _isHandlingPause = true;
+
+    try {
+      _recordTimer?.cancel();
+      final cam = _controller;
+      if (cam != null && cam.value.isInitialized && cam.value.isRecordingVideo) {
+        try {
+          final XFile file = await cam.stopVideoRecording();
+          final videoFile = File(file.path);
+          if (await videoFile.exists() && await videoFile.length() > 0) {
+            _autoSavedVideo = videoFile;
+          }
+        } catch (e) {
+          debugPrint("⚠️ Error auto-stopping video recording on pause: $e");
+        }
+      }
+    } finally {
+      _recordTimer?.cancel();
+      _isRecording = false;
+      _isStarting = false;
+      _isStopping = false;
+      _isCapturing = false;
+      await SecurityService.enableScreenshot();
+      if (mounted) {
         setState(() => _ready = false);
       }
-      if (cameraController != null) {
-        cameraController.dispose();
-        _controller = null;
+      try {
+        await _controller?.dispose();
+      } catch (_) {}
+      _controller = null;
+      _isHandlingPause = false;
+    }
+  }
+
+  Future<void> _handleAppResumed() async {
+    while (_isHandlingPause) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    if (!mounted) return;
+
+    if (_autoSavedVideo != null) {
+      final video = _autoSavedVideo!;
+      _autoSavedVideo = null;
+      Navigator.pop(context, video);
+      return;
+    }
+
+    // Delay for Android Surface/Activity to be fully active before reopening camera
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    try {
+      final status = await Permission.camera.status;
+      if (status.isGranted && mounted) {
+        await _initCamera();
       }
+    } catch (e) {
+      debugPrint("⚠️ Error in _handleAppResumed: $e");
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final previous = _lastLifecycleState;
+    _lastLifecycleState = state;
+
+    if (state == AppLifecycleState.paused ||
+        (state == AppLifecycleState.inactive && previous == AppLifecycleState.resumed)) {
+      _handleAppPaused();
     } else if (state == AppLifecycleState.resumed) {
-      Permission.camera.status.then((status) {
-        if (status.isGranted && mounted) {
-          _initCamera();
-        }
-      });
+      _handleAppResumed();
     }
   }
 
@@ -393,7 +461,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   scale: scale,
                   child: Center(
                     child: (_controller != null && _controller!.value.isInitialized)
-                        ? CameraPreview(_controller!)
+                        ? CameraPreview(
+                            _controller!,
+                            key: ValueKey('capture_preview_${_controller!.cameraId}_$_cameraInitCounter'),
+                          )
                         : const CameraShimmerLoader(),
                   ),
                 ),

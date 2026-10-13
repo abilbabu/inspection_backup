@@ -159,6 +159,12 @@ class InspectionscreenimageController extends ChangeNotifier {
       );
       await file.writeAsBytes(byteData!.buffer.asUint8List());
       final compressed = await compressImage(file);
+      // Safely delete intermediate raw PNG file
+      try {
+        if (await file.exists() && file.path != compressed.path) {
+          await file.delete();
+        }
+      } catch (_) {}
       isSuccess = true;
       return compressed;
     } catch (e) {
@@ -198,9 +204,17 @@ class InspectionscreenimageController extends ChangeNotifier {
       if (original == null) return;
       img.Image rotated = img.copyRotate(original, angle: 90);
       final rotatedBytes = Uint8List.fromList(img.encodeJpg(rotated));
-      final tempDir = await Directory.systemTemp.createTemp();
-      final newFile = File('${tempDir.path}/rotated.jpg');
+      final dir = await getTemporaryDirectory();
+      final newFile = File('${dir.path}/rotated_${DateTime.now().millisecondsSinceEpoch}.jpg');
       await newFile.writeAsBytes(rotatedBytes);
+      // Clean up previous temporary rotated image if it exists
+      if (displayedImage.path.contains('/rotated_') || displayedImage.path.contains('\\rotated_')) {
+        try {
+          if (await displayedImage.exists()) {
+            await displayedImage.delete();
+          }
+        } catch (_) {}
+      }
       displayedImage = newFile;
       await preloadImage();
     } catch (e) {

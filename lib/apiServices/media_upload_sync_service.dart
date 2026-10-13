@@ -4,8 +4,8 @@ import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:inspection/model/upload_queue_model.dart';
 import 'package:inspection/utils/local_upload_storage_service.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
-
 import 'package:inspection/utils/media_compression_helper.dart';
+import 'package:inspection/utils/storage_cleanup_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MediaUploadSyncService {
@@ -43,13 +43,13 @@ class MediaUploadSyncService {
       );
 
       for (var task in pending) {
-        final success = await _uploadSingleTask(dio, task);
-        if (!success) {
-        }
+        await _uploadSingleTask(dio, task);
       }
-    } catch (e) {
+    } catch (_) {
     } finally {
       _isProcessing = false;
+      // Prune VideoCompress native cache after queue processing finishes
+      await StorageCleanupService.instance.cleanupVideoCompressCache();
     }
   }
 
@@ -80,6 +80,8 @@ class MediaUploadSyncService {
       final backoffSeconds = (1 << task.retryCount).clamp(1, 30);
       await Future.delayed(Duration(seconds: backoffSeconds));
     }
+
+    final List<File> tempFilesToCleanup = [];
 
     try {
       FormData formData = FormData();
@@ -143,19 +145,18 @@ class MediaUploadSyncService {
 
         for (var item in task.mediaItems) {
           final file = File(item.filePath);
-          if (!file.existsSync()) continue;
-
-          if (item.type == "0") {
+          if (file.existsSync()) {
             final multipartFile = await MultipartFile.fromFile(
               file.path,
-              filename: "essential_image_${DateTime.now().millisecondsSinceEpoch}.jpg",
+              filename: "essential_${DateTime.now().millisecondsSinceEpoch}.jpg",
               contentType: http_parser.MediaType("image", "jpeg"),
             );
             formData.files.add(MapEntry("essentinalImage", multipartFile));
+            break;
           }
         }
       } else {
-        // Default / Basic Inspection upload handling
+        // Build FormData for basicinspection/basicInspectionSave
         task.fields.forEach((key, value) {
           formData.fields.add(MapEntry(key, value));
         });
@@ -167,7 +168,13 @@ class MediaUploadSyncService {
 
           MultipartFile multipartFile;
           if (item.is360) {
-            final fileToUpload = await MediaCompressionHelper.compressVideoFile(file);
+            final bool alreadyCompressed = file.path.contains("compressed_");
+            final fileToUpload = alreadyCompressed
+                ? file
+                : await MediaCompressionHelper.compressVideoFile(file);
+            if (fileToUpload.path != file.path) {
+              tempFilesToCleanup.add(fileToUpload);
+            }
             multipartFile = await MultipartFile.fromFile(
               fileToUpload.path,
               filename: "inspection_360_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
@@ -188,7 +195,13 @@ class MediaUploadSyncService {
               contentType: http_parser.MediaType("audio", subType),
             );
           } else {
-            final fileToUpload = await MediaCompressionHelper.compressVideoFile(file);
+            final bool alreadyCompressed = file.path.contains("compressed_");
+            final fileToUpload = alreadyCompressed
+                ? file
+                : await MediaCompressionHelper.compressVideoFile(file);
+            if (fileToUpload.path != file.path) {
+              tempFilesToCleanup.add(fileToUpload);
+            }
             multipartFile = await MultipartFile.fromFile(
               fileToUpload.path,
               filename: "inspection_video_${DateTime.now().millisecondsSinceEpoch}.mp4",
@@ -204,11 +217,6 @@ class MediaUploadSyncService {
       final response = await dio.post(
         task.endpointUrl,
         data: formData,
-        onSendProgress: (sent, total) {
-          if (total > 0) {
-            final progress = ((sent / total) * 100).toStringAsFixed(0);
-          }
-        },
       );
 
       if (response.statusCode == 200) {
@@ -238,20 +246,29 @@ class MediaUploadSyncService {
         );
         return false;
       }
-    } on DioException catch (e) {
+    } on DioException {
       await LocalUploadStorageService.updateTaskStatus(
         task.id,
         'failed',
         retryCount: task.retryCount + 1,
       );
       return false;
-    } catch (e) {
+    } catch (_) {
       await LocalUploadStorageService.updateTaskStatus(
         task.id,
         'failed',
         retryCount: task.retryCount + 1,
       );
       return false;
+    } finally {
+      // Clean up any temporary compression output files generated for this upload
+      for (final tempF in tempFilesToCleanup) {
+        try {
+          if (await tempF.exists()) {
+            await tempF.delete();
+          }
+        } catch (_) {}
+      }
     }
   }
 }

@@ -43,10 +43,20 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
   void initState() {
     super.initState();
 
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
-      ..initialize().then((_) {
+    final bool isNetwork = widget.videoUrl.startsWith('http://') ||
+        widget.videoUrl.startsWith('https://');
+
+    _controller = isNetwork
+        ? VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+        : VideoPlayerController.file(File(widget.videoUrl));
+
+    _controller.initialize().then((_) {
+      if (mounted) {
         setState(() => _initialized = true);
-      });
+      }
+    }).catchError((e) {
+      debugPrint("Error initializing video in InspectionFullScreenVideo: $e");
+    });
 
     _controller.addListener(() {
       if (mounted) setState(() {});
