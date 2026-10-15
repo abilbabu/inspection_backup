@@ -9,7 +9,9 @@ import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/customShimmerLoader.dart';
+import 'package:inspection/view/global_widgets/fullScreenImage.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
+import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:provider/provider.dart';
 
 enum InspectionStatus { good, repair, poor, replace, na }
@@ -778,6 +780,13 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
         ? controller.previousTechnicianComment
         : (controller.technicianComment.trim().isNotEmpty ? controller.technicianComment : "No comments");
 
+    final List<String> techImages = widget.flag == 2
+        ? (controller.technicianImages.isNotEmpty ? controller.technicianImages : controller.previousTechnicianImages)
+        : (controller.previousTechnicianImages.isNotEmpty ? controller.previousTechnicianImages : controller.technicianImages);
+    final List<String> techVideos = widget.flag == 2
+        ? (controller.technicianVideos.isNotEmpty ? controller.technicianVideos : controller.previousTechnicianVideos)
+        : (controller.previousTechnicianVideos.isNotEmpty ? controller.previousTechnicianVideos : controller.technicianVideos);
+
     final bool showSaAndSup = widget.flag == 2;
 
     return Container(
@@ -808,6 +817,115 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
             const SizedBox(height: 10),
           ],
           _buildSingleCommentRow("Technician", techComm),
+          if (techImages.isNotEmpty || techVideos.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildMediaRow(context, techImages, techVideos),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediaRow(
+    BuildContext context,
+    List<String> images,
+    List<String> videos,
+  ) {
+    return SizedBox(
+      height: 70,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          ...images.map((url) => Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FullScreenImage(
+                          imageUrl: url,
+                          label: "Technician Photo",
+                        ),
+                      ),
+                    );
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 65,
+                      height: 65,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blueGrey.shade200),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(Icons.broken_image, color: Colors.grey, size: 24),
+                        ),
+                        loadingBuilder: (_, child, progress) {
+                          if (progress == null) return child;
+                          return const Center(
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              )),
+          ...videos.map((url) => Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => InspectionFullScreenVideo(
+                          videoUrl: url,
+                          label: "Technician Video",
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 65,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blueGrey.shade300),
+                    ),
+                    child: const Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                        Positioned(
+                          bottom: 3,
+                          child: Text(
+                            "VIDEO",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )),
         ],
       ),
     );

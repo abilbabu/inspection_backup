@@ -1050,6 +1050,83 @@ class InspectioncardController extends ChangeNotifier {
     );
   }
 
+  Future<bool> uploadTechnicianCommentsMedia({
+    required int jobId,
+    int? inspectionTypeId,
+    String? comments,
+    List<File>? images,
+    List<File>? videos,
+    List<String>? existingImages,
+    List<String>? existingVideos,
+  }) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('userToken');
+      if (token == null || token.isEmpty) return false;
+
+      FormData formData = FormData();
+      formData.fields.add(MapEntry("jobId", jobId.toString()));
+      if (inspectionTypeId != null) {
+        formData.fields.add(MapEntry("inspectionTypeId", inspectionTypeId.toString()));
+      }
+      if (comments != null) {
+        formData.fields.add(MapEntry("comments", comments));
+      }
+      if (existingImages != null && existingImages.isNotEmpty) {
+        formData.fields.add(MapEntry("existingImages", existingImages.join(",")));
+      }
+      if (existingVideos != null && existingVideos.isNotEmpty) {
+        formData.fields.add(MapEntry("existingVideos", existingVideos.join(",")));
+      }
+
+      if (images != null) {
+        for (int i = 0; i < images.length; i++) {
+          final file = images[i];
+          if (file.existsSync()) {
+            formData.files.add(
+              MapEntry(
+                "technicianimagefiles",
+                await MultipartFile.fromFile(
+                  file.path,
+                  filename: "tech_comment_${i}_${DateTime.now().millisecondsSinceEpoch}.jpg",
+                ),
+              ),
+            );
+          }
+        }
+      }
+
+      if (videos != null) {
+        for (int i = 0; i < videos.length; i++) {
+          final file = videos[i];
+          if (file.existsSync()) {
+            formData.files.add(
+              MapEntry(
+                "technicianvideofiles",
+                await MultipartFile.fromFile(
+                  file.path,
+                  filename: "tech_video_${i}_${DateTime.now().millisecondsSinceEpoch}.mp4",
+                ),
+              ),
+            );
+          }
+        }
+      }
+
+      Dio dio = Dio();
+      dio.options.headers["Authorization"] = "Bearer $token";
+      final response = await dio.post(
+        ApiServices.saveTechnicianCommentsMedia,
+        data: formData,
+        options: Options(validateStatus: (_) => true),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error uploading technician comments media: $e");
+      return false;
+    }
+  }
+
   bool _isDisposed = false;
 
   @override

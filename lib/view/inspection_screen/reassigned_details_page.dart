@@ -12,9 +12,14 @@ import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
+import 'dart:io';
+import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
+import 'package:inspection/view/global_widgets/fullScreenImage.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
+import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_card.dart';
+import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'package:inspection/view/inspection_screen/inspection_summary_page.dart';
 
@@ -34,6 +39,11 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   final TextEditingController _commentController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   bool _isSubmitting = false;
+
+  final List<File> _technicianPhotos = [];
+  final List<File> _technicianVideos = [];
+  List<String> _existingTechnicianPhotos = [];
+  List<String> _existingTechnicianVideos = [];
 
   @override
   void dispose() {
@@ -74,6 +84,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       final jobCardCtrl = context.read<JobcarddetailsController>();
 
       await summaryCtrl.getInspectionSummary(widget.jobId);
+      _existingTechnicianPhotos = List.from(summaryCtrl.technicianImages);
+      _existingTechnicianVideos = List.from(summaryCtrl.technicianVideos);
 
       final inspectionResponse = await detailsCtrl.getInspectionDetailsById(
         widget.jobId,
@@ -550,6 +562,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
               "Technician Comment",
               techComm,
             ),
+            if (summaryCtrl.previousTechnicianImages.isNotEmpty ||
+                summaryCtrl.previousTechnicianVideos.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildFeedbackMediaRow(
+                context,
+                summaryCtrl.previousTechnicianImages,
+                summaryCtrl.previousTechnicianVideos,
+              ),
+            ],
             const SizedBox(height: 12),
             _buildCommentRow(
               "Supervisor Comment",
@@ -559,6 +580,101 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
             _buildCommentRow("Service Advisor Comment", saComm),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFeedbackMediaRow(
+    BuildContext context,
+    List<String> images,
+    List<String> videos,
+  ) {
+    return SizedBox(
+      height: 70,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          ...images.map((url) => Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FullScreenImage(
+                          imageUrl: url,
+                          label: "Technician Comment Photo",
+                        ),
+                      ),
+                    );
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 65,
+                      height: 65,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blueGrey.shade200),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(Icons.broken_image, color: Colors.grey, size: 24),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )),
+          ...videos.map((url) => Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => InspectionFullScreenVideo(
+                          videoUrl: url,
+                          label: "Technician Comment Video",
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 65,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blueGrey.shade300),
+                    ),
+                    child: const Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                        Positioned(
+                          bottom: 3,
+                          child: Text(
+                            "VIDEO",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )),
+        ],
       ),
     );
   }
@@ -1068,12 +1184,80 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Re-Inspection Additional Comments",
-                    style: ApptextstyleConstants.mediumText(
-                      color: ColorConstants.textBlueColor,
-                      fontSize: 14,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        "Re-Inspection Additional Comments",
+                        style: ApptextstyleConstants.mediumText(
+                          color: ColorConstants.textBlueColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.camera_alt,
+                          color: ColorConstants.textBlueColor,
+                          size: 22,
+                        ),
+                        tooltip: "Add Photo",
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () async {
+                          final dynamic result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CameraCaptureScreen(isVideo: false),
+                            ),
+                          );
+                          if (result != null) {
+                            File? file;
+                            if (result is Map) {
+                              file = result['file'];
+                            } else if (result is File) {
+                              file = result;
+                            }
+                            if (file != null && mounted) {
+                              setState(() {
+                                _technicianPhotos.add(file!);
+                              });
+                            }
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 14),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.videocam,
+                          color: ColorConstants.textBlueColor,
+                          size: 24,
+                        ),
+                        tooltip: "Add Video",
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () async {
+                          final dynamic result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CameraCaptureScreen(isVideo: true),
+                            ),
+                          );
+                          if (result != null) {
+                            File? file;
+                            if (result is Map) {
+                              file = result['file'];
+                            } else if (result is File) {
+                              file = result;
+                            }
+                            if (file != null && mounted) {
+                              setState(() {
+                                _technicianVideos.add(file!);
+                              });
+                            }
+                          }
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
 
@@ -1121,11 +1305,277 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                       ),
                     ],
                   ),
+                  _buildReInspectionMediaStrip(),
                 ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildReInspectionMediaStrip() {
+    final hasMedia = _technicianPhotos.isNotEmpty ||
+        _existingTechnicianPhotos.isNotEmpty ||
+        _technicianVideos.isNotEmpty ||
+        _existingTechnicianVideos.isNotEmpty;
+    if (!hasMedia) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10.0),
+      child: SizedBox(
+        height: 75,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            // Newly captured photos
+            ..._technicianPhotos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final file = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImageScreen(
+                              imageFile: file,
+                              isReadOnly: true,
+                            ),
+                          ),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Image.file(file, fit: BoxFit.cover),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _technicianPhotos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Existing uploaded photos
+            ..._existingTechnicianPhotos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final url = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImage(
+                              imageUrl: url,
+                              label: "Technician Photo",
+                            ),
+                          ),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image, size: 20, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _existingTechnicianPhotos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Newly captured videos
+            ..._technicianVideos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final file = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => InspectionFullScreenVideo(
+                              videoUrl: file.path,
+                              label: "Technician Video",
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 65,
+                        height: 65,
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: const Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(Icons.play_circle_fill, color: Colors.white, size: 28),
+                            Positioned(
+                              bottom: 3,
+                              child: Text(
+                                "VIDEO",
+                                style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _technicianVideos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Existing uploaded videos
+            ..._existingTechnicianVideos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final url = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => InspectionFullScreenVideo(
+                              videoUrl: url,
+                              label: "Technician Video",
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 65,
+                        height: 65,
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: const Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(Icons.play_circle_fill, color: Colors.white, size: 28),
+                            Positioned(
+                              bottom: 3,
+                              child: Text(
+                                "VIDEO",
+                                style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _existingTechnicianVideos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -1259,8 +1709,19 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         }
       }
 
+      // Save technician comments and media (photos and videos)
+      final tempCardController = InspectioncardController();
+      await tempCardController.uploadTechnicianCommentsMedia(
+        jobId: widget.jobId,
+        inspectionTypeId: 2,
+        comments: _commentController.text.trim(),
+        images: _technicianPhotos,
+        videos: _technicianVideos,
+        existingImages: _existingTechnicianPhotos,
+        existingVideos: _existingTechnicianVideos,
+      );
+
       if (taskToSaveId > 0) {
-        final tempCardController = InspectioncardController();
         await tempCardController.loadExistingTask(
           formController: formController,
           taskId: taskToSaveId,

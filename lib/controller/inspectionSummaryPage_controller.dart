@@ -21,6 +21,10 @@ class InspectionsummarypageController extends ChangeNotifier {
   bool isCustomInspectionAssigned = false;
   String technicianComment = "";
   String previousTechnicianComment = "";
+  List<String> technicianImages = [];
+  List<String> previousTechnicianImages = [];
+  List<String> technicianVideos = [];
+  List<String> previousTechnicianVideos = [];
   String supervisorComment = "";
   String previousSupervisorComment = "";
   String saComment = "";
@@ -155,6 +159,10 @@ class InspectionsummarypageController extends ChangeNotifier {
       isCustomInspectionAssigned = false;
       technicianComment = "";
       previousTechnicianComment = "";
+      technicianImages = [];
+      previousTechnicianImages = [];
+      technicianVideos = [];
+      previousTechnicianVideos = [];
       supervisorComment = "";
       previousSupervisorComment = "";
       saComment = "";
@@ -352,6 +360,14 @@ class InspectionsummarypageController extends ChangeNotifier {
         vimIfMasterId = ifMasterId;
         final String techComm =
             master["vimAdditionalComments"]?.toString() ?? "";
+        final String techImagesRaw = master["vimTechnicianImages"]?.toString() ?? "";
+        final List<String> techImgs = techImagesRaw.isNotEmpty
+            ? techImagesRaw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+            : [];
+        final String techVideosRaw = master["vimTechnicianVideos"]?.toString() ?? "";
+        final List<String> techVids = techVideosRaw.isNotEmpty
+            ? techVideosRaw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+            : [];
         final String supComm = master["vimSupervisorComment"]?.toString() ?? "";
         final String serviceComm = master["vimSaComment"]?.toString() ?? "";
 
@@ -381,12 +397,18 @@ class InspectionsummarypageController extends ChangeNotifier {
 
         if (isReinspectionRun) {
           technicianComment = techComm;
+          technicianImages = techImgs;
+          technicianVideos = techVids;
           supervisorComment = supComm;
           saComment = serviceComm;
         } else {
           previousTechnicianComment = techComm;
+          previousTechnicianImages = techImgs;
+          previousTechnicianVideos = techVids;
           if (technicianComment.isEmpty) {
             technicianComment = techComm;
+            technicianImages = techImgs;
+            technicianVideos = techVids;
           }
           previousSupervisorComment = supComm;
           if (supervisorComment.isEmpty) {

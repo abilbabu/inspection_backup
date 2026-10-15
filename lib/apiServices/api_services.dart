@@ -57,4 +57,6 @@ class ApiServices {
   static String componentSearch = "${baseUrl}settings/componentList/search";
   static String technicianJobsPaginated = "${baseUrl}jobcard/getTechnicianJobsPaginated";
   static String reassignTechnician = "${baseUrl}jobcard/reassignTechnician";
+  static String saveTechnicianCommentsMedia =
+      "${baseUrl}vehicleinspection/saveTechnicianCommentsMedia";
 }
