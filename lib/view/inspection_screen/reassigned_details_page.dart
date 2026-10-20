@@ -1204,6 +1204,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () async {
+                          if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                            CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                            return;
+                          }
                           final dynamic result = await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1218,6 +1222,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                               file = result;
                             }
                             if (file != null && mounted) {
+                              if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                                CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                                return;
+                              }
                               setState(() {
                                 _technicianPhotos.add(file!);
                               });
@@ -1236,6 +1244,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () async {
+                          if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                            CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                            return;
+                          }
                           final dynamic result = await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1250,6 +1262,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                               file = result;
                             }
                             if (file != null && mounted) {
+                              if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                                CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                                return;
+                              }
                               setState(() {
                                 _technicianVideos.add(file!);
                               });
@@ -1631,6 +1647,14 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     InspectionFormController formController,
     InspectionsummarypageController summaryController,
   ) async {
+    if (_technicianPhotos.length + _existingTechnicianPhotos.length > 3) {
+      CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+      return;
+    }
+    if (_technicianVideos.length + _existingTechnicianVideos.length > 1) {
+      CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+      return;
+    }
     final confirm = await ConfirmSubmissionDialog.show(context);
     if (confirm != true) return;
 

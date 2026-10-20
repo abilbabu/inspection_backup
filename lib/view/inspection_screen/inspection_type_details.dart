@@ -1097,6 +1097,10 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () async {
+                      if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                        CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                        return;
+                      }
                       final dynamic result = await Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -1111,6 +1115,10 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           file = result;
                         }
                         if (file != null && mounted) {
+                          if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                            CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                            return;
+                          }
                           setState(() {
                             _technicianPhotos.add(file!);
                           });
@@ -1129,6 +1137,10 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () async {
+                      if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                        CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                        return;
+                      }
                       final dynamic result = await Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -1143,6 +1155,10 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           file = result;
                         }
                         if (file != null && mounted) {
+                          if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                            CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                            return;
+                          }
                           setState(() {
                             _technicianVideos.add(file!);
                           });
@@ -1328,6 +1344,14 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                         if (_reInspectionTaskIds.isNotEmpty &&
                             _commentController.text.trim().isEmpty) {
                           CustomToast.showWarning(context, "Technician Comments are mandatory when re-inspection items are selected.");
+                          return;
+                        }
+                        if (_technicianPhotos.length + _existingTechnicianPhotos.length > 3) {
+                          CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                          return;
+                        }
+                        if (_technicianVideos.length + _existingTechnicianVideos.length > 1) {
+                          CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
                           return;
                         }
                         final confirm = await ConfirmSubmissionDialog.show(context);
