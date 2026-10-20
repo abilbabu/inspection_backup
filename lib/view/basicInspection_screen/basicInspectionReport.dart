@@ -640,109 +640,124 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                         ),
                       ),
                       const Spacer(),
-                      InkWell(
-                        onTap: () {
-                          context.push(
-                            '/galleryview',
-                            extra: {'jobId': widget.jobId, 'type': 'external'},
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ColorConstants.syanColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            "View All",
-                            style: ApptextstyleConstants.mediumText(
-                              fontSize: 12,
-                              color: ColorConstants.syanColor,
+                      if (externalGroups.isNotEmpty)
+                        InkWell(
+                          onTap: () {
+                            context.push(
+                              '/galleryview',
+                              extra: {'jobId': widget.jobId, 'type': 'external'},
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorConstants.syanColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "View All",
+                              style: ApptextstyleConstants.mediumText(
+                                fontSize: 12,
+                                color: ColorConstants.syanColor,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       SizedBox(width: 10),
                     ],
                   ),
                 ),
                 SizedBox(height: 12),
-                SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: externalGroups.length > 5
-                        ? 5
-                        : externalGroups.length,
-                    itemBuilder: (context, index) {
-                      final group = externalGroups[index];
-                      final images = group["images"] as List? ?? [];
-                      if (images.isEmpty) return const SizedBox();
-                      final firstImage = images.first;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: InkWell(
-                          onTap: () {
-                            context.push(
-                              '/fullScreenImage',
-                              extra: {
-                                'imageUrl': images.first["url"] ?? "",
-                                'label': group["label"] ?? "",
-                              },
-                            );
-                          },
-                          child: Container(
-                            width: 120,
-                            decoration: BoxDecoration(
-                              color: ColorConstants.toastgrey,
-                              border: Border.all(
-                                color: ColorConstants.activecolor,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Stack(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(
-                                    firstImage["url"] ?? "",
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                  ),
+                if (externalGroups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Center(
+                      child: Text(
+                        "No external image captured",
+                        style: ApptextstyleConstants.thinText(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 180,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: externalGroups.length > 5
+                          ? 5
+                          : externalGroups.length,
+                      itemBuilder: (context, index) {
+                        final group = externalGroups[index];
+                        final images = group["images"] as List? ?? [];
+                        if (images.isEmpty) return const SizedBox();
+                        final firstImage = images.first;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: InkWell(
+                            onTap: () {
+                              context.push(
+                                '/fullScreenImage',
+                                extra: {
+                                  'imageUrl': images.first["url"] ?? "",
+                                  'label': group["label"] ?? "",
+                                },
+                              );
+                            },
+                            child: Container(
+                              width: 120,
+                              decoration: BoxDecoration(
+                                color: ColorConstants.toastgrey,
+                                border: Border.all(
+                                  color: ColorConstants.activecolor,
                                 ),
-                                Positioned(
-                                  bottom: 8,
-                                  left: 8,
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      firstImage["url"] ?? "",
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.6),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      toTitleCase(group["label"] ?? ""),
-                                      style: ApptextstyleConstants.thinText(
-                                        fontSize: 12,
-                                        color: ColorConstants.whiteColor,
+                                  ),
+                                  Positioned(
+                                    bottom: 8,
+                                    left: 8,
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.6),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        toTitleCase(group["label"] ?? ""),
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 12,
+                                          color: ColorConstants.whiteColor,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
               ],
             ),
             SizedBox(height: 8),
@@ -763,39 +778,54 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                         ),
                       ),
                       const Spacer(),
-                      InkWell(
-                        onTap: () {
-                          context.push(
-                            '/galleryview',
-                            extra: {'jobId': widget.jobId, 'type': 'internal'},
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ColorConstants.syanColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            "View All",
-                            style: ApptextstyleConstants.mediumText(
-                              fontSize: 12,
-                              color: ColorConstants.syanColor,
+                      if (internalGroups.isNotEmpty)
+                        InkWell(
+                          onTap: () {
+                            context.push(
+                              '/galleryview',
+                              extra: {'jobId': widget.jobId, 'type': 'internal'},
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorConstants.syanColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "View All",
+                              style: ApptextstyleConstants.mediumText(
+                                fontSize: 12,
+                                color: ColorConstants.syanColor,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       SizedBox(width: 10),
                     ],
                   ),
                 ),
-                SizedBox(height: 10),
-                SizedBox(
-                  height: 180,
-                  child: ListView.builder(
+                SizedBox(height: 12),
+                if (internalGroups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Center(
+                      child: Text(
+                        "No internal image captured",
+                        style: ApptextstyleConstants.thinText(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 180,
+                    child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: internalGroups.length > 5
                         ? 5

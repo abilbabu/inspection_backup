@@ -394,111 +394,147 @@ class _SignatureScreenState extends State<SignatureScreen> {
           ),
           if (_isSubmitting)
             Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 3.5, sigmaY: 3.5),
-                child: Container(
-                  color: Colors.black.withOpacity(0.55),
-                  child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 28),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 24,
-                            offset: const Offset(0, 10),
+              child: Material(
+                type: MaterialType.transparency,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 4.5, sigmaY: 4.5),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.55),
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 28),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: ColorConstants.syanColor.withOpacity(0.18),
+                            width: 1,
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: ColorConstants.syanColor.withOpacity(0.12),
-                                ),
-                              ),
-                              const SizedBox(
-                                width: 56,
-                                height: 56,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 3.5,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    ColorConstants.syanColor,
-                                  ),
-                                ),
-                              ),
-                              const Icon(
-                                Icons.cloud_upload_rounded,
-                                size: 28,
-                                color: Color(0xFF0066A6),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            "Submitting Inspection",
-                            style: ApptextstyleConstants.boldText(
-                              color: ColorConstants.blackColor,
-                              fontSize: 18,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.18),
+                              blurRadius: 28,
+                              offset: const Offset(0, 10),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "Finalizing report & synchronizing data",
-                            textAlign: TextAlign.center,
-                            style: ApptextstyleConstants.mediumText(
-                              color: ColorConstants.greyColor,
-                              fontSize: 13,
+                            BoxShadow(
+                              color: const Color(0xFF0066A6).withOpacity(0.08),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ColorConstants.syanColor.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: ColorConstants.syanColor.withOpacity(0.25),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Stack(
+                              alignment: Alignment.center,
                               children: [
-                                const SizedBox(
-                                  width: 12,
-                                  height: 12,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      ColorConstants.syanColor,
+                                Container(
+                                  width: 76,
+                                  height: 76,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        ColorConstants.syanColor.withOpacity(0.14),
+                                        const Color(0xFF0066A6).withOpacity(0.08),
+                                      ],
+                                    ),
+                                    border: Border.all(
+                                      color: ColorConstants.syanColor.withOpacity(0.25),
+                                      width: 1.5,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "Please wait, do not close the app",
-                                  style: ApptextstyleConstants.regularText(
-                                    color: Color(0xFF0066A6),
-                                    fontSize: 12,
+                                SizedBox(
+                                  width: 58,
+                                  height: 58,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3.5,
+                                    strokeCap: StrokeCap.round,
+                                    valueColor: const AlwaysStoppedAnimation<Color>(
+                                      ColorConstants.syanColor,
+                                    ),
+                                    backgroundColor: ColorConstants.syanColor.withOpacity(0.12),
                                   ),
+                                ),
+                                const Icon(
+                                  Icons.cloud_upload_rounded,
+                                  size: 28,
+                                  color: Color(0xFF0066A6),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 20),
+                            Text(
+                              "Submitting Inspection",
+                              style: ApptextstyleConstants.boldText(
+                                color: ColorConstants.blackColor,
+                                fontSize: 18,
+                              ).copyWith(
+                                decoration: TextDecoration.none,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Finalizing report & synchronizing data",
+                              textAlign: TextAlign.center,
+                              style: ApptextstyleConstants.mediumText(
+                                color: ColorConstants.greyColor,
+                                fontSize: 13,
+                              ).copyWith(
+                                decoration: TextDecoration.none,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ColorConstants.syanColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: ColorConstants.syanColor.withOpacity(0.25),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      strokeCap: StrokeCap.round,
+                                      valueColor: const AlwaysStoppedAnimation<Color>(
+                                        ColorConstants.syanColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    "Please wait, do not close the app",
+                                    style: ApptextstyleConstants.regularText(
+                                      color: const Color(0xFF0066A6),
+                                      fontSize: 12,
+                                    ).copyWith(
+                                      decoration: TextDecoration.none,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
