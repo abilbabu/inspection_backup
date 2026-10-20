@@ -322,6 +322,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     final jobCardCtrl = context.watch<JobcarddetailsController>();
 
     final int jobStatus = summaryCtrl.jobStatus;
+    final bool isTechnicianAssigned = jobCardCtrl.isTechnicianAssigned == true &&
+        jobCardCtrl.assignedTechnicianName != null &&
+        jobCardCtrl.assignedTechnicianName!.trim().isNotEmpty;
+
     final bool showEditable = (userDepartment == 4) ||
         ((userDepartment == 0 || userDepartment == 1) &&
             (jobStatus == 18 || jobStatus == 11));
@@ -355,9 +359,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     VehicleSummaryWidget(jobId: widget.jobId),
                     const SizedBox(height: 16),
                     _buildCommentsSummaryCard(summaryCtrl),
-                    if (jobCardCtrl.isTechnicianAssigned == true &&
-                        jobCardCtrl.assignedTechnicianName != null &&
-                        jobCardCtrl.assignedTechnicianName!.isNotEmpty && ![10, 12, 13, 14].contains(jobStatus)) ...[
+                    if (isTechnicianAssigned && ![10, 12, 13, 14].contains(jobStatus)) ...[
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -440,13 +442,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     const SizedBox(height: 16),
                     if (showAssignment) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
-                      const SizedBox(height: 24),
-                      CustomButtonWidget(
-                        text: "ASSIGN TECHNICIAN",
-                        textSize: 16,
-                        onPressed: () =>
-                            showTechnicianBottomSheet(context, detailsCtrl2),
-                      ),
+                      if (!isTechnicianAssigned && ![10, 12, 13, 14].contains(jobStatus)) ...[
+                        const SizedBox(height: 24),
+                        CustomButtonWidget(
+                          text: "ASSIGN TECHNICIAN",
+                          textSize: 16,
+                          onPressed: () =>
+                              showTechnicianBottomSheet(context, detailsCtrl2),
+                        ),
+                      ],
                     ] else if (showEditable) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 20),
