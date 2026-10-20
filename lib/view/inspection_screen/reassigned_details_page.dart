@@ -110,7 +110,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
         final data = inspectionResponse.data as Map<String, dynamic>;
         int jobStatus = summaryCtrl.jobStatus;
-        if (jobStatus == 18) {
+        if (jobStatus == 18 && userDepartment == 4) {
           await detailsCtrl.changeStatus(jobId: widget.jobId, status: 11);
           if (!mounted) return;
           jobStatus = 11;
@@ -359,7 +359,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     VehicleSummaryWidget(jobId: widget.jobId),
                     const SizedBox(height: 16),
                     _buildCommentsSummaryCard(summaryCtrl),
-                    if (isTechnicianAssigned && ![10, 12, 13, 14].contains(jobStatus)) ...[
+                    if (isTechnicianAssigned && [18, 11, 12].contains(jobStatus)) ...[
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -379,7 +379,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                           ),
                         ),
                       ),
-                      if ((userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
+                      if ((userDepartment == 0 || userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
                         if ([4, 5, 18, 11].contains(jobStatus)) ...[
                           const SizedBox(height: 10),
                           SizedBox(
@@ -442,7 +442,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     const SizedBox(height: 16),
                     if (showAssignment) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
-                      if (!isTechnicianAssigned && ![10, 12, 13, 14].contains(jobStatus)) ...[
+                      if (![18, 11, 12].contains(jobStatus)) ...[
                         const SizedBox(height: 24),
                         CustomButtonWidget(
                           text: "ASSIGN TECHNICIAN",
