@@ -130,6 +130,49 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         }
         _reInspectionTaskIds.addAll(approvedReInspectionTaskIds);
 
+        // For custom inspections: identify the re-inspection run and collect
+        // all its tasks as re-inspection items (mirrors predefined flow logic).
+        // We also identify which re-inspection masters are already completed
+        // (i.e., job is not in editable state) to determine reinspectedTaskIds.
+        final Set<int> customReInspectionTaskIds = {};
+        if (isCustom) {
+          for (final inspection in inspections) {
+            final master = inspection["master"] ?? {};
+            final int vimInspectionType = master["vimInspectionType"] is num
+                ? (master["vimInspectionType"] as num).toInt()
+                : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
+            final dynamic vimIfMasterId = master["vimIfMasterId"];
+            // Custom re-inspection run: type == 2 and no predefined form
+            if (vimInspectionType == 2 &&
+                (vimIfMasterId == null || vimIfMasterId == 0)) {
+              final List reTasks = [];
+              if (inspection["completedTasks"] is List) {
+                reTasks.addAll(inspection["completedTasks"]);
+              }
+              final rawIT = inspection["inspectionTasks"];
+              if (rawIT is List) {
+                for (final item in rawIT) {
+                  if (item is Map) {
+                    if (item["tasks"] is List) {
+                      reTasks.addAll(item["tasks"]);
+                    } else {
+                      reTasks.add(item);
+                    }
+                  }
+                }
+              }
+              for (final t in reTasks) {
+                if (t is Map) {
+                  final rawId = t["viTaskId"] ?? t["itcId"] ?? t["taskId"] ?? t["viInspectionTaskId"];
+                  final int? tid = rawId is num ? rawId.toInt() : int.tryParse(rawId?.toString() ?? "");
+                  if (tid != null) customReInspectionTaskIds.add(tid);
+                }
+              }
+            }
+          }
+          _reInspectionTaskIds.addAll(customReInspectionTaskIds);
+        }
+
         for (int i = 0; i < inspections.length; i++) {
           final inspection = inspections[i];
           final master = inspection["master"] ?? {};
@@ -162,6 +205,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                   ? rawId.toInt()
                   : int.tryParse(rawId?.toString() ?? "");
               if (taskId == null) continue;
+              // Mark tasks from the initial run as initial completed
               if (i == 0 || vimInspectionType != 2) {
                 _initialCompletedTaskIds.add(taskId);
               }
@@ -189,6 +233,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
             }
           }
         }
+
         final Set<int> reinspectedTaskIds = {};
         for (int i = 0; i < inspections.length; i++) {
           final inspection = inspections[i];
@@ -196,7 +241,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
           final int vimInspectionType = master["vimInspectionType"] is num
               ? (master["vimInspectionType"] as num).toInt()
               : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
-          if (i > 0 || vimInspectionType == 2) {
+          // For custom inspections: tasks in the re-inspection run are what we
+          // WANT to re-inspect, so do NOT add them to reinspectedTaskIds
+          // (that set means "already done, don't clear").
+          // Only skip clearing if this is a predefined inspection re-inspection run.
+          final dynamic vimIfMasterId = master["vimIfMasterId"];
+          final bool isThisRunCustom =
+              (vimIfMasterId == null || vimIfMasterId == 0) &&
+              vimInspectionType != 0;
+          if ((i > 0 || vimInspectionType == 2) && !(isCustom && isThisRunCustom && vimInspectionType == 2)) {
             final List completedTasks = [];
             if (inspection["completedTasks"] is List) {
               completedTasks.addAll(inspection["completedTasks"]);

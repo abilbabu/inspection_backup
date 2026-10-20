@@ -298,6 +298,14 @@ class InspectionTypeDetailsController extends ChangeNotifier {
       }
 
       final int vimInspectionType = inspection["master"]?["vimInspectionType"] ?? 0;
+
+      // For custom re-inspection runs (type == 2): do NOT prefill data.
+      // The re-inspection page will call prepareTaskForReInspection to present
+      // these cards fresh, exactly like the predefined re-inspection flow.
+      if (vimInspectionType == 2) {
+        continue;
+      }
+
       final List completedTasks = [];
       if (inspection["completedTasks"] is List) {
         completedTasks.addAll(inspection["completedTasks"]);
@@ -343,8 +351,9 @@ class InspectionTypeDetailsController extends ChangeNotifier {
             savedTask["vi_re_inspection"]?.toString() == "1" ||
             reTime > 0.0;
 
-        // Skip prefilling for reinspection items if this is the initial/previous run (type != 2)
-        if (isReInspectionItem && vimInspectionType != 2) {
+        // Skip prefilling re-inspection-flagged items from the initial run
+        // (they will be handled fresh by the re-inspection flow)
+        if (isReInspectionItem) {
           continue;
         }
 
