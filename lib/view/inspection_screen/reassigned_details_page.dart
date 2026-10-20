@@ -322,6 +322,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     final jobCardCtrl = context.watch<JobcarddetailsController>();
 
     final int jobStatus = summaryCtrl.jobStatus;
+    final bool isTechnicianAssigned = jobCardCtrl.isTechnicianAssigned == true &&
+        jobCardCtrl.assignedTechnicianName != null &&
+        jobCardCtrl.assignedTechnicianName!.trim().isNotEmpty;
+
     final bool showEditable = (userDepartment == 4) ||
         ((userDepartment == 0 || userDepartment == 1) &&
             (jobStatus == 18 || jobStatus == 11));
@@ -355,9 +359,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     VehicleSummaryWidget(jobId: widget.jobId),
                     const SizedBox(height: 16),
                     _buildCommentsSummaryCard(summaryCtrl),
-                    if (jobCardCtrl.isTechnicianAssigned == true &&
-                        jobCardCtrl.assignedTechnicianName != null &&
-                        jobCardCtrl.assignedTechnicianName!.isNotEmpty && ![10, 12, 13, 14].contains(jobStatus)) ...[
+                    if (isTechnicianAssigned && ![10, 12, 13, 14].contains(jobStatus)) ...[
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -440,13 +442,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     const SizedBox(height: 16),
                     if (showAssignment) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
-                      const SizedBox(height: 24),
-                      CustomButtonWidget(
-                        text: "ASSIGN TECHNICIAN",
-                        textSize: 16,
-                        onPressed: () =>
-                            showTechnicianBottomSheet(context, detailsCtrl2),
-                      ),
+                      if (!isTechnicianAssigned && ![10, 12, 13, 14].contains(jobStatus)) ...[
+                        const SizedBox(height: 24),
+                        CustomButtonWidget(
+                          text: "ASSIGN TECHNICIAN",
+                          textSize: 16,
+                          onPressed: () =>
+                              showTechnicianBottomSheet(context, detailsCtrl2),
+                        ),
+                      ],
                     ] else if (showEditable) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 20),
@@ -1257,6 +1261,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () async {
+                          if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                            CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                            return;
+                          }
                           final dynamic result = await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1271,6 +1279,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                               file = result;
                             }
                             if (file != null && mounted) {
+                              if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                                CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                                return;
+                              }
                               setState(() {
                                 _technicianPhotos.add(file!);
                               });
@@ -1289,6 +1301,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () async {
+                          if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                            CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                            return;
+                          }
                           final dynamic result = await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -1303,6 +1319,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                               file = result;
                             }
                             if (file != null && mounted) {
+                              if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                                CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                                return;
+                              }
                               setState(() {
                                 _technicianVideos.add(file!);
                               });
@@ -1684,6 +1704,14 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     InspectionFormController formController,
     InspectionsummarypageController summaryController,
   ) async {
+    if (_technicianPhotos.length + _existingTechnicianPhotos.length > 3) {
+      CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+      return;
+    }
+    if (_technicianVideos.length + _existingTechnicianVideos.length > 1) {
+      CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+      return;
+    }
     final confirm = await ConfirmSubmissionDialog.show(context);
     if (confirm != true) return;
 

@@ -355,6 +355,7 @@ class InspectionsummarypageController extends ChangeNotifier {
             ? (master["vimInspectionType"] as num).toInt()
             : int.tryParse(master["vimInspectionType"]?.toString() ?? "");
         final int? ifMasterId = master["vimIfMasterId"];
+        if (inspType == 0) continue;
         final tasks = inspection["inspectionTasks"] as List? ?? [];
         vimInspectionTypeId = inspType;
         vimIfMasterId = ifMasterId;
