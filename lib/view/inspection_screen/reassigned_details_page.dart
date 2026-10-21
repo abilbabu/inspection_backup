@@ -334,6 +334,12 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         ((userDepartment == 0 || userDepartment == 1) &&
             (jobStatus != 18 && jobStatus != 11));
 
+    final bool isAllChecklistSaved = _isAllChecklistSaved(formCtrl);
+    final int totalReInspectionTasks = _reInspectionTaskIds.length;
+    final int savedReInspectionCount = _reInspectionTaskIds
+        .where((id) => formCtrl.isTaskSaved(id))
+        .length;
+
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
@@ -454,12 +460,46 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     ] else if (showEditable) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 20),
-                      Text(
-                        "Re-Inspection Checklist Items",
-                        style: ApptextstyleConstants.mediumText(
-                          color: ColorConstants.textBlueColor,
-                          fontSize: 16,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Re-Inspection Checklist Items",
+                            style: ApptextstyleConstants.mediumText(
+                              color: ColorConstants.textBlueColor,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (_reInspectionTaskIds.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isAllChecklistSaved
+                                    ? ColorConstants.greenColor.withOpacity(0.12)
+                                    : Colors.orange.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isAllChecklistSaved
+                                      ? ColorConstants.greenColor
+                                      : Colors.orange,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                "$savedReInspectionCount / $totalReInspectionTasks Saved",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isAllChecklistSaved
+                                      ? ColorConstants.greenColor
+                                      : Colors.orange.shade800,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       SizedBox(
@@ -557,16 +597,61 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                       ),
                       const SizedBox(height: 20),
                       _buildTechnicianCommentsField(),
+                      if (!isAllChecklistSaved && _reInspectionTaskIds.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.amber.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.amber.shade800,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "Please complete and save all re-inspection checklist items ($savedReInspectionCount of $totalReInspectionTasks saved) before submitting.",
+                                  style: TextStyle(
+                                    color: Colors.amber.shade900,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       _isSubmitting
                           ? const Center(child: CircularProgressIndicator())
-                          : CustomButtonWidget(
-                              text: "SUBMIT RE-INSPECTION REPORT",
-                              textSize: 16,
-                              onPressed: () => _submitReInspectionReport(
-                                detailsCtrl,
-                                formCtrl,
-                                summaryCtrl,
+                          : GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: !isAllChecklistSaved
+                                  ? () => _showPendingChecklistWarning(
+                                        detailsCtrl,
+                                        formCtrl,
+                                        summaryCtrl,
+                                      )
+                                  : null,
+                              child: CustomButtonWidget(
+                                text: "SUBMIT RE-INSPECTION REPORT",
+                                textSize: 16,
+                                isDisabled: !isAllChecklistSaved,
+                                onPressed: () => _submitReInspectionReport(
+                                  detailsCtrl,
+                                  formCtrl,
+                                  summaryCtrl,
+                                ),
                               ),
                             ),
                     ] else ...[
@@ -1699,11 +1784,108 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     );
   }
 
+  bool _isAllChecklistSaved(InspectionFormController formCtrl) {
+    if (_reInspectionTaskIds.isNotEmpty) {
+      return _reInspectionTaskIds.every((id) => formCtrl.isTaskSaved(id));
+    }
+    return formCtrl.savedTasks > 0;
+  }
+
+  String _getTaskName(
+    int taskId,
+    InspectionTypeDetailsController detailsCtrl,
+    InspectionsummarypageController summaryCtrl,
+  ) {
+    for (final list in summaryCtrl.groupedItems.values) {
+      for (final item in list) {
+        if (item.taskId == taskId) {
+          return item.title;
+        }
+      }
+    }
+    for (final task in detailsCtrl.allTaskComponents) {
+      if (task is Map && task["itcId"] == taskId) {
+        return task["itcName"]?.toString() ?? "Task #$taskId";
+      }
+    }
+    for (final entry in detailsCtrl.groupedTasks.entries) {
+      for (final task in entry.value) {
+        final comp = task["components"];
+        if (comp is Map && comp["itcId"] == taskId) {
+          return comp["itcName"]?.toString() ?? "Task #$taskId";
+        }
+      }
+    }
+    return "Task #$taskId";
+  }
+
+  void _showPendingChecklistWarning(
+    InspectionTypeDetailsController detailsCtrl,
+    InspectionFormController formCtrl,
+    InspectionsummarypageController summaryCtrl,
+  ) {
+    final pendingTaskIds = _reInspectionTaskIds
+        .where((id) => !formCtrl.isTaskSaved(id))
+        .toList();
+
+    if (_reInspectionTaskIds.isNotEmpty && pendingTaskIds.isNotEmpty) {
+      final List<String> pendingNames = [];
+      for (final id in pendingTaskIds.take(2)) {
+        final name = _getTaskName(id, detailsCtrl, summaryCtrl);
+        if (name.isNotEmpty) pendingNames.add(name);
+      }
+      final String pendingSuffix = pendingNames.isNotEmpty
+          ? ": ${pendingNames.join(', ')}${pendingTaskIds.length > 2 ? ', ...' : ''}"
+          : "";
+      CustomToast.showWarning(
+        context,
+        "Please complete and save all re-inspection checklist items before submitting (${pendingTaskIds.length} pending$pendingSuffix)",
+      );
+      return;
+    }
+
+    if (_reInspectionTaskIds.isEmpty && formCtrl.savedTasks == 0) {
+      CustomToast.showWarning(
+        context,
+        "No re-inspection checklist items completed. Please complete at least one item before submitting.",
+      );
+      return;
+    }
+  }
+
   Future<void> _submitReInspectionReport(
     InspectionTypeDetailsController controller,
     InspectionFormController formController,
     InspectionsummarypageController summaryController,
   ) async {
+    final pendingTaskIds = _reInspectionTaskIds
+        .where((id) => !formController.isTaskSaved(id))
+        .toList();
+
+    if (_reInspectionTaskIds.isNotEmpty && pendingTaskIds.isNotEmpty) {
+      final List<String> pendingNames = [];
+      for (final id in pendingTaskIds.take(2)) {
+        final name = _getTaskName(id, controller, summaryController);
+        if (name.isNotEmpty) pendingNames.add(name);
+      }
+      final String pendingSuffix = pendingNames.isNotEmpty
+          ? ": ${pendingNames.join(', ')}${pendingTaskIds.length > 2 ? ', ...' : ''}"
+          : "";
+      CustomToast.showWarning(
+        context,
+        "Please complete and save all re-inspection checklist items before submitting (${pendingTaskIds.length} pending$pendingSuffix)",
+      );
+      return;
+    }
+
+    if (_reInspectionTaskIds.isEmpty && formController.savedTasks == 0) {
+      CustomToast.showWarning(
+        context,
+        "No re-inspection checklist items completed. Please complete at least one item before submitting.",
+      );
+      return;
+    }
+
     if (_technicianPhotos.length + _existingTechnicianPhotos.length > 3) {
       CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
       return;
