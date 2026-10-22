@@ -38,6 +38,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   final Set<int> _initialCompletedTaskIds = {};
   final TextEditingController _commentController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
   bool _isSubmitting = false;
 
   final List<File> _technicianPhotos = [];
@@ -48,6 +49,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -73,6 +75,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
   Future<void> loadData() async {
     if (!mounted) return;
+    _commentController.clear();
     setState(() {
       isLoading = true;
     });
@@ -632,28 +635,32 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         ),
                       ],
                       const SizedBox(height: 24),
-                      _isSubmitting
-                          ? const Center(child: CircularProgressIndicator())
-                          : GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onTap: !isAllChecklistSaved
-                                  ? () => _showPendingChecklistWarning(
-                                        detailsCtrl,
-                                        formCtrl,
-                                        summaryCtrl,
-                                      )
-                                  : null,
-                              child: CustomButtonWidget(
-                                text: "SUBMIT RE-INSPECTION REPORT",
-                                textSize: 16,
-                                isDisabled: !isAllChecklistSaved,
-                                onPressed: () => _submitReInspectionReport(
+                      GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: (!isAllChecklistSaved && !_isSubmitting)
+                            ? () => _showPendingChecklistWarning(
+                                  detailsCtrl,
+                                  formCtrl,
+                                  summaryCtrl,
+                                )
+                            : null,
+                        child: CustomButtonWidget(
+                          text: _isSubmitting
+                              ? "Please wait..."
+                              : "SUBMIT RE-INSPECTION REPORT",
+                          textSize: 16,
+                          textColor: Colors.white,
+                          isDisabled: _isSubmitting || !isAllChecklistSaved,
+                          showLoader: _isSubmitting,
+                          onPressed: (_isSubmitting || !isAllChecklistSaved)
+                              ? null
+                              : () => _submitReInspectionReport(
                                   detailsCtrl,
                                   formCtrl,
                                   summaryCtrl,
                                 ),
-                              ),
-                            ),
+                        ),
+                      ),
                     ] else ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                     ],
@@ -1424,6 +1431,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     children: [
                       TextField(
                         controller: _commentController,
+                        focusNode: _commentFocusNode,
+                        enabled: !_isSubmitting,
                         maxLines: 4,
                         decoration: InputDecoration(
                           hintText: "Enter inspection comments...",
@@ -1858,6 +1867,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     InspectionFormController formController,
     InspectionsummarypageController summaryController,
   ) async {
+    FocusScope.of(context).unfocus();
+    _commentFocusNode.unfocus();
+
+    if (_isSubmitting) return;
     final pendingTaskIds = _reInspectionTaskIds
         .where((id) => !formController.isTaskSaved(id))
         .toList();
@@ -1871,6 +1884,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       final String pendingSuffix = pendingNames.isNotEmpty
           ? ": ${pendingNames.join(', ')}${pendingTaskIds.length > 2 ? ', ...' : ''}"
           : "";
+      FocusScope.of(context).unfocus();
+      _commentFocusNode.unfocus();
       CustomToast.showWarning(
         context,
         "Please complete and save all re-inspection checklist items before submitting (${pendingTaskIds.length} pending$pendingSuffix)",
@@ -1879,6 +1894,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     }
 
     if (_reInspectionTaskIds.isEmpty && formController.savedTasks == 0) {
+      FocusScope.of(context).unfocus();
+      _commentFocusNode.unfocus();
       CustomToast.showWarning(
         context,
         "No re-inspection checklist items completed. Please complete at least one item before submitting.",
@@ -1887,19 +1904,36 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     }
 
     if (_technicianPhotos.length + _existingTechnicianPhotos.length > 3) {
+      FocusScope.of(context).unfocus();
+      _commentFocusNode.unfocus();
       CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
       return;
     }
     if (_technicianVideos.length + _existingTechnicianVideos.length > 1) {
+      FocusScope.of(context).unfocus();
+      _commentFocusNode.unfocus();
       CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
       return;
     }
+
+    // Explicitly unfocus before opening confirmation dialog
+    FocusScope.of(context).unfocus();
+    _commentFocusNode.unfocus();
+
     final confirm = await ConfirmSubmissionDialog.show(context);
+
+    // Explicitly unfocus again upon modal return to avoid automatic focus restoration
+    FocusScope.of(context).unfocus();
+    _commentFocusNode.unfocus();
+
     if (confirm != true) return;
 
     setState(() {
       _isSubmitting = true;
     });
+
+    FocusScope.of(context).unfocus();
+    _commentFocusNode.unfocus();
 
     try {
       final bool isCustom =
@@ -2020,6 +2054,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       CustomToast.showError(context, "Unexpected error: $e");
     } finally {
       if (mounted) {
+        FocusScope.of(context).unfocus();
+        _commentFocusNode.unfocus();
         setState(() {
           _isSubmitting = false;
         });
