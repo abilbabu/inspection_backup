@@ -9,6 +9,7 @@ import 'package:inspection/controller/homeScreen_controller.dart';
 import 'package:inspection/utils/app_theme/app_theme.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/view/global_widgets/status_badge_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -525,37 +526,9 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
                                       ),
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: statusColor, width: 1),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 7,
-                                          height: 7,
-                                          decoration: BoxDecoration(
-                                            color: statusColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          statusText,
-                                          style: ApptextstyleConstants.thinText(
-                                            fontSize: 10,
-                                            color: statusColor,
-                                          ).copyWith(fontWeight: FontWeight.w600),
-                                        ),
-                                      ],
-                                    ),
+                                  StatusBadgeWidget(
+                                    statusText: statusText,
+                                    statusColor: statusColor,
                                   ),
                                 ],
                               ),

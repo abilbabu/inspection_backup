@@ -776,9 +776,13 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
     final String supComm = controller.previousSupervisorComment.trim().isNotEmpty
         ? controller.previousSupervisorComment
         : (controller.supervisorComment.trim().isNotEmpty ? controller.supervisorComment : "No comments");
-    final String techComm = controller.previousTechnicianComment.trim().isNotEmpty
-        ? controller.previousTechnicianComment
-        : (controller.technicianComment.trim().isNotEmpty ? controller.technicianComment : "No comments");
+    final String techComm = widget.flag == 2
+        ? (controller.hasReinspection && controller.technicianComment.trim().isNotEmpty
+            ? controller.technicianComment
+            : "No comments")
+        : (controller.previousTechnicianComment.trim().isNotEmpty
+            ? controller.previousTechnicianComment
+            : (controller.technicianComment.trim().isNotEmpty ? controller.technicianComment : "No comments"));
 
     final List<String> techImages = widget.flag == 2
         ? (controller.technicianImages.isNotEmpty ? controller.technicianImages : controller.previousTechnicianImages)

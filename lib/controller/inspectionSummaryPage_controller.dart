@@ -406,7 +406,7 @@ class InspectionsummarypageController extends ChangeNotifier {
           previousTechnicianComment = techComm;
           previousTechnicianImages = techImgs;
           previousTechnicianVideos = techVids;
-          if (technicianComment.isEmpty) {
+          if (!hasReinspection && technicianComment.isEmpty) {
             technicianComment = techComm;
             technicianImages = techImgs;
             technicianVideos = techVids;
