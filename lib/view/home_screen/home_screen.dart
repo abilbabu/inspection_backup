@@ -10,6 +10,7 @@ import 'package:inspection/utils/app_theme/app_theme.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
+import 'package:inspection/view/global_widgets/status_badge_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -1442,21 +1443,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               ),
-                              Container(
+                              StatusBadgeWidget(
+                                statusText: statusText,
+                                statusColor: statusColor,
+                                showDot: false,
+                                fontSize: 8,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 6,
                                   vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  statusText,
-                                  style: ApptextstyleConstants.thinText(
-                                    fontSize: 8,
-                                    color: Colors.white,
-                                  ),
                                 ),
                               ),
                             ],
@@ -1817,23 +1811,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: controller.getJobStatusColor(
-                                          jobStatus.toString(),
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        statusText,
-                                        style: ApptextstyleConstants.thinText(
-                                          fontSize: 10,
-                                          color: Colors.white,
-                                        ),
+                                    StatusBadgeWidget(
+                                      statusText: statusText,
+                                      statusColor: controller.getJobStatusColor(
+                                        jobStatus.toString(),
                                       ),
                                     ),
                                   ],
@@ -1998,23 +1979,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: controller.getJobStatusColor(
-                                          jobStatus.toString(),
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        statusText,
-                                        style: ApptextstyleConstants.thinText(
-                                          fontSize: 10,
-                                          color: Colors.white,
-                                        ),
+                                    StatusBadgeWidget(
+                                      statusText: statusText,
+                                      statusColor: controller.getJobStatusColor(
+                                        jobStatus.toString(),
                                       ),
                                     ),
                                   ],

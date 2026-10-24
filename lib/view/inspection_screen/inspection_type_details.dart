@@ -40,6 +40,7 @@ class InspectionTypeDetailspage extends StatefulWidget {
 class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
   final TextEditingController _commentController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
   final Set<int> _reInspectionTaskIds = {};
   bool _isSubmitting = false;
 
@@ -51,6 +52,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -94,34 +96,136 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
           inspectionResponse.success == true &&
           inspectionResponse.data != null) {
         final data = inspectionResponse.data as Map<String, dynamic>;
-        final inspections = data["inspections"] ?? [];
-        if (inspections.isNotEmpty) {
-          final master = inspections[0]["master"];
-          if (master != null) {
-            if (master["vimAdditionalComments"] != null) {
-              _commentController.text = master["vimAdditionalComments"].toString();
+        final inspections = (data["inspections"] as List?) ?? [];
+
+        Map<String, dynamic>? matchingInspection;
+        final bool isCustom =
+            widget.inspectionTypeId == 2 || widget.inspectionFormId == 0;
+
+        for (final item in inspections) {
+          if (item is! Map) continue;
+          final master = item["master"];
+          final rawFormId = item["inspectionFormId"] ??
+              (master is Map ? master["vimIfMasterId"] : null);
+          final int parsedFormId = rawFormId is num
+              ? rawFormId.toInt()
+              : (int.tryParse(rawFormId?.toString() ?? "") ?? 0);
+          final rawType = master is Map ? master["vimInspectionType"] : null;
+          final int parsedType = rawType is num
+              ? rawType.toInt()
+              : (int.tryParse(rawType?.toString() ?? "") ?? 0);
+
+          if (isCustom) {
+            // Match custom inspection (formId 0, initial custom run is not re-inspection type 2)
+            if (parsedFormId == 0 && parsedType != 2) {
+              matchingInspection = Map<String, dynamic>.from(item);
+              break;
             }
-            if (master["vimTechnicianImages"] != null) {
-              final raw = master["vimTechnicianImages"].toString();
-              _existingTechnicianPhotos = raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-            }
-            if (master["vimTechnicianVideos"] != null) {
-              final raw = master["vimTechnicianVideos"].toString();
-              _existingTechnicianVideos = raw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+          } else {
+            // Match predefined inspection by formId
+            if (parsedFormId == widget.inspectionFormId) {
+              matchingInspection = Map<String, dynamic>.from(item);
+              break;
             }
           }
-          final completedTasks = inspections[0]["completedTasks"] ?? [];
+        }
+
+        // Fallback for custom inspection if only 1 custom inspection exists
+        if (matchingInspection == null && isCustom) {
+          for (final item in inspections) {
+            if (item is! Map) continue;
+            final master = item["master"];
+            final rawFormId = item["inspectionFormId"] ??
+                (master is Map ? master["vimIfMasterId"] : null);
+            final int parsedFormId = rawFormId is num
+                ? rawFormId.toInt()
+                : (int.tryParse(rawFormId?.toString() ?? "") ?? 0);
+            if (parsedFormId == 0) {
+              matchingInspection = Map<String, dynamic>.from(item);
+              break;
+            }
+          }
+        }
+
+        if (matchingInspection != null) {
+          final master = matchingInspection["master"];
+          if (master is Map) {
+            final comment =
+                master["vimAdditionalComments"]?.toString()?.trim() ?? "";
+            if (comment.isNotEmpty && comment.toLowerCase() != "null") {
+              _commentController.text = comment;
+            } else {
+              _commentController.clear();
+            }
+
+            if (master["vimTechnicianImages"] != null) {
+              final raw = master["vimTechnicianImages"].toString();
+              if (raw.trim().isNotEmpty && raw.toLowerCase() != "null") {
+                _existingTechnicianPhotos = raw
+                    .split(',')
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty && s.toLowerCase() != "null")
+                    .toList();
+              } else {
+                _existingTechnicianPhotos = [];
+              }
+            } else {
+              _existingTechnicianPhotos = [];
+            }
+
+            if (master["vimTechnicianVideos"] != null) {
+              final raw = master["vimTechnicianVideos"].toString();
+              if (raw.trim().isNotEmpty && raw.toLowerCase() != "null") {
+                _existingTechnicianVideos = raw
+                    .split(',')
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty && s.toLowerCase() != "null")
+                    .toList();
+              } else {
+                _existingTechnicianVideos = [];
+              }
+            } else {
+              _existingTechnicianVideos = [];
+            }
+          } else {
+            _commentController.clear();
+            _existingTechnicianPhotos = [];
+            _existingTechnicianVideos = [];
+          }
+
+          final completedTasks =
+              (matchingInspection["completedTasks"] as List?) ?? [];
           if (!mounted) return;
           setState(() {
             _reInspectionTaskIds.clear();
             for (final savedTask in completedTasks) {
+              if (savedTask is! Map) continue;
               final val = savedTask["viReInspection"];
-              final isRe = val == true || val == 1 || val?.toString() == "true" || val?.toString() == "1";
+              final isRe = val == true ||
+                  val == 1 ||
+                  val?.toString() == "true" ||
+                  val?.toString() == "1";
               if (isRe) {
-                _reInspectionTaskIds.add(savedTask["viTaskId"]);
+                final rawId = savedTask["viTaskId"];
+                final int? taskId = rawId is num
+                    ? rawId.toInt()
+                    : int.tryParse(rawId?.toString() ?? "");
+                if (taskId != null) {
+                  _reInspectionTaskIds.add(taskId);
+                }
               }
             }
           });
+        } else {
+          // No saved inspection found for this form/type: start fresh
+          _commentController.clear();
+          _existingTechnicianPhotos = [];
+          _existingTechnicianVideos = [];
+          if (mounted) {
+            setState(() {
+              _reInspectionTaskIds.clear();
+            });
+          }
         }
       }
     });
@@ -1176,6 +1280,8 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                     children: [
                       TextField(
                         controller: _commentController,
+                        focusNode: _commentFocusNode,
+                        enabled: !_isSubmitting,
                         maxLines: 3,
                         decoration: InputDecoration(
                           hintText: "Enter inspection comments...",
@@ -1201,12 +1307,14 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                   Icons.mic_none,
                                   color: Colors.green,
                                 ),
-                                onPressed: () async {
-                                  await controller.startListening(
-                                    controller: _commentController,
-                                    context: context,
-                                  );
-                                },
+                                onPressed: _isSubmitting
+                                    ? null
+                                    : () async {
+                                        await controller.startListening(
+                                          controller: _commentController,
+                                          context: context,
+                                        );
+                                      },
                               ),
                       ),
                     ],
@@ -1322,18 +1430,33 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                 ),
               ],
               const SizedBox(height: 20),
-              _isSubmitting
-                  ? const Center(child: CircularProgressIndicator())
-                  : CustomButtonWidget(
-                      text: "SUBMIT INSPECTION REPORT",
-                      textSize: 16,
-                      isDisabled: widget.inspectionTypeId == 2
-                          ? formController.savedTasks == 0
-                          : false,
-                      onPressed: () async {
+              CustomButtonWidget(
+                text: _isSubmitting
+                    ? "Please wait..."
+                    : "SUBMIT INSPECTION REPORT",
+                textSize: 16,
+                textColor: Colors.white,
+                isDisabled: _isSubmitting ||
+                    (widget.inspectionTypeId == 2
+                        ? formController.savedTasks == 0
+                        : false),
+                showLoader: _isSubmitting,
+                onPressed: (_isSubmitting ||
+                        (widget.inspectionTypeId == 2
+                            ? formController.savedTasks == 0
+                            : false))
+                    ? null
+                    : () async {
+                        // Immediately unfocus to dismiss keyboard and remove focus from comments
+                        FocusScope.of(context).unfocus();
+                        _commentFocusNode.unfocus();
+
+                        if (_isSubmitting) return;
                         if (widget.inspectionTypeId != 2) {
                           if (formController.savedTasks < formController.totalTasks ||
                               formController.savedTasks == 0) {
+                            FocusScope.of(context).unfocus();
+                            _commentFocusNode.unfocus();
                             CustomToast.showWarning(
                               context,
                               "No task inspections completed",
@@ -1343,22 +1466,43 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                         }
                         if (_reInspectionTaskIds.isNotEmpty &&
                             _commentController.text.trim().isEmpty) {
+                          FocusScope.of(context).unfocus();
+                          _commentFocusNode.unfocus();
                           CustomToast.showWarning(context, "Technician Comments are mandatory when re-inspection items are selected.");
                           return;
                         }
                         if (_technicianPhotos.length + _existingTechnicianPhotos.length > 3) {
+                          FocusScope.of(context).unfocus();
+                          _commentFocusNode.unfocus();
                           CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
                           return;
                         }
                         if (_technicianVideos.length + _existingTechnicianVideos.length > 1) {
+                          FocusScope.of(context).unfocus();
+                          _commentFocusNode.unfocus();
                           CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
                           return;
                         }
+
+                        // Explicitly unfocus before opening confirmation dialog
+                        FocusScope.of(context).unfocus();
+                        _commentFocusNode.unfocus();
+
                         final confirm = await ConfirmSubmissionDialog.show(context);
+
+                        // Explicitly unfocus again upon modal return to avoid automatic focus restoration
+                        FocusScope.of(context).unfocus();
+                        _commentFocusNode.unfocus();
+
                         if (confirm != true) return;
                         setState(() {
                           _isSubmitting = true;
                         });
+
+                        // Ensure focus remains cleared when submit button is disabled
+                        FocusScope.of(context).unfocus();
+                        _commentFocusNode.unfocus();
+
                         try {
                           final itemsToSave = reInspectionItems.isNotEmpty
                               ? reInspectionItems
@@ -1425,6 +1569,8 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           CustomToast.showError(context, "Unexpected error: $e");
                         } finally {
                           if (mounted) {
+                            FocusScope.of(context).unfocus();
+                            _commentFocusNode.unfocus();
                             setState(() {
                               _isSubmitting = false;
                             });
