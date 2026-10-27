@@ -15,6 +15,7 @@ class BasicInspectionReportController with ChangeNotifier {
   Map<int, String> checkBoxType = {};
   Map<String, dynamic>? diagram;
   Map<String, dynamic>? signature;
+  Map<String, dynamic>? customerSignature;
   List<Map<String, dynamic>> allEssentials = [];
   List<int> selectedEssentialIds = [];
   double fuelValue = 0;
@@ -180,6 +181,7 @@ class BasicInspectionReportController with ChangeNotifier {
       additionalImageGroups.clear();
       diagram = null;
       signature = null;
+      customerSignature = null;
     }
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -446,6 +448,9 @@ class BasicInspectionReportController with ChangeNotifier {
         }
         if (attachments["signature"] != null) {
           signature = {"url": attachments["signature"]};
+        }
+        if (attachments["customerSignature"] != null) {
+          customerSignature = {"url": attachments["customerSignature"]};
         }
       }
 

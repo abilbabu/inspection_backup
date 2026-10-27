@@ -37,7 +37,9 @@ class QuickInspectionSummaryPage extends StatefulWidget {
 class _QuickInspectionSummaryPageState
     extends State<QuickInspectionSummaryPage> {
   late SignatureController _signatureController;
+  late SignatureController _customerSignatureController;
   late TextEditingController _complaintController;
+  bool _isCustomerPresent = false;
   bool _isLoading = false;
   bool _isSyncComplete = false;
 
@@ -46,6 +48,11 @@ class _QuickInspectionSummaryPageState
     super.initState();
     _complaintController = TextEditingController();
     _signatureController = SignatureController(
+      penStrokeWidth: 4,
+      penColor: Colors.black,
+      exportBackgroundColor: Colors.white,
+    );
+    _customerSignatureController = SignatureController(
       penStrokeWidth: 4,
       penColor: Colors.black,
       exportBackgroundColor: Colors.white,
@@ -94,6 +101,21 @@ class _QuickInspectionSummaryPageState
     return file;
   }
 
+  Future<File?> _saveCustomerSignature() async {
+    if (_customerSignatureController.isEmpty) {
+      CustomToast.showWarning(context, "Please provide customer signature");
+      return null;
+    }
+    final bytes = await _customerSignatureController.toPngBytes();
+    if (bytes == null) return null;
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(
+      '${dir.path}/customer_signature_${DateTime.now().millisecondsSinceEpoch}.png',
+    );
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+
   void _clearAllCache(BuildContext context) {
     LocalUploadStorageService.clearJobCache(widget.jobId);
     // Clear the persisted Quick Inspection stage — the inspection is now fully submitted.
@@ -112,6 +134,7 @@ class _QuickInspectionSummaryPageState
   @override
   void dispose() {
     _signatureController.dispose();
+    _customerSignatureController.dispose();
     _complaintController.dispose();
     super.dispose();
   }
@@ -327,6 +350,122 @@ class _QuickInspectionSummaryPageState
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _isCustomerPresent = !_isCustomerPresent;
+                                    if (!_isCustomerPresent) {
+                                      _customerSignatureController.clear();
+                                    }
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: Checkbox(
+                                        value: _isCustomerPresent,
+                                        activeColor: ColorConstants.lightblueColor,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        onChanged: (val) {
+                                          setState(() {
+                                            _isCustomerPresent = val ?? false;
+                                            if (!_isCustomerPresent) {
+                                              _customerSignatureController.clear();
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        "Customer is present for inspection",
+                                        style: ApptextstyleConstants.mediumText(
+                                          color: ColorConstants.blackColor,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (_isCustomerPresent) ...[
+                              const SizedBox(height: 14),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      "Customer Signature ",
+                                      style: ApptextstyleConstants.mediumText(
+                                        color: ColorConstants.blackColor,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      "*",
+                                      style: ApptextstyleConstants.boldText(
+                                        color: ColorConstants.errorcolor,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: SizedBox(
+                                  height: MediaQuery.of(context).size.height * 0.28,
+                                  child: Stack(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          boxShadow: ColorConstants.dashboardboxShadow,
+                                          border: Border.all(
+                                            color: ColorConstants.syanColor,
+                                            width: 1.5,
+                                          ),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Signature(
+                                          controller: _customerSignatureController,
+                                          backgroundColor: Colors.white,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: 12,
+                                        right: 12,
+                                        child: IconButton(
+                                          onPressed: _customerSignatureController.clear,
+                                          icon: ShaderMask(
+                                            shaderCallback: (bounds) => const LinearGradient(
+                                              colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                            ).createShader(bounds),
+                                            blendMode: BlendMode.srcIn,
+                                            child: const HugeIcon(
+                                              icon: HugeIcons.strokeRoundedEraser,
+                                              size: 28,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             JobUploadStatusWidget(
                               jobId: widget.jobId,
@@ -374,9 +513,18 @@ class _QuickInspectionSummaryPageState
                                             if (mounted) setState(() => _isLoading = false);
                                             return;
                                           }
+                                          File? customerFile;
+                                          if (_isCustomerPresent) {
+                                            customerFile = await _saveCustomerSignature();
+                                            if (customerFile == null) {
+                                              if (mounted) setState(() => _isLoading = false);
+                                              return;
+                                            }
+                                          }
                                           basicCtrl.currentStage =
                                               InspectionStage.signature;
                                           basicCtrl.setSignatureFile(file);
+                                          basicCtrl.setCustomerSignatureFile(customerFile);
                                           final success = await basicCtrl.proceedStep(
                                             jobId: widget.jobId,
                                             status: 3,

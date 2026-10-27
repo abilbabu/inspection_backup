@@ -1318,6 +1318,13 @@ class BasicinspController extends ChangeNotifier {
     notifyListeners();
   }
 
+  File? customerSignatureFile;
+
+  void setCustomerSignatureFile(File? file) {
+    customerSignatureFile = file;
+    notifyListeners();
+  }
+
   void setDiagramFile(File file) {
     _capturedImages = [file];
     _capturedVideo = null;
@@ -1431,6 +1438,35 @@ class BasicinspController extends ChangeNotifier {
         "stage": currentStageKey,
       };
 
+      if (currentStage == InspectionStage.signature &&
+          customerSignatureFile != null &&
+          await customerSignatureFile!.exists()) {
+        final customerFields = <String, String>{
+          "jobId": jobId.toString(),
+          "job_id": jobId.toString(),
+          "inspectionImageId": "",
+          "inspection_image_id": "",
+          "status": "2",
+          "inspectionNote": "Customer Signature",
+          "additionalComment": "",
+          "attachType": "13",
+          "stage": "customer_signature",
+        };
+        await LocalUploadStorageService.enqueueOfflineTask(
+          jobId: jobId,
+          endpointUrl: ApiServices.basicInspection,
+          mediaItems: [
+            MediaItemQueue(
+              filePath: customerSignatureFile!.path,
+              type: "0",
+              is360: false,
+              imgIndex: 0,
+            ),
+          ],
+          fields: customerFields,
+        );
+      }
+
       await LocalUploadStorageService.enqueueOfflineTask(
         jobId: jobId,
         endpointUrl: ApiServices.basicInspection,
@@ -1456,6 +1492,7 @@ class BasicinspController extends ChangeNotifier {
       }
       if (currentStage == InspectionStage.signature) {
         completedImageIds.add(-40);
+        customerSignatureFile = null;
       }
 
       await LocalUploadStorageService.clearDraftMedia(jobId: jobId, stageKey: currentStageKey);

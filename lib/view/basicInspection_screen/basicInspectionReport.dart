@@ -145,6 +145,31 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                     )
                   : const Center(child: Text("No Signature Available")),
             ),
+            if (controller.customerSignature != null &&
+                controller.customerSignature!["url"] != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                "Customer Signature Captured",
+                style: ApptextstyleConstants.mediumText(
+                  fontSize: 14,
+                  color: ColorConstants.blackColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                height: 100,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  boxShadow: ColorConstants.dashboardboxShadow,
+                  borderRadius: BorderRadius.circular(15),
+                  color: ColorConstants.whiteColor,
+                ),
+                child: Image.network(
+                  controller.customerSignature!["url"],
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ],
             SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
