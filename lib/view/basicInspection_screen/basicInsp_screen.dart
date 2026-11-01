@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+﻿// ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
 import 'dart:io';
@@ -41,6 +41,13 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   AppLifecycleState? _lastLifecycleState;
   int _cameraInitCounter = 0;
 
+  /// True while _initCamera() is executing - prevents concurrent init calls.
+  bool _isInitializing = false;
+
+  /// True while _handleImageTap() is in progress - prevents double-tap
+  /// from opening two concurrent navigation flows.
+  bool _isNavigating = false;
+
   double _currentZoom = 1.0;
   double _minZoom = 1.0;
   double _maxZoom = 10.0;
@@ -68,14 +75,21 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   bool _isAudioEnabled = false;
 
   Future<void> _initCamera({bool enableAudio = false}) async {
+    // Guard: prevent concurrent initializations.
+    if (_isInitializing) return;
+    _isInitializing = true;
+    try {
     if (mounted) {
       setState(() => _isCameraReady = false);
     }
-    if (_cameraController != null) {
+    // Fully release the previous controller before creating a new one.
+    final oldController = _cameraController;
+    _cameraController = null;
+    if (mounted) setState(() => _isCameraReady = false);
+    if (oldController != null) {
       try {
-        await _cameraController!.dispose();
+        await oldController.dispose();
       } catch (_) {}
-      _cameraController = null;
     }
 
     final status = await Permission.camera.status;
@@ -141,6 +155,9 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         setState(() => _isCameraReady = false);
       }
     }
+    } finally {
+      _isInitializing = false;
+    }
   }
 
   Future<void> _handleAppPaused() async {
@@ -168,13 +185,16 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       _isStarting = false;
       _isStopping = false;
       await SecurityService.enableScreenshot();
+      // Null out and set ready=false BEFORE dispose so no rebuild can
+      // see a disposed but non-null controller reference.
+      final camToDispose = _cameraController;
+      _cameraController = null;
       if (mounted) {
         setState(() => _isCameraReady = false);
       }
       try {
-        await _cameraController?.dispose();
+        await camToDispose?.dispose();
       } catch (_) {}
-      _cameraController = null;
       _isHandlingPause = false;
     }
   }
@@ -241,11 +261,14 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     WidgetsBinding.instance.removeObserver(this);
     _notesFocusNode.dispose();
     _recordTimer?.cancel();
-    try {
-      _cameraController?.setFlashMode(FlashMode.off);
-    } catch (_) {}
-    _cameraController?.dispose();
+    final camToDispose = _cameraController;
     _cameraController = null;
+    try {
+      camToDispose?.setFlashMode(FlashMode.off);
+    } catch (_) {}
+    try {
+      camToDispose?.dispose();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -371,24 +394,27 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     required MediaType mediaType,
     int? maxDuration,
   }) async {
+    // Prevent double-tap or overlapping navigation flows.
+    if (_isNavigating) return;
     if (controller.isBusy || _isRecording || _isStopping) return;
 
-    if (_cameraController != null) {
-      try {
-        await _cameraController!.setFlashMode(FlashMode.off);
-      } catch (_) {}
-      try {
-        await _cameraController!.dispose();
-      } catch (_) {}
-      _cameraController = null;
-      if (mounted) {
-        setState(() {
-          _isCameraReady = false;
-        });
-      }
-    }
-
+    _isNavigating = true;
     try {
+      // Fully release the current camera before pushing a new screen so
+      // the OS can reassign the sensor to the preview/capture screen.
+      final camToRelease = _cameraController;
+      _cameraController = null;
+      if (mounted) setState(() => _isCameraReady = false);
+      if (camToRelease != null) {
+        try {
+          await camToRelease.setFlashMode(FlashMode.off);
+        } catch (_) {}
+        try {
+          await camToRelease.dispose();
+        } catch (_) {}
+      }
+
+      if (!mounted) return;
       await controller.handleImageTap(
         context,
         imageIndex: imageIndex,
@@ -396,9 +422,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         maxDuration: maxDuration,
       );
     } finally {
-      if (mounted) {
+      _isNavigating = false;
+      // Reinitialise camera only if the widget is still mounted and the
+      // controller was not already re-created (e.g. by lifecycle callbacks).
+      if (mounted && _cameraController == null) {
         await _initCamera(enableAudio: _isAudioEnabled);
-        await _resetFlashForSection(controller);
+        if (mounted) await _resetFlashForSection(controller);
       }
     }
   }
@@ -812,11 +841,16 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Widget _buildCameraPreview() {
-    if (!_isCameraReady || _cameraController == null || !_cameraController!.value.isInitialized) {
+    // Capture the controller into a local variable atomically so the same
+    // instance is both checked and handed to CameraPreview.  Without this,
+    // a concurrent dispose() between the null-check and the CameraPreview
+    // constructor call triggers the 'Disposed CameraController' exception.
+    final cam = _cameraController;
+    if (!_isCameraReady || cam == null || !cam.value.isInitialized) {
       return const CameraShimmerLoader();
     }
     final size = MediaQuery.of(context).size;
-    var previewAspect = _cameraController!.value.aspectRatio;
+    var previewAspect = cam.value.aspectRatio;
     if (size.height > size.width) {
       previewAspect = 1 / previewAspect;
     }
@@ -826,6 +860,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     return NativeDeviceOrientationReader(
       useSensor: true,
       builder: (context) {
+        // Re-check inside the builder: the controller might have been
+        // disposed between the outer guard and this callback.
+        final innerCam = _cameraController;
+        if (innerCam == null || !innerCam.value.isInitialized) {
+          return const CameraShimmerLoader();
+        }
         return GestureDetector(
           onScaleStart: (details) => _baseZoom = _currentZoom,
           onScaleUpdate: (details) {
@@ -835,12 +875,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           child: Transform.scale(
             scale: scale,
             child: Center(
-              child: (_cameraController != null && _cameraController!.value.isInitialized)
-                  ? CameraPreview(
-                      _cameraController!,
-                      key: ValueKey('cam_preview_${_cameraController!.cameraId}_$_cameraInitCounter'),
-                    )
-                  : const CameraShimmerLoader(),
+              child: CameraPreview(
+                innerCam,
+                key: ValueKey('cam_preview_${innerCam.cameraId}_$_cameraInitCounter'),
+              ),
             ),
           ),
         );
