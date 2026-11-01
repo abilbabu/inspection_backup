@@ -103,7 +103,7 @@ class CardiagramController extends ChangeNotifier {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return null;
       
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = await getTemporaryDirectory();
       final tempPngPath =
           '${directory.path}/temp_car_diagram_${DateTime.now().millisecondsSinceEpoch}.png';
       final pngFile = File(tempPngPath);

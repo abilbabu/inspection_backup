@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
@@ -180,6 +181,8 @@ class InspectioncardController extends ChangeNotifier {
   bool get isReplace => selectedOption == "Replace";
   bool get isNotApplicable => selectedOption == "N/A";
 
+  bool get isConditionMandatory => isReplace || isRepair || isPoor;
+
   void setSelectedOption(String value) {
     selectedOption = value;
     showSaveButton = true;
@@ -349,11 +352,25 @@ class InspectioncardController extends ChangeNotifier {
         if (result is File) {
           if (mediaType == MediaType.image) {
             final compressed = await compressImage(result);
+            if (compressed.path != result.path) {
+              try {
+                if (await result.exists()) {
+                  await result.delete();
+                }
+              } catch (_) {}
+            }
             await _deleteOldImage(_capturedImages[imageIndex]);
             _capturedImages[imageIndex] = compressed;
             setAngleAt(imageIndex, currentAngle);
           } else {
             final compressedVideo = await compressVideo(result);
+            if (compressedVideo.path != result.path) {
+              try {
+                if (await result.exists()) {
+                  await result.delete();
+                }
+              } catch (_) {}
+            }
             await _deleteOldVideo(_capturedVideo);
             _capturedVideo = compressedVideo;
           }
@@ -376,6 +393,16 @@ class InspectioncardController extends ChangeNotifier {
         await file.delete();
       }
     } catch (_) {}
+  }
+
+  Future<void> removeCapturedVideo() async {
+    if (_capturedVideo != null) {
+      await _deleteOldVideo(_capturedVideo);
+      _capturedVideo = null;
+    }
+    isVideoLoading = false;
+    markChanged();
+    notifyListeners();
   }
 
   Future<void> _deleteOldVideo(File? file) async {
@@ -610,9 +637,10 @@ class InspectioncardController extends ChangeNotifier {
     if (isNotApplicable) {
     } else {
       final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
-      if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
+      final bool effectivePhotoMandatory = isConditionMandatory;
+      if (effectivePhotoMandatory && !hasAtLeastOneImage) {
         setValidationError(
-          "Inspection photo is required",
+          "Please capture at least one image for this component because the selected condition requires an image.",
           ValidationType.image,
         );
         _showSnackBar(context, validationError!);
@@ -655,8 +683,8 @@ class InspectioncardController extends ChangeNotifier {
       return false;
     }
     isLoading = false;
-    isSuccess = true;
-    showSaveButton = false;
+    isSuccess = formController.isTaskReadOnly(taskId);
+    showSaveButton = true;
     markSaved();
     formController.markTaskSaved(taskId);
     notifyListeners();
@@ -664,15 +692,7 @@ class InspectioncardController extends ChangeNotifier {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    CustomToast.showWarning(context, message);
   }
 
   Future<ApiResponse> saveSingleInspectionTask({
@@ -772,6 +792,19 @@ class InspectioncardController extends ChangeNotifier {
           ? jsonDecode(response.data)
           : response.data;
       if (response.statusCode == 200) {
+        // Safe cleanup: The media has been successfully uploaded to the server.
+        // Clean up temporary local files so they don't occupy storage permanently.
+        for (final img in _capturedImages) {
+          if (img != null) {
+            await LocalUploadStorageService.cleanupFile(img.path);
+          }
+        }
+        if (_capturedVideo != null) {
+          await LocalUploadStorageService.cleanupFile(_capturedVideo!.path);
+        }
+        if (recordedFilePath != null) {
+          await LocalUploadStorageService.cleanupFile(recordedFilePath);
+        }
         return ApiResponse(
           success: true,
           data: decoded?['data'],
@@ -936,9 +969,13 @@ class InspectioncardController extends ChangeNotifier {
       return false;
     }
     final hasAtLeastOneImage = _capturedImages.any((img) => img != null);
+    final bool effectivePhotoMandatory = isConditionMandatory;
 
-    if (inspectionPhotoMandatory && !hasAtLeastOneImage) {
-      setValidationError("Inspection photo is required", ValidationType.image);
+    if (effectivePhotoMandatory && !hasAtLeastOneImage) {
+      setValidationError(
+        "Please capture at least one image for this component because the selected condition requires an image.",
+        ValidationType.image,
+      );
 
       _showValidationDialog(context, validationError!);
       return false;
@@ -977,8 +1014,8 @@ class InspectioncardController extends ChangeNotifier {
       return false;
     }
     isLoading = false;
-    isSuccess = true;
-    showSaveButton = false;
+    isSuccess = formController.isTaskReadOnly(taskId);
+    showSaveButton = true;
     markSaved();
     formController.markTaskSaved(taskId);
     notifyListeners();
@@ -1011,6 +1048,83 @@ class InspectioncardController extends ChangeNotifier {
         inserted: false,
       ),
     );
+  }
+
+  Future<bool> uploadTechnicianCommentsMedia({
+    required int jobId,
+    int? inspectionTypeId,
+    String? comments,
+    List<File>? images,
+    List<File>? videos,
+    List<String>? existingImages,
+    List<String>? existingVideos,
+  }) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('userToken');
+      if (token == null || token.isEmpty) return false;
+
+      FormData formData = FormData();
+      formData.fields.add(MapEntry("jobId", jobId.toString()));
+      if (inspectionTypeId != null) {
+        formData.fields.add(MapEntry("inspectionTypeId", inspectionTypeId.toString()));
+      }
+      if (comments != null) {
+        formData.fields.add(MapEntry("comments", comments));
+      }
+      if (existingImages != null && existingImages.isNotEmpty) {
+        formData.fields.add(MapEntry("existingImages", existingImages.join(",")));
+      }
+      if (existingVideos != null && existingVideos.isNotEmpty) {
+        formData.fields.add(MapEntry("existingVideos", existingVideos.join(",")));
+      }
+
+      if (images != null) {
+        for (int i = 0; i < images.length; i++) {
+          final file = images[i];
+          if (file.existsSync()) {
+            formData.files.add(
+              MapEntry(
+                "technicianimagefiles",
+                await MultipartFile.fromFile(
+                  file.path,
+                  filename: "tech_comment_${i}_${DateTime.now().millisecondsSinceEpoch}.jpg",
+                ),
+              ),
+            );
+          }
+        }
+      }
+
+      if (videos != null) {
+        for (int i = 0; i < videos.length; i++) {
+          final file = videos[i];
+          if (file.existsSync()) {
+            formData.files.add(
+              MapEntry(
+                "technicianvideofiles",
+                await MultipartFile.fromFile(
+                  file.path,
+                  filename: "tech_video_${i}_${DateTime.now().millisecondsSinceEpoch}.mp4",
+                ),
+              ),
+            );
+          }
+        }
+      }
+
+      Dio dio = Dio();
+      dio.options.headers["Authorization"] = "Bearer $token";
+      final response = await dio.post(
+        ApiServices.saveTechnicianCommentsMedia,
+        data: formData,
+        options: Options(validateStatus: (_) => true),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error uploading technician comments media: $e");
+      return false;
+    }
   }
 
   bool _isDisposed = false;

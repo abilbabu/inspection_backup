@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:inspection/utils/app_theme/app_theme.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
+import 'package:inspection/view/global_widgets/status_badge_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
@@ -1367,14 +1369,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text("Feature coming soon"),
-          duration: Duration(seconds: 2),
-        ),
-      );
+    CustomToast.showInfo(context, "Feature coming soon");
   }
 
   Widget inspectionCard(Map<String, dynamic> data) {
@@ -1448,21 +1443,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               ),
-                              Container(
+                              StatusBadgeWidget(
+                                statusText: statusText,
+                                statusColor: statusColor,
+                                showDot: false,
+                                fontSize: 8,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 6,
                                   vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  statusText,
-                                  style: ApptextstyleConstants.thinText(
-                                    fontSize: 8,
-                                    color: Colors.white,
-                                  ),
                                 ),
                               ),
                             ],
@@ -1823,23 +1811,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: controller.getJobStatusColor(
-                                          jobStatus.toString(),
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        statusText,
-                                        style: ApptextstyleConstants.thinText(
-                                          fontSize: 10,
-                                          color: Colors.white,
-                                        ),
+                                    StatusBadgeWidget(
+                                      statusText: statusText,
+                                      statusColor: controller.getJobStatusColor(
+                                        jobStatus.toString(),
                                       ),
                                     ),
                                   ],
@@ -1924,6 +1899,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
+        if (userDepartment == 2 || userDepartment == 5) {
+          context.go("/inspectiondetails", extra: jobId);
+          return;
+        }
         if (jobStatus == 10 || jobStatus == 11 || jobStatus == 18) {
           context.go("/reassigneddetails", extra: jobId);
           return;
@@ -2000,23 +1979,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: controller.getJobStatusColor(
-                                          jobStatus.toString(),
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        statusText,
-                                        style: ApptextstyleConstants.thinText(
-                                          fontSize: 10,
-                                          color: Colors.white,
-                                        ),
+                                    StatusBadgeWidget(
+                                      statusText: statusText,
+                                      statusColor: controller.getJobStatusColor(
+                                        jobStatus.toString(),
                                       ),
                                     ),
                                   ],

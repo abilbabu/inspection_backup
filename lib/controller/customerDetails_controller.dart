@@ -175,8 +175,17 @@ class CustomerDetailsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  int get maxMobileLength => _selectedCountryCode == '+971' ? 9 : 10;
+
   void setCountryCode(String code) {
     _selectedCountryCode = code;
+    if (_selectedCountryCode == '+971' && mobileNumController.text.startsWith('0')) {
+      mobileNumController.text = mobileNumController.text.substring(1);
+    }
+    final limit = maxMobileLength;
+    if (mobileNumController.text.length > limit) {
+      mobileNumController.text = mobileNumController.text.substring(0, limit);
+    }
     notifyListeners();
   }
 

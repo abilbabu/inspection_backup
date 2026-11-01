@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:inspection/controller/inspectionDetails_controller.dart';
@@ -504,8 +505,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
     InspectionsummarypageController controller,
     Map<String, dynamic> item,
   ) {
+    final userDept = context.read<JobcarddetailsController>().userDepartment;
     return InkWell(
-      onTap: () {
+      onTap: (userDept == 2 || userDept == 5) ? null : () {
         final rawJobId = item['jobId'];
         final rawInspections = item['inspections'];
         final inspectionTypeid = controller.vimInspectionTypeId;
@@ -940,9 +942,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
               customer?['custMobile'] ?? '',
             );
             if (phone.isEmpty) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("Phone number missing")));
+              CustomToast.showWarning(context, "Phone number missing");
               return;
             }
             jobController.setDownloading(true);
@@ -1174,13 +1174,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                   technicianName: technician["userName"].toString(),
                                 );
                                 if (res["success"] == true) {
-                                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    SnackBar(content: Text(res["message"] ?? "Technician Reassigned Successfully")),
-                                  );
+                                  CustomToast.showSuccess(parentContext, res["message"] ?? "Technician Reassigned Successfully");
                                 } else {
-                                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    SnackBar(content: Text(res["message"] ?? "Technician Reassignment Failed")),
-                                  );
+                                  CustomToast.showError(parentContext, res["message"] ?? "Technician Reassignment Failed");
                                 }
                                 parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId, forceRefresh: true);
                               }
@@ -1270,9 +1266,7 @@ Widget _optionTile(
           final expiry = controller.formatExpiry(response.data?["expiresAt"]);
           _showInspectionDialog(parentContext, jobId, link, expiry, mode);
         } else {
-          ScaffoldMessenger.of(parentContext).showSnackBar(
-            const SnackBar(content: Text("Unable to generate link")),
-          );
+          CustomToast.showError(parentContext, "Unable to generate link");
         }
       } catch (e) {
         print("🔥 ERROR: $e");
@@ -1355,18 +1349,7 @@ void _showInspectionDialog(
                     child: InkWell(
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: link));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "Link copied",
-                              style: ApptextstyleConstants.mediumText(
-                                color: ColorConstants.whiteColor,
-                              ),
-                            ),
-                            duration: const Duration(seconds: 2),
-                            backgroundColor: ColorConstants.greenColor,
-                          ),
-                        );
+                        CustomToast.showSuccess(context, "Link copied");
                         Future.delayed(const Duration(milliseconds: 50), () {
                           Navigator.pop(context);
                         });

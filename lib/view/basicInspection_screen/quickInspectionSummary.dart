@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -17,10 +18,12 @@ import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
 import 'package:http/http.dart' as http;
 import 'package:hugeicons/hugeicons.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/signatureSpeech_controller .dart';
+import 'package:inspection/view/widgets/job_upload_status_widget.dart';
 
 class QuickInspectionSummaryPage extends StatefulWidget {
   final int jobId;
@@ -34,14 +37,22 @@ class QuickInspectionSummaryPage extends StatefulWidget {
 class _QuickInspectionSummaryPageState
     extends State<QuickInspectionSummaryPage> {
   late SignatureController _signatureController;
+  late SignatureController _customerSignatureController;
   late TextEditingController _complaintController;
+  bool _isCustomerPresent = false;
   bool _isLoading = false;
+  bool _isSyncComplete = false;
 
   @override
   void initState() {
     super.initState();
     _complaintController = TextEditingController();
     _signatureController = SignatureController(
+      penStrokeWidth: 4,
+      penColor: Colors.black,
+      exportBackgroundColor: Colors.white,
+    );
+    _customerSignatureController = SignatureController(
       penStrokeWidth: 4,
       penColor: Colors.black,
       exportBackgroundColor: Colors.white,
@@ -77,12 +88,7 @@ class _QuickInspectionSummaryPageState
 
   Future<File?> _saveSignature() async {
     if (_signatureController.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please provide a signature"),
-          backgroundColor: ColorConstants.errorcolor,
-        ),
-      );
+      CustomToast.showWarning(context, "Please provide a signature");
       return null;
     }
     final bytes = await _signatureController.toPngBytes();
@@ -90,6 +96,21 @@ class _QuickInspectionSummaryPageState
     final dir = await getApplicationDocumentsDirectory();
     final file = File(
       '${dir.path}/signature_${DateTime.now().millisecondsSinceEpoch}.png',
+    );
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+
+  Future<File?> _saveCustomerSignature() async {
+    if (_customerSignatureController.isEmpty) {
+      CustomToast.showWarning(context, "Please provide customer signature");
+      return null;
+    }
+    final bytes = await _customerSignatureController.toPngBytes();
+    if (bytes == null) return null;
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(
+      '${dir.path}/customer_signature_${DateTime.now().millisecondsSinceEpoch}.png',
     );
     await file.writeAsBytes(bytes);
     return file;
@@ -113,6 +134,7 @@ class _QuickInspectionSummaryPageState
   @override
   void dispose() {
     _signatureController.dispose();
+    _customerSignatureController.dispose();
     _complaintController.dispose();
     super.dispose();
   }
@@ -328,18 +350,146 @@ class _QuickInspectionSummaryPageState
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _isCustomerPresent = !_isCustomerPresent;
+                                    if (!_isCustomerPresent) {
+                                      _customerSignatureController.clear();
+                                    }
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: Checkbox(
+                                        value: _isCustomerPresent,
+                                        activeColor: ColorConstants.lightblueColor,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        onChanged: (val) {
+                                          setState(() {
+                                            _isCustomerPresent = val ?? false;
+                                            if (!_isCustomerPresent) {
+                                              _customerSignatureController.clear();
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        "Customer is present for inspection",
+                                        style: ApptextstyleConstants.mediumText(
+                                          color: ColorConstants.blackColor,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (_isCustomerPresent) ...[
+                              const SizedBox(height: 14),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      "Customer Signature ",
+                                      style: ApptextstyleConstants.mediumText(
+                                        color: ColorConstants.blackColor,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      "*",
+                                      style: ApptextstyleConstants.boldText(
+                                        color: ColorConstants.errorcolor,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: SizedBox(
+                                  height: MediaQuery.of(context).size.height * 0.28,
+                                  child: Stack(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          boxShadow: ColorConstants.dashboardboxShadow,
+                                          border: Border.all(
+                                            color: ColorConstants.syanColor,
+                                            width: 1.5,
+                                          ),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Signature(
+                                          controller: _customerSignatureController,
+                                          backgroundColor: Colors.white,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: 12,
+                                        right: 12,
+                                        child: IconButton(
+                                          onPressed: _customerSignatureController.clear,
+                                          icon: ShaderMask(
+                                            shaderCallback: (bounds) => const LinearGradient(
+                                              colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                            ).createShader(bounds),
+                                            blendMode: BlendMode.srcIn,
+                                            child: const HugeIcon(
+                                              icon: HugeIcons.strokeRoundedEraser,
+                                              size: 28,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            JobUploadStatusWidget(
+                              jobId: widget.jobId,
+                              onSyncStatusChanged: (isComplete) {
+                                if (mounted && _isSyncComplete != isComplete) {
+                                  setState(() => _isSyncComplete = isComplete);
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
                               height: 48,
                               child: CustomButtonWidget(
                                 text: _isLoading
                                     ? "Please wait..."
-                                    : "Complete Quick Inspection",
+                                    : (!_isSyncComplete
+                                        ? "Syncing Media Files..."
+                                        : "Complete Quick Inspection"),
                                 textSize: 16,
-                                isDisabled: _isLoading || basicCtrl.isUploading,
+                                isDisabled:
+                                    _isLoading || basicCtrl.isUploading || !_isSyncComplete,
                                 showLoader: _isLoading,
-                                onPressed: _isLoading || basicCtrl.isUploading
+                                onPressed: _isLoading || basicCtrl.isUploading || !_isSyncComplete
                                     ? null
                                     : () async {
                                         if (_isLoading) return;
@@ -347,14 +497,34 @@ class _QuickInspectionSummaryPageState
                                           _isLoading = true;
                                         });
                                         try {
+                                          final stats = await LocalUploadStorageService.getJobUploadStats(widget.jobId);
+                                          if ((stats['failed'] ?? 0) > 0) {
+                                            if (mounted) {
+                                              setState(() => _isLoading = false);
+                                              CustomToast.showError(
+                                                context,
+                                                "Some inspection files could not be uploaded. Please retry failed uploads before submitting.",
+                                              );
+                                            }
+                                            return;
+                                          }
                                           final file = await _saveSignature();
                                           if (file == null) {
                                             if (mounted) setState(() => _isLoading = false);
                                             return;
                                           }
+                                          File? customerFile;
+                                          if (_isCustomerPresent) {
+                                            customerFile = await _saveCustomerSignature();
+                                            if (customerFile == null) {
+                                              if (mounted) setState(() => _isLoading = false);
+                                              return;
+                                            }
+                                          }
                                           basicCtrl.currentStage =
                                               InspectionStage.signature;
                                           basicCtrl.setSignatureFile(file);
+                                          basicCtrl.setCustomerSignatureFile(customerFile);
                                           final success = await basicCtrl.proceedStep(
                                             jobId: widget.jobId,
                                             status: 3,
@@ -368,16 +538,9 @@ class _QuickInspectionSummaryPageState
                                                 .markQuickInspectionCompleted();
                                             _clearAllCache(context);
                                             if (mounted) {
-                                              ScaffoldMessenger.of(
+                                              CustomToast.showSuccess(
                                                 context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Quick inspection completed successfully",
-                                                  ),
-                                                  backgroundColor:
-                                                      ColorConstants.greenColor,
-                                                ),
+                                                "Quick inspection completed successfully",
                                               );
                                               await Future.delayed(
                                                 const Duration(seconds: 1),
@@ -390,16 +553,9 @@ class _QuickInspectionSummaryPageState
                                           } else {
                                             if (mounted) {
                                               setState(() => _isLoading = false);
-                                              ScaffoldMessenger.of(
+                                              CustomToast.showError(
                                                 context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Failed to upload signature. Check offline sync.",
-                                                  ),
-                                                  backgroundColor:
-                                                      ColorConstants.errorcolor,
-                                                ),
+                                                "Failed to upload signature. Check offline sync.",
                                               );
                                             }
                                           }
@@ -474,26 +630,7 @@ class _QuickInspectionSummaryPageState
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("Discard changes?"),
-            content: const Text(
-              "Unsaved changes will be cleared. Are you sure you want to go back?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("NO"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("YES"),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final res = await ConfirmSubmissionDialog.showDiscard(context);
+    return res ?? false;
   }
 }

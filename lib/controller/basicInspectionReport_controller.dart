@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
+import 'package:inspection/utils/local_upload_storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
@@ -13,6 +15,7 @@ class BasicInspectionReportController with ChangeNotifier {
   Map<int, String> checkBoxType = {};
   Map<String, dynamic>? diagram;
   Map<String, dynamic>? signature;
+  Map<String, dynamic>? customerSignature;
   List<Map<String, dynamic>> allEssentials = [];
   List<int> selectedEssentialIds = [];
   double fuelValue = 0;
@@ -47,72 +50,68 @@ class BasicInspectionReportController with ChangeNotifier {
 
   Future<void> initializeExternalVideo(String url) async {
     try {
-      externalVideoController?.dispose();
-      externalVideoController = VideoPlayerController.network(url);
-      await externalVideoController!.initialize();
-      externalVideoDuration = externalVideoController!.value.duration;
+      if (externalVideoController != null && isExternalVideoInitialized && external360Video == url) {
+        return;
+      }
+      final oldController = externalVideoController;
+      VideoPlayerController newController;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        newController = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else {
+        newController = VideoPlayerController.file(File(url));
+      }
+      await newController.initialize();
+      oldController?.removeListener(_externalVideoListener);
+      oldController?.dispose();
+
+      externalVideoController = newController;
+      externalVideoDuration = newController.value.duration;
       isExternalVideoInitialized = true;
       isExternalVideoPlaying = false;
-      externalVideoController!.addListener(_externalVideoListener);
+      newController.addListener(_externalVideoListener);
       notifyListeners();
     } catch (e) {
+      debugPrint("Error initializing external 360 video: $e");
     }
   }
 
   Future<void> initializeInternalVideo(String url) async {
     try {
-      internalVideoController?.dispose();
-      internalVideoController = VideoPlayerController.network(url);
-      await internalVideoController!.initialize();
-      internalVideoDuration = internalVideoController!.value.duration;
+      if (internalVideoController != null && isInternalVideoInitialized && internal360Video == url) {
+        return;
+      }
+      final oldController = internalVideoController;
+      VideoPlayerController newController;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        newController = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else {
+        newController = VideoPlayerController.file(File(url));
+      }
+      await newController.initialize();
+      oldController?.removeListener(_internalVideoListener);
+      oldController?.dispose();
+
+      internalVideoController = newController;
+      internalVideoDuration = newController.value.duration;
       isInternalVideoInitialized = true;
       isInternalVideoPlaying = false;
-      internalVideoController!.addListener(_internalVideoListener);
+      newController.addListener(_internalVideoListener);
       notifyListeners();
     } catch (e) {
+      debugPrint("Error initializing internal 360 video: $e");
     }
   }
 
   void _externalVideoListener() {
     if (externalVideoController == null) return;
-
-    final isPlaying = externalVideoController!.value.isPlaying;
-    final newPosition = externalVideoController!.value.position;
-
-    bool needsNotify = false;
-    if (isPlaying != isExternalVideoPlaying) {
-      isExternalVideoPlaying = isPlaying;
-      needsNotify = true;
-    }
-    if (newPosition.inSeconds != externalVideoPosition.inSeconds) {
-      externalVideoPosition = newPosition;
-      needsNotify = true;
-    }
-
-    if (needsNotify) {
-      notifyListeners();
-    }
+    isExternalVideoPlaying = externalVideoController!.value.isPlaying;
+    externalVideoPosition = externalVideoController!.value.position;
   }
 
   void _internalVideoListener() {
     if (internalVideoController == null) return;
-
-    final isPlaying = internalVideoController!.value.isPlaying;
-    final newPosition = internalVideoController!.value.position;
-
-    bool needsNotify = false;
-    if (isPlaying != isInternalVideoPlaying) {
-      isInternalVideoPlaying = isPlaying;
-      needsNotify = true;
-    }
-    if (newPosition.inSeconds != internalVideoPosition.inSeconds) {
-      internalVideoPosition = newPosition;
-      needsNotify = true;
-    }
-
-    if (needsNotify) {
-      notifyListeners();
-    }
+    isInternalVideoPlaying = internalVideoController!.value.isPlaying;
+    internalVideoPosition = internalVideoController!.value.position;
   }
 
   void toggleExternalPlayPause() {
@@ -154,18 +153,16 @@ class BasicInspectionReportController with ChangeNotifier {
   }
 
   Future<void> getBasicInspection(int jobId, {bool forceRefresh = false}) async {
-    if (forceRefresh) {
-      _loadedJobId = null;
-    }
-    if (_loadedJobId == jobId) {
+    final bool isInitial = _loadedJobId != jobId;
+    if (_loadedJobId == jobId && !forceRefresh) {
       isBasicInspectionLoading = false;
       notifyListeners();
       return;
     }
     _loadedJobId = jobId;
-    isBasicInspectionLoading = true;
-    notifyListeners();
-    try {
+    if (isInitial) {
+      isBasicInspectionLoading = true;
+      notifyListeners();
       externalVideoController?.dispose();
       internalVideoController?.dispose();
       externalVideoController = null;
@@ -184,6 +181,9 @@ class BasicInspectionReportController with ChangeNotifier {
       additionalImageGroups.clear();
       diagram = null;
       signature = null;
+      customerSignature = null;
+    }
+    try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userToken = prefs.getString('userToken');
       final response = await http.post(
@@ -269,6 +269,30 @@ class BasicInspectionReportController with ChangeNotifier {
           }
         }
 
+        String? extractVideoUrlFromDynamic(dynamic val) {
+          if (val == null) return null;
+          if (val is String && val.trim().isNotEmpty) return val.trim();
+          if (val is Map) {
+            final u = val["iaUrl"] ?? val["url"] ?? val["path"] ?? val["videoUrl"] ?? val["ia_url"];
+            if (u != null && u.toString().trim().isNotEmpty) return u.toString().trim();
+          }
+          if (val is List && val.isNotEmpty) {
+            for (var sub in val) {
+              final res = extractVideoUrlFromDynamic(sub);
+              if (res != null && res.isNotEmpty) return res;
+            }
+          }
+          return null;
+        }
+
+        external360Video ??= extractVideoUrlFromDynamic(attachments["external360"]) ??
+                             extractVideoUrlFromDynamic(attachments["external360Video"]) ??
+                             extractVideoUrlFromDynamic(attachments["360"]) ??
+                             extractVideoUrlFromDynamic(attachments["video360"]);
+
+        internal360Video ??= extractVideoUrlFromDynamic(attachments["internal360"]) ??
+                             extractVideoUrlFromDynamic(attachments["internal360Video"]);
+
         List external = attachments["externalImages"] ?? [];
         List internal = attachments["internalImages"] ?? [];
         for (var group in external) {
@@ -282,18 +306,23 @@ class BasicInspectionReportController with ChangeNotifier {
           for (var item in attachList) {
             int? iaType = item["iaType"];
             int? iaImageType = item["iaImageType"];
-            String? url = item["iaUrl"];
-            if (url == null || url.isEmpty) continue;
+            String? url = item["iaUrl"] ?? item["url"];
+            if (url == null || url.toString().trim().isEmpty) continue;
+            final cleanUrl = url.toString().trim();
             if (iaType == 0 && (iaImageType == 0 || iaImageType == null)) {
-              imageList.add({"url": url});
+              imageList.add({"url": cleanUrl});
               comment ??= item["iaInspectionNote"];
             }
             if (iaType == 2 && (iaImageType == 0 || iaImageType == null)) {
-              normalVideoUrl = url;
+              normalVideoUrl = cleanUrl;
               comment ??= item["iaInspectionNote"];
             }
-            if (iaType == 2 && iaImageType == 10) {
-              external360Video = url;
+            final bool is360 = iaImageType == 10 ||
+                item["is360"] == true ||
+                item["attachType"] == 10 ||
+                item["attachType"] == "10";
+            if (iaType == 2 && is360) {
+              external360Video = cleanUrl;
               external360Comment = item["iaInspectionNote"];
             }
           }
@@ -318,18 +347,23 @@ class BasicInspectionReportController with ChangeNotifier {
           for (var item in attachList) {
             int? iaType = item["iaType"];
             int? iaImageType = item["iaImageType"];
-            String? url = item["iaUrl"];
-            if (url == null || url.isEmpty) continue;
+            String? url = item["iaUrl"] ?? item["url"];
+            if (url == null || url.toString().trim().isEmpty) continue;
+            final cleanUrl = url.toString().trim();
             if (iaType == 0 && (iaImageType == 0 || iaImageType == null)) {
-              imageList.add({"url": url});
+              imageList.add({"url": cleanUrl});
               comment ??= item["iaInspectionNote"];
             }
             if (iaType == 2 && (iaImageType == 0 || iaImageType == null)) {
-              normalVideoUrl = url;
+              normalVideoUrl = cleanUrl;
               comment ??= item["iaInspectionNote"];
             }
-            if (iaType == 2 && iaImageType == 10) {
-              internal360Video = url;
+            final bool is360 = iaImageType == 10 ||
+                item["is360"] == true ||
+                item["attachType"] == 10 ||
+                item["attachType"] == "10";
+            if (iaType == 2 && is360) {
+              internal360Video = cleanUrl;
               internal360Comment = item["iaInspectionNote"];
             }
           }
@@ -415,7 +449,63 @@ class BasicInspectionReportController with ChangeNotifier {
         if (attachments["signature"] != null) {
           signature = {"url": attachments["signature"]};
         }
+        if (attachments["customerSignature"] != null) {
+          customerSignature = {"url": attachments["customerSignature"]};
+        }
       }
+
+      // Local storage fallback for pending/recently captured 360 videos
+      try {
+        final pendingQueue = await LocalUploadStorageService.getQueue();
+        for (var task in pendingQueue) {
+          if (task.jobId == jobId) {
+            for (var m in task.mediaItems) {
+              final isTask360 = m.is360 ||
+                  task.fields["attachType"] == "10" ||
+                  task.fields["inspectionImageId"] == "-10" ||
+                  task.fields["inspectionImageId"] == "-20";
+              if (isTask360) {
+                final f = File(m.filePath);
+                if (f.existsSync()) {
+                  final stage = task.fields["stage"] ?? "";
+                  final isExternal = stage == "external360" ||
+                      stage == "external_360" ||
+                      task.fields["inspectionImageId"] == "-10";
+                  final isInternal = stage == "internal360" ||
+                      stage == "internal_360" ||
+                      task.fields["inspectionImageId"] == "-20";
+                  if (isExternal) {
+                    external360Video ??= m.filePath;
+                  } else if (isInternal) {
+                    internal360Video ??= m.filePath;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        final extDraft = await LocalUploadStorageService.getDraftMedia(
+                jobId: jobId, stageKey: 'external_360') ??
+            await LocalUploadStorageService.getDraftMedia(
+                jobId: jobId, stageKey: 'external360');
+        if (extDraft != null && extDraft['video'] is File) {
+          final file = extDraft['video'] as File;
+          if (file.existsSync()) {
+            external360Video ??= file.path;
+          }
+        }
+        final intDraft = await LocalUploadStorageService.getDraftMedia(
+                jobId: jobId, stageKey: 'internal_360') ??
+            await LocalUploadStorageService.getDraftMedia(
+                jobId: jobId, stageKey: 'internal360');
+        if (intDraft != null && intDraft['video'] is File) {
+          final file = intDraft['video'] as File;
+          if (file.existsSync()) {
+            internal360Video ??= file.path;
+          }
+        }
+      } catch (_) {}
       if (external360Video != null && external360Video!.isNotEmpty) {
         initializeExternalVideo(external360Video!);
       }

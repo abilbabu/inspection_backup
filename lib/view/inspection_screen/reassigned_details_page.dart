@@ -1,3 +1,4 @@
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -11,9 +12,14 @@ import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
+import 'dart:io';
+import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
+import 'package:inspection/view/global_widgets/fullScreenImage.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
+import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_card.dart';
+import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'package:inspection/view/inspection_screen/inspection_summary_page.dart';
 
@@ -32,11 +38,18 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   final Set<int> _initialCompletedTaskIds = {};
   final TextEditingController _commentController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
   bool _isSubmitting = false;
+
+  final List<File> _technicianPhotos = [];
+  final List<File> _technicianVideos = [];
+  List<String> _existingTechnicianPhotos = [];
+  List<String> _existingTechnicianVideos = [];
 
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -62,6 +75,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
   Future<void> loadData() async {
     if (!mounted) return;
+    _commentController.clear();
     setState(() {
       isLoading = true;
     });
@@ -73,6 +87,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       final jobCardCtrl = context.read<JobcarddetailsController>();
 
       await summaryCtrl.getInspectionSummary(widget.jobId);
+      _existingTechnicianPhotos = List.from(summaryCtrl.technicianImages);
+      _existingTechnicianVideos = List.from(summaryCtrl.technicianVideos);
 
       final inspectionResponse = await detailsCtrl.getInspectionDetailsById(
         widget.jobId,
@@ -97,7 +113,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
         final data = inspectionResponse.data as Map<String, dynamic>;
         int jobStatus = summaryCtrl.jobStatus;
-        if (jobStatus == 18) {
+        if (jobStatus == 18 && userDepartment == 4) {
           await detailsCtrl.changeStatus(jobId: widget.jobId, status: 11);
           if (!mounted) return;
           jobStatus = 11;
@@ -117,43 +133,160 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         }
         _reInspectionTaskIds.addAll(approvedReInspectionTaskIds);
 
+        // For custom inspections: identify the re-inspection run and collect
+        // all its tasks as re-inspection items (mirrors predefined flow logic).
+        // We also identify which re-inspection masters are already completed
+        // (i.e., job is not in editable state) to determine reinspectedTaskIds.
+        final Set<int> customReInspectionTaskIds = {};
+        if (isCustom) {
+          for (final inspection in inspections) {
+            final master = inspection["master"] ?? {};
+            final int vimInspectionType = master["vimInspectionType"] is num
+                ? (master["vimInspectionType"] as num).toInt()
+                : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
+            final dynamic vimIfMasterId = master["vimIfMasterId"];
+            // Custom re-inspection run: type == 2 and no predefined form
+            if (vimInspectionType == 2 &&
+                (vimIfMasterId == null || vimIfMasterId == 0)) {
+              final List reTasks = [];
+              if (inspection["completedTasks"] is List) {
+                reTasks.addAll(inspection["completedTasks"]);
+              }
+              final rawIT = inspection["inspectionTasks"];
+              if (rawIT is List) {
+                for (final item in rawIT) {
+                  if (item is Map) {
+                    if (item["tasks"] is List) {
+                      reTasks.addAll(item["tasks"]);
+                    } else {
+                      reTasks.add(item);
+                    }
+                  }
+                }
+              }
+              for (final t in reTasks) {
+                if (t is Map) {
+                  final rawId = t["viTaskId"] ?? t["itcId"] ?? t["taskId"] ?? t["viInspectionTaskId"];
+                  final int? tid = rawId is num ? rawId.toInt() : int.tryParse(rawId?.toString() ?? "");
+                  if (tid != null) customReInspectionTaskIds.add(tid);
+                }
+              }
+            }
+          }
+          _reInspectionTaskIds.addAll(customReInspectionTaskIds);
+        }
+
         for (int i = 0; i < inspections.length; i++) {
           final inspection = inspections[i];
           final master = inspection["master"] ?? {};
-          final int vimInspectionType = master["vimInspectionType"] ?? 0;
-          final completedTasks = inspection["completedTasks"] ?? [];
+          final int vimInspectionType = master["vimInspectionType"] is num
+              ? (master["vimInspectionType"] as num).toInt()
+              : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
+          final List completedTasks = [];
+          if (inspection["completedTasks"] is List) {
+            completedTasks.addAll(inspection["completedTasks"]);
+          }
+          final rawInspectionTasks = inspection["inspectionTasks"];
+          if (rawInspectionTasks is List) {
+            for (final item in rawInspectionTasks) {
+              if (item is Map) {
+                if (item["tasks"] is List) {
+                  completedTasks.addAll(item["tasks"]);
+                } else {
+                  completedTasks.add(item);
+                }
+              }
+            }
+          }
           for (final savedTask in completedTasks) {
-            final int taskId = savedTask["viTaskId"];
-            _initialCompletedTaskIds.add(taskId);
-            final double reTime =
-                double.tryParse(
-                  savedTask["viReInspectionTime"]?.toString() ?? "",
-                ) ??
-                0.0;
-            if (savedTask["viReInspection"] == true ||
-                savedTask["viReInspection"] == 1 ||
-                savedTask["viReInspection"]?.toString() == "true" ||
-                reTime > 0.0 ||
-                (i > 0 && vimInspectionType == 2 && !isCustom)) {
-              if (approvedReInspectionTaskIds.contains(taskId)) {
-                _reInspectionTaskIds.add(taskId);
+            if (savedTask is Map) {
+              final rawId = savedTask["viTaskId"] ??
+                  savedTask["itcId"] ??
+                  savedTask["taskId"] ??
+                  savedTask["viInspectionTaskId"];
+              final int? taskId = rawId is num
+                  ? rawId.toInt()
+                  : int.tryParse(rawId?.toString() ?? "");
+              if (taskId == null) continue;
+              // Mark tasks from the initial run as initial completed
+              if (i == 0 || vimInspectionType != 2) {
+                _initialCompletedTaskIds.add(taskId);
+              }
+              final double reTime =
+                  double.tryParse(
+                    savedTask["viReInspectionTime"]?.toString() ??
+                        savedTask["vi_re_inspection_time"]?.toString() ??
+                        "",
+                  ) ??
+                  0.0;
+              final bool isReInsp = savedTask["viReInspection"] == true ||
+                  savedTask["viReInspection"] == 1 ||
+                  savedTask["viReInspection"]?.toString() == "true" ||
+                  savedTask["viReInspection"]?.toString() == "1" ||
+                  savedTask["vi_re_inspection"] == true ||
+                  savedTask["vi_re_inspection"] == 1 ||
+                  savedTask["vi_re_inspection"]?.toString() == "true" ||
+                  savedTask["vi_re_inspection"]?.toString() == "1" ||
+                  reTime > 0.0;
+              if (isReInsp || (i > 0 && vimInspectionType == 2 && !isCustom)) {
+                if (approvedReInspectionTaskIds.contains(taskId) || (i > 0 && vimInspectionType == 2)) {
+                  _reInspectionTaskIds.add(taskId);
+                }
               }
             }
           }
         }
+
         final Set<int> reinspectedTaskIds = {};
-        for (int i = 1; i < inspections.length; i++) {
-          final completedTasks = inspections[i]["completedTasks"] ?? [];
-          for (final savedTask in completedTasks) {
-            final int taskId = savedTask["viTaskId"];
-            reinspectedTaskIds.add(taskId);
+        for (int i = 0; i < inspections.length; i++) {
+          final inspection = inspections[i];
+          final master = inspection["master"] ?? {};
+          final int vimInspectionType = master["vimInspectionType"] is num
+              ? (master["vimInspectionType"] as num).toInt()
+              : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
+          // For custom inspections: tasks in the re-inspection run are what we
+          // WANT to re-inspect, so do NOT add them to reinspectedTaskIds
+          // (that set means "already done, don't clear").
+          // Only skip clearing if this is a predefined inspection re-inspection run.
+          final dynamic vimIfMasterId = master["vimIfMasterId"];
+          final bool isThisRunCustom =
+              (vimIfMasterId == null || vimIfMasterId == 0) &&
+              vimInspectionType != 0;
+          if ((i > 0 || vimInspectionType == 2) && !(isCustom && isThisRunCustom && vimInspectionType == 2)) {
+            final List completedTasks = [];
+            if (inspection["completedTasks"] is List) {
+              completedTasks.addAll(inspection["completedTasks"]);
+            }
+            final rawInspectionTasks = inspection["inspectionTasks"];
+            if (rawInspectionTasks is List) {
+              for (final item in rawInspectionTasks) {
+                if (item is Map) {
+                  if (item["tasks"] is List) {
+                    completedTasks.addAll(item["tasks"]);
+                  } else {
+                    completedTasks.add(item);
+                  }
+                }
+              }
+            }
+            for (final savedTask in completedTasks) {
+              if (savedTask is Map) {
+                final rawId = savedTask["viTaskId"] ??
+                    savedTask["itcId"] ??
+                    savedTask["taskId"] ??
+                    savedTask["viInspectionTaskId"];
+                final int? taskId = rawId is num
+                    ? rawId.toInt()
+                    : int.tryParse(rawId?.toString() ?? "");
+                if (taskId != null) {
+                  reinspectedTaskIds.add(taskId);
+                }
+              }
+            }
           }
         }
         for (final taskId in _reInspectionTaskIds) {
-          if (!reinspectedTaskIds.contains(taskId) ||
-              jobStatus == 10 ||
-              jobStatus == 11 ||
-              jobStatus == 18) {
+          if (!reinspectedTaskIds.contains(taskId)) {
             formCtrl.prepareTaskForReInspection(taskId);
           }
         }
@@ -168,6 +301,21 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     }
   }
 
+  Future<bool> _showExitConfirmation() async {
+    final result = await ConfirmSubmissionDialog.showDiscard(context);
+    return result ?? false;
+  }
+
+  void _handleBackNavigation() async {
+    final shouldExit = await _showExitConfirmation();
+    if (!shouldExit || !mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go("/home");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final summaryCtrl = context.watch<InspectionsummarypageController>();
@@ -177,6 +325,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     final jobCardCtrl = context.watch<JobcarddetailsController>();
 
     final int jobStatus = summaryCtrl.jobStatus;
+    final bool isTechnicianAssigned = jobCardCtrl.isTechnicianAssigned == true &&
+        jobCardCtrl.assignedTechnicianName != null &&
+        jobCardCtrl.assignedTechnicianName!.trim().isNotEmpty;
+
     final bool showEditable = (userDepartment == 4) ||
         ((userDepartment == 0 || userDepartment == 1) &&
             (jobStatus == 18 || jobStatus == 11));
@@ -185,19 +337,23 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         ((userDepartment == 0 || userDepartment == 1) &&
             (jobStatus != 18 && jobStatus != 11));
 
+    final bool isAllChecklistSaved = _isAllChecklistSaved(formCtrl);
+    final int totalReInspectionTasks = _reInspectionTaskIds.length;
+    final int savedReInspectionCount = _reInspectionTaskIds
+        .where((id) => formCtrl.isTaskSaved(id))
+        .length;
+
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvoked: (didPop) async {
         if (didPop) return;
-        context.go("/home");
+        _handleBackNavigation();
       },
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: CustomAppBar(
           title: "Re-Inspection Details",
-          onBackPress: () {
-            context.go("/home");
-          },
+          onBackPress: _handleBackNavigation,
         ),
         body: isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -212,9 +368,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     VehicleSummaryWidget(jobId: widget.jobId),
                     const SizedBox(height: 16),
                     _buildCommentsSummaryCard(summaryCtrl),
-                    if (jobCardCtrl.isTechnicianAssigned == true &&
-                        jobCardCtrl.assignedTechnicianName != null &&
-                        jobCardCtrl.assignedTechnicianName!.isNotEmpty && ![10, 12, 13, 14].contains(jobStatus)) ...[
+                    if (isTechnicianAssigned && [18, 11, 12].contains(jobStatus)) ...[
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -234,7 +388,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                           ),
                         ),
                       ),
-                      if ((userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
+                      if ((userDepartment == 0 || userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
                         if ([4, 5, 18, 11].contains(jobStatus)) ...[
                           const SizedBox(height: 10),
                           SizedBox(
@@ -297,22 +451,58 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     const SizedBox(height: 16),
                     if (showAssignment) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
-                      const SizedBox(height: 24),
-                      CustomButtonWidget(
-                        text: "ASSIGN TECHNICIAN",
-                        textSize: 16,
-                        onPressed: () =>
-                            showTechnicianBottomSheet(context, detailsCtrl2),
-                      ),
+                      if (![18, 11, 12].contains(jobStatus)) ...[
+                        const SizedBox(height: 24),
+                        CustomButtonWidget(
+                          text: "ASSIGN TECHNICIAN",
+                          textSize: 16,
+                          onPressed: () =>
+                              showTechnicianBottomSheet(context, detailsCtrl2),
+                        ),
+                      ],
                     ] else if (showEditable) ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                       const SizedBox(height: 20),
-                      Text(
-                        "Re-Inspection Checklist Items",
-                        style: ApptextstyleConstants.mediumText(
-                          color: ColorConstants.textBlueColor,
-                          fontSize: 16,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Re-Inspection Checklist Items",
+                            style: ApptextstyleConstants.mediumText(
+                              color: ColorConstants.textBlueColor,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (_reInspectionTaskIds.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isAllChecklistSaved
+                                    ? ColorConstants.greenColor.withOpacity(0.12)
+                                    : Colors.orange.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isAllChecklistSaved
+                                      ? ColorConstants.greenColor
+                                      : Colors.orange,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                "$savedReInspectionCount / $totalReInspectionTasks Saved",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isAllChecklistSaved
+                                      ? ColorConstants.greenColor
+                                      : Colors.orange.shade800,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       SizedBox(
@@ -410,18 +600,67 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                       ),
                       const SizedBox(height: 20),
                       _buildTechnicianCommentsField(),
-                      const SizedBox(height: 24),
-                      _isSubmitting
-                          ? const Center(child: CircularProgressIndicator())
-                          : CustomButtonWidget(
-                              text: "SUBMIT RE-INSPECTION REPORT",
-                              textSize: 16,
-                              onPressed: () => _submitReInspectionReport(
-                                detailsCtrl,
-                                formCtrl,
-                                summaryCtrl,
+                      if (!isAllChecklistSaved && _reInspectionTaskIds.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.amber.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.amber.shade800,
+                                size: 20,
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "Please complete and save all re-inspection checklist items ($savedReInspectionCount of $totalReInspectionTasks saved) before submitting.",
+                                  style: TextStyle(
+                                    color: Colors.amber.shade900,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: (!isAllChecklistSaved && !_isSubmitting)
+                            ? () => _showPendingChecklistWarning(
+                                  detailsCtrl,
+                                  formCtrl,
+                                  summaryCtrl,
+                                )
+                            : null,
+                        child: CustomButtonWidget(
+                          text: _isSubmitting
+                              ? "Please wait..."
+                              : "SUBMIT RE-INSPECTION REPORT",
+                          textSize: 16,
+                          textColor: Colors.white,
+                          isDisabled: _isSubmitting || !isAllChecklistSaved,
+                          showLoader: _isSubmitting,
+                          onPressed: (_isSubmitting || !isAllChecklistSaved)
+                              ? null
+                              : () => _submitReInspectionReport(
+                                  detailsCtrl,
+                                  formCtrl,
+                                  summaryCtrl,
+                                ),
+                        ),
+                      ),
                     ] else ...[
                       _buildReadOnlyReInspectionList(summaryCtrl),
                     ],
@@ -472,6 +711,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
               "Technician Comment",
               techComm,
             ),
+            if (summaryCtrl.previousTechnicianImages.isNotEmpty ||
+                summaryCtrl.previousTechnicianVideos.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _buildFeedbackMediaRow(
+                context,
+                summaryCtrl.previousTechnicianImages,
+                summaryCtrl.previousTechnicianVideos,
+              ),
+            ],
             const SizedBox(height: 12),
             _buildCommentRow(
               "Supervisor Comment",
@@ -481,6 +729,101 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
             _buildCommentRow("Service Advisor Comment", saComm),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFeedbackMediaRow(
+    BuildContext context,
+    List<String> images,
+    List<String> videos,
+  ) {
+    return SizedBox(
+      height: 70,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          ...images.map((url) => Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FullScreenImage(
+                          imageUrl: url,
+                          label: "Technician Comment Photo",
+                        ),
+                      ),
+                    );
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 65,
+                      height: 65,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blueGrey.shade200),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(Icons.broken_image, color: Colors.grey, size: 24),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )),
+          ...videos.map((url) => Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => InspectionFullScreenVideo(
+                          videoUrl: url,
+                          label: "Technician Comment Video",
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 65,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blueGrey.shade300),
+                    ),
+                    child: const Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white,
+                          size: 30,
+                        ),
+                        Positioned(
+                          bottom: 3,
+                          child: Text(
+                            "VIDEO",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )),
+        ],
       ),
     );
   }
@@ -513,12 +856,32 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   Widget _buildReadOnlyReInspectionList(
     InspectionsummarypageController summaryController,
   ) {
-    final reInspectionItems = summaryController.groupedItems.values
+    final formCtrl = context.watch<InspectionFormController>();
+    final detailsCtrl = context.watch<InspectionTypeDetailsController>();
+
+    final allSummaryItems = summaryController.groupedItems.values
         .expand((list) => list)
-        .where((item) => item.viReInspection)
         .toList();
 
-    reInspectionItems.sort((a, b) {
+    final Set<int> processedTaskIds = {};
+    final List<InspectionItem> originalReInspectionItems = [];
+    final List<InspectionItem> newlyAddedSummaryItems = [];
+
+    for (final item in allSummaryItems) {
+      if (!item.viReInspection || item.taskId == null) continue;
+
+      processedTaskIds.add(item.taskId!);
+      final bool isOriginal = _initialCompletedTaskIds.contains(item.taskId!) ||
+          item.originalStatus != null;
+
+      if (isOriginal) {
+        originalReInspectionItems.add(item);
+      } else {
+        newlyAddedSummaryItems.add(item);
+      }
+    }
+
+    originalReInspectionItems.sort((a, b) {
       int getWeight(InspectionStatus status) {
         if (status == InspectionStatus.replace) return 0;
         if (status == InspectionStatus.repair) return 1;
@@ -531,7 +894,78 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       ).compareTo(getWeight(b.originalStatus ?? b.status));
     });
 
-    if (reInspectionItems.isEmpty) {
+    final List<Map<String, dynamic>> extraNewlyAdded = [];
+    for (final taskId in formCtrl.savedTaskIds) {
+      if (!processedTaskIds.contains(taskId) &&
+          !_initialCompletedTaskIds.contains(taskId)) {
+        processedTaskIds.add(taskId);
+        Map<String, dynamic>? componentData;
+        for (final task in detailsCtrl.allTaskComponents) {
+          final id = task["itcId"];
+          final int idInt = id is num ? id.toInt() : int.tryParse(id?.toString() ?? "") ?? 0;
+          if (idInt == taskId) {
+            componentData = task;
+            break;
+          }
+        }
+        if (componentData == null) {
+          for (final entry in detailsCtrl.groupedTasks.entries) {
+            for (final t in entry.value) {
+              final comp = t["components"];
+              final id = comp?["itcId"];
+              final int idInt = id is num ? id.toInt() : int.tryParse(id?.toString() ?? "") ?? 0;
+              if (idInt == taskId) {
+                componentData = comp;
+                break;
+              }
+            }
+            if (componentData != null) break;
+          }
+        }
+
+        final taskSavedData = formCtrl.getTaskById(taskId);
+        final String title = componentData?["itcName"]?.toString() ?? "Component #$taskId";
+        final String assemblyDesc = componentData?["assemblyCodeDesc"]?.toString().trim() ?? "";
+        final String assemblyName = componentData?["assemblyCodeName"]?.toString().trim() ?? "";
+        final String repairGroup = componentData?["repairGroupName"]?.toString().trim() ?? "";
+
+        String category = "";
+        if (assemblyDesc.isNotEmpty && assemblyDesc != "D") {
+          category = assemblyDesc;
+        } else if (assemblyName.isNotEmpty && assemblyName != "D") {
+          category = assemblyName;
+        } else if (repairGroup.isNotEmpty && repairGroup != "D") {
+          category = repairGroup;
+        }
+
+        InspectionStatus status = InspectionStatus.repair;
+        if (taskSavedData != null && taskSavedData.condition != null) {
+          final cond = taskSavedData.condition!.toLowerCase();
+          if (cond == "good") {
+            status = InspectionStatus.good;
+          } else if (cond == "repair") {
+            status = InspectionStatus.repair;
+          } else if (cond == "replace") {
+            status = InspectionStatus.replace;
+          } else if (cond == "poor") {
+            status = InspectionStatus.poor;
+          } else if (cond == "n/a") {
+            status = InspectionStatus.na;
+          }
+        }
+
+        extraNewlyAdded.add({
+          "title": title,
+          "category": category,
+          "status": status,
+          "taskId": taskId,
+        });
+      }
+    }
+
+    if (originalReInspectionItems.isEmpty &&
+        newlyAddedSummaryItems.isEmpty &&
+        extraNewlyAdded.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -574,14 +1008,14 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                 ),
               ],
             ),
-            ...reInspectionItems.map((item) {
+            ...originalReInspectionItems.map((item) {
               final originalStatus = item.originalStatus ?? item.status;
               return TableRow(
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(10.0),
                     child: Text(
-                      item.category.isNotEmpty
+                      (item.category.isNotEmpty && item.category != "D")
                           ? "${item.title} (${item.category})"
                           : item.title,
                       style: const TextStyle(fontSize: 12),
@@ -595,8 +1029,137 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                         color: originalStatus == InspectionStatus.replace
                             ? Colors.red
                             : originalStatus == InspectionStatus.repair
-                            ? Colors.orange
-                            : Colors.blue,
+                                ? Colors.orange
+                                : originalStatus == InspectionStatus.poor
+                                    ? Colors.amber.shade800
+                                    : Colors.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+            ...newlyAddedSummaryItems.map((item) {
+              final displayStatus = item.originalStatus ?? item.status;
+              return TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            (item.category.isNotEmpty && item.category != "D")
+                                ? "${item.title} (${item.category})"
+                                : item.title,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ColorConstants.greenColor.withOpacity(0.15),
+                            border: Border.all(
+                              color: ColorConstants.greenColor,
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            "NEW",
+                            style: TextStyle(
+                              color: ColorConstants.greenColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Text(
+                      displayStatus.name.toUpperCase(),
+                      style: TextStyle(
+                        color: displayStatus == InspectionStatus.replace
+                            ? Colors.red
+                            : displayStatus == InspectionStatus.repair
+                                ? Colors.orange
+                                : displayStatus == InspectionStatus.poor
+                                    ? Colors.amber.shade800
+                                    : Colors.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }),
+            ...extraNewlyAdded.map((item) {
+              final InspectionStatus displayStatus =
+                  item["status"] as InspectionStatus;
+              final String title = item["title"] as String;
+              final String category = item["category"] as String;
+              return TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            (category.isNotEmpty && category != "D")
+                                ? "$title ($category)"
+                                : title,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ColorConstants.greenColor.withOpacity(0.15),
+                            border: Border.all(
+                              color: ColorConstants.greenColor,
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            "NEW",
+                            style: TextStyle(
+                              color: ColorConstants.greenColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Text(
+                      displayStatus.name.toUpperCase(),
+                      style: TextStyle(
+                        color: displayStatus == InspectionStatus.replace
+                            ? Colors.red
+                            : displayStatus == InspectionStatus.repair
+                                ? Colors.orange
+                                : displayStatus == InspectionStatus.poor
+                                    ? Colors.amber.shade800
+                                    : Colors.blue,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
@@ -624,10 +1187,11 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       for (final task in controller.allTaskComponents) {
         final taskId = task["itcId"];
         if (taskId != null) {
-          final isReInspectionItem = _reInspectionTaskIds.contains(taskId);
-          final isSaved = formController.isTaskSaved(taskId);
+          final int idInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+          final isReInspectionItem = _reInspectionTaskIds.contains(idInt);
+          final isSaved = formController.isTaskSaved(idInt);
           final isNewComponent =
-              !_initialCompletedTaskIds.contains(taskId) && isSaved;
+              !_initialCompletedTaskIds.contains(idInt) && isSaved;
           if (isReInspectionItem || isNewComponent) {
             visibleTasks.add(Map<String, dynamic>.from(task));
           }
@@ -641,33 +1205,46 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
           final components = task["components"];
           final taskId = components?["itcId"];
           if (taskId != null) {
-            final isReInspectionItem = _reInspectionTaskIds.contains(taskId);
-            final isSaved = formController.isTaskSaved(taskId);
+            final int idInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+            final isReInspectionItem = _reInspectionTaskIds.contains(idInt);
+            final isSaved = formController.isTaskSaved(idInt);
             final isNewComponent =
-                !_initialCompletedTaskIds.contains(taskId) && isSaved;
+                !_initialCompletedTaskIds.contains(idInt) && isSaved;
             if (isReInspectionItem || isNewComponent) {
               visibleTasks.add(Map<String, dynamic>.from(task));
-              addedTaskIds.add(taskId);
+              addedTaskIds.add(idInt);
             }
           }
         }
       }
       for (final task in controller.allTaskComponents) {
         final taskId = task["itcId"];
-        if (taskId != null && !addedTaskIds.contains(taskId)) {
-          final isReInspectionItem = _reInspectionTaskIds.contains(taskId);
-          final isSaved = formController.isTaskSaved(taskId);
-          final isNewComponent =
-              !_initialCompletedTaskIds.contains(taskId) && isSaved;
-          if (isReInspectionItem || isNewComponent) {
-            visibleTasks.add({"components": Map<String, dynamic>.from(task)});
-            addedTaskIds.add(taskId);
+        if (taskId != null) {
+          final int idInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+          if (!addedTaskIds.contains(idInt)) {
+            final isReInspectionItem = _reInspectionTaskIds.contains(idInt);
+            final isSaved = formController.isTaskSaved(idInt);
+            final isNewComponent =
+                !_initialCompletedTaskIds.contains(idInt) && isSaved;
+            if (isReInspectionItem || isNewComponent) {
+              visibleTasks.add({"components": Map<String, dynamic>.from(task)});
+              addedTaskIds.add(idInt);
+            }
           }
         }
       }
     }
 
-    if (visibleTasks.isEmpty) {
+    final String query = _searchController.text.trim().toLowerCase();
+    final List<Map<String, dynamic>> filteredTasks = query.isEmpty
+        ? visibleTasks
+        : visibleTasks.where((task) {
+            final components = isCustom ? task : (task["components"] ?? task);
+            final name = (components["itcName"] ?? "").toString().toLowerCase();
+            return name.contains(query);
+          }).toList();
+
+    if (filteredTasks.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 20),
         child: Center(
@@ -684,9 +1261,9 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: visibleTasks.length,
+      itemCount: filteredTasks.length,
       itemBuilder: (context, index) {
-        final task = visibleTasks[index];
+        final task = filteredTasks[index];
         final bool isCustom =
             summaryCtrl.vimIfMasterId == null || summaryCtrl.vimIfMasterId == 0;
         final components = isCustom ? task : task["components"];
@@ -756,12 +1333,96 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Re-Inspection Additional Comments",
-                    style: ApptextstyleConstants.mediumText(
-                      color: ColorConstants.textBlueColor,
-                      fontSize: 14,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        "Re-Inspection Additional Comments",
+                        style: ApptextstyleConstants.mediumText(
+                          color: ColorConstants.textBlueColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.camera_alt,
+                          color: ColorConstants.textBlueColor,
+                          size: 22,
+                        ),
+                        tooltip: "Add Photo",
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () async {
+                          if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                            CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                            return;
+                          }
+                          final dynamic result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CameraCaptureScreen(isVideo: false),
+                            ),
+                          );
+                          if (result != null) {
+                            File? file;
+                            if (result is Map) {
+                              file = result['file'];
+                            } else if (result is File) {
+                              file = result;
+                            }
+                            if (file != null && mounted) {
+                              if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                                CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                                return;
+                              }
+                              setState(() {
+                                _technicianPhotos.add(file!);
+                              });
+                            }
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 14),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.videocam,
+                          color: ColorConstants.textBlueColor,
+                          size: 24,
+                        ),
+                        tooltip: "Add Video",
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () async {
+                          if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                            CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                            return;
+                          }
+                          final dynamic result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CameraCaptureScreen(isVideo: true),
+                            ),
+                          );
+                          if (result != null) {
+                            File? file;
+                            if (result is Map) {
+                              file = result['file'];
+                            } else if (result is File) {
+                              file = result;
+                            }
+                            if (file != null && mounted) {
+                              if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                                CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                                return;
+                              }
+                              setState(() {
+                                _technicianVideos.add(file!);
+                              });
+                            }
+                          }
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
 
@@ -770,6 +1431,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     children: [
                       TextField(
                         controller: _commentController,
+                        focusNode: _commentFocusNode,
+                        enabled: !_isSubmitting,
                         maxLines: 4,
                         decoration: InputDecoration(
                           hintText: "Enter inspection comments...",
@@ -809,11 +1472,277 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                       ),
                     ],
                   ),
+                  _buildReInspectionMediaStrip(),
                 ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildReInspectionMediaStrip() {
+    final hasMedia = _technicianPhotos.isNotEmpty ||
+        _existingTechnicianPhotos.isNotEmpty ||
+        _technicianVideos.isNotEmpty ||
+        _existingTechnicianVideos.isNotEmpty;
+    if (!hasMedia) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10.0),
+      child: SizedBox(
+        height: 75,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            // Newly captured photos
+            ..._technicianPhotos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final file = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImageScreen(
+                              imageFile: file,
+                              isReadOnly: true,
+                            ),
+                          ),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Image.file(file, fit: BoxFit.cover),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _technicianPhotos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Existing uploaded photos
+            ..._existingTechnicianPhotos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final url = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImage(
+                              imageUrl: url,
+                              label: "Technician Photo",
+                            ),
+                          ),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image, size: 20, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _existingTechnicianPhotos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Newly captured videos
+            ..._technicianVideos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final file = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => InspectionFullScreenVideo(
+                              videoUrl: file.path,
+                              label: "Technician Video",
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 65,
+                        height: 65,
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: const Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(Icons.play_circle_fill, color: Colors.white, size: 28),
+                            Positioned(
+                              bottom: 3,
+                              child: Text(
+                                "VIDEO",
+                                style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _technicianVideos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Existing uploaded videos
+            ..._existingTechnicianVideos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final url = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => InspectionFullScreenVideo(
+                              videoUrl: url,
+                              label: "Technician Video",
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 65,
+                        height: 65,
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: const Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(Icons.play_circle_fill, color: Colors.white, size: 28),
+                            Positioned(
+                              bottom: 3,
+                              child: Text(
+                                "VIDEO",
+                                style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _existingTechnicianVideos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -864,17 +1793,147 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     );
   }
 
+  bool _isAllChecklistSaved(InspectionFormController formCtrl) {
+    if (_reInspectionTaskIds.isNotEmpty) {
+      return _reInspectionTaskIds.every((id) => formCtrl.isTaskSaved(id));
+    }
+    return formCtrl.savedTasks > 0;
+  }
+
+  String _getTaskName(
+    int taskId,
+    InspectionTypeDetailsController detailsCtrl,
+    InspectionsummarypageController summaryCtrl,
+  ) {
+    for (final list in summaryCtrl.groupedItems.values) {
+      for (final item in list) {
+        if (item.taskId == taskId) {
+          return item.title;
+        }
+      }
+    }
+    for (final task in detailsCtrl.allTaskComponents) {
+      if (task is Map && task["itcId"] == taskId) {
+        return task["itcName"]?.toString() ?? "Task #$taskId";
+      }
+    }
+    for (final entry in detailsCtrl.groupedTasks.entries) {
+      for (final task in entry.value) {
+        final comp = task["components"];
+        if (comp is Map && comp["itcId"] == taskId) {
+          return comp["itcName"]?.toString() ?? "Task #$taskId";
+        }
+      }
+    }
+    return "Task #$taskId";
+  }
+
+  void _showPendingChecklistWarning(
+    InspectionTypeDetailsController detailsCtrl,
+    InspectionFormController formCtrl,
+    InspectionsummarypageController summaryCtrl,
+  ) {
+    final pendingTaskIds = _reInspectionTaskIds
+        .where((id) => !formCtrl.isTaskSaved(id))
+        .toList();
+
+    if (_reInspectionTaskIds.isNotEmpty && pendingTaskIds.isNotEmpty) {
+      final List<String> pendingNames = [];
+      for (final id in pendingTaskIds.take(2)) {
+        final name = _getTaskName(id, detailsCtrl, summaryCtrl);
+        if (name.isNotEmpty) pendingNames.add(name);
+      }
+      final String pendingSuffix = pendingNames.isNotEmpty
+          ? ": ${pendingNames.join(', ')}${pendingTaskIds.length > 2 ? ', ...' : ''}"
+          : "";
+      CustomToast.showWarning(
+        context,
+        "Please complete and save all re-inspection checklist items before submitting (${pendingTaskIds.length} pending$pendingSuffix)",
+      );
+      return;
+    }
+
+    if (_reInspectionTaskIds.isEmpty && formCtrl.savedTasks == 0) {
+      CustomToast.showWarning(
+        context,
+        "No re-inspection checklist items completed. Please complete at least one item before submitting.",
+      );
+      return;
+    }
+  }
+
   Future<void> _submitReInspectionReport(
     InspectionTypeDetailsController controller,
     InspectionFormController formController,
     InspectionsummarypageController summaryController,
   ) async {
+    FocusScope.of(context).unfocus();
+    _commentFocusNode.unfocus();
+
+    if (_isSubmitting) return;
+    final pendingTaskIds = _reInspectionTaskIds
+        .where((id) => !formController.isTaskSaved(id))
+        .toList();
+
+    if (_reInspectionTaskIds.isNotEmpty && pendingTaskIds.isNotEmpty) {
+      final List<String> pendingNames = [];
+      for (final id in pendingTaskIds.take(2)) {
+        final name = _getTaskName(id, controller, summaryController);
+        if (name.isNotEmpty) pendingNames.add(name);
+      }
+      final String pendingSuffix = pendingNames.isNotEmpty
+          ? ": ${pendingNames.join(', ')}${pendingTaskIds.length > 2 ? ', ...' : ''}"
+          : "";
+      FocusScope.of(context).unfocus();
+      _commentFocusNode.unfocus();
+      CustomToast.showWarning(
+        context,
+        "Please complete and save all re-inspection checklist items before submitting (${pendingTaskIds.length} pending$pendingSuffix)",
+      );
+      return;
+    }
+
+    if (_reInspectionTaskIds.isEmpty && formController.savedTasks == 0) {
+      FocusScope.of(context).unfocus();
+      _commentFocusNode.unfocus();
+      CustomToast.showWarning(
+        context,
+        "No re-inspection checklist items completed. Please complete at least one item before submitting.",
+      );
+      return;
+    }
+
+    if (_technicianPhotos.length + _existingTechnicianPhotos.length > 3) {
+      FocusScope.of(context).unfocus();
+      _commentFocusNode.unfocus();
+      CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+      return;
+    }
+    if (_technicianVideos.length + _existingTechnicianVideos.length > 1) {
+      FocusScope.of(context).unfocus();
+      _commentFocusNode.unfocus();
+      CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+      return;
+    }
+
+    // Explicitly unfocus before opening confirmation dialog
+    FocusScope.of(context).unfocus();
+    _commentFocusNode.unfocus();
+
     final confirm = await ConfirmSubmissionDialog.show(context);
+
+    // Explicitly unfocus again upon modal return to avoid automatic focus restoration
+    FocusScope.of(context).unfocus();
+    _commentFocusNode.unfocus();
+
     if (confirm != true) return;
 
     setState(() {
       _isSubmitting = true;
     });
+
+    FocusScope.of(context).unfocus();
+    _commentFocusNode.unfocus();
 
     try {
       final bool isCustom =
@@ -947,8 +2006,19 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         }
       }
 
+      // Save technician comments and media (photos and videos)
+      final tempCardController = InspectioncardController();
+      await tempCardController.uploadTechnicianCommentsMedia(
+        jobId: widget.jobId,
+        inspectionTypeId: 2,
+        comments: _commentController.text.trim(),
+        images: _technicianPhotos,
+        videos: _technicianVideos,
+        existingImages: _existingTechnicianPhotos,
+        existingVideos: _existingTechnicianVideos,
+      );
+
       if (taskToSaveId > 0) {
-        final tempCardController = InspectioncardController();
         await tempCardController.loadExistingTask(
           formController: formController,
           taskId: taskToSaveId,
@@ -972,42 +2042,20 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
       );
       if (!mounted) return;
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: ColorConstants.greenColor,
-            content: Text(
-              "Re-inspection report submitted successfully",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        );
+        CustomToast.showSuccess(context, "Re-inspection report submitted successfully");
         context.go(
           "/inspectionsummarypage",
           extra: {"jobId": widget.jobId, "flag": 2},
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: ColorConstants.errorcolor,
-            content: Text(
-              "Failed to submit re-inspection report",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        );
+        CustomToast.showError(context, "Failed to submit re-inspection report");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: ColorConstants.errorcolor,
-          content: Text(
-            "Unexpected error: $e",
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
-      );
+      CustomToast.showError(context, "Unexpected error: $e");
     } finally {
       if (mounted) {
+        FocusScope.of(context).unfocus();
+        _commentFocusNode.unfocus();
         setState(() {
           _isSubmitting = false;
         });
@@ -1139,28 +2187,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                                 status: 18,
                               );
                               if (success) {
-                                ScaffoldMessenger.of(
-                                  parentContext,
-                                ).showSnackBar(
-                                  const SnackBar(
-                                    backgroundColor: ColorConstants.greenColor,
-                                    content: Text(
-                                      "Technician Assigned for Re-Inspection",
-                                    ),
-                                  ),
-                                );
+                                CustomToast.showSuccess(parentContext, "Technician Assigned for Re-Inspection");
                                 parentContext.go("/home");
                               } else {
-                                ScaffoldMessenger.of(
-                                  parentContext,
-                                ).showSnackBar(
-                                  const SnackBar(
-                                    backgroundColor: ColorConstants.errorcolor,
-                                    content: Text(
-                                      "Technician Assignment Failed",
-                                    ),
-                                  ),
-                                );
+                                CustomToast.showError(parentContext, "Technician Assignment Failed");
                               }
                             },
                           ),
@@ -1227,13 +2257,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                       minChildSize: 0.95,
                       shouldCloseOnMinExtent: false,
                       builder: (context, scrollController) {
-                        final completedTasks = controller.filteredTaskComponents
-                            .where((task) {
-                              final taskId = task["itcId"];
-                              return taskId != null &&
-                                  formController.isTaskSaved(taskId);
-                            })
-                            .toList();
                         final pendingTasks = controller.filteredTaskComponents
                             .where((task) {
                               final taskId = task["itcId"];
@@ -1316,6 +2339,10 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                                   key: ValueKey(components["itcId"]),
                                   create: (_) => InspectioncardController(),
                                   child: InspectionCard(
+                                    categoryId:
+                                        components["itcCategoryId"] ??
+                                        components["categoryId"] ??
+                                        0,
                                     jobid: widget.jobId,
                                     taskid: components["itcId"],
                                     formid: formId,
@@ -1533,13 +2560,9 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                                   technicianName: technician["userName"].toString(),
                                 );
                                 if (res["success"] == true) {
-                                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    SnackBar(content: Text(res["message"] ?? "Technician Reassigned Successfully")),
-                                  );
+                                  CustomToast.showSuccess(parentContext, res["message"] ?? "Technician Reassigned Successfully");
                                 } else {
-                                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                                    SnackBar(content: Text(res["message"] ?? "Technician Reassignment Failed")),
-                                  );
+                                  CustomToast.showError(parentContext, res["message"] ?? "Technician Reassignment Failed");
                                 }
                                 parentContext.read<JobcarddetailsController>().postJobCardDetails(widget.jobId, forceRefresh: true);
                               }

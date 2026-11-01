@@ -21,6 +21,10 @@ class InspectionsummarypageController extends ChangeNotifier {
   bool isCustomInspectionAssigned = false;
   String technicianComment = "";
   String previousTechnicianComment = "";
+  List<String> technicianImages = [];
+  List<String> previousTechnicianImages = [];
+  List<String> technicianVideos = [];
+  List<String> previousTechnicianVideos = [];
   String supervisorComment = "";
   String previousSupervisorComment = "";
   String saComment = "";
@@ -155,6 +159,10 @@ class InspectionsummarypageController extends ChangeNotifier {
       isCustomInspectionAssigned = false;
       technicianComment = "";
       previousTechnicianComment = "";
+      technicianImages = [];
+      previousTechnicianImages = [];
+      technicianVideos = [];
+      previousTechnicianVideos = [];
       supervisorComment = "";
       previousSupervisorComment = "";
       saComment = "";
@@ -347,11 +355,20 @@ class InspectionsummarypageController extends ChangeNotifier {
             ? (master["vimInspectionType"] as num).toInt()
             : int.tryParse(master["vimInspectionType"]?.toString() ?? "");
         final int? ifMasterId = master["vimIfMasterId"];
+        if (inspType == 0) continue;
         final tasks = inspection["inspectionTasks"] as List? ?? [];
         vimInspectionTypeId = inspType;
         vimIfMasterId = ifMasterId;
         final String techComm =
             master["vimAdditionalComments"]?.toString() ?? "";
+        final String techImagesRaw = master["vimTechnicianImages"]?.toString() ?? "";
+        final List<String> techImgs = techImagesRaw.isNotEmpty
+            ? techImagesRaw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+            : [];
+        final String techVideosRaw = master["vimTechnicianVideos"]?.toString() ?? "";
+        final List<String> techVids = techVideosRaw.isNotEmpty
+            ? techVideosRaw.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+            : [];
         final String supComm = master["vimSupervisorComment"]?.toString() ?? "";
         final String serviceComm = master["vimSaComment"]?.toString() ?? "";
 
@@ -381,12 +398,18 @@ class InspectionsummarypageController extends ChangeNotifier {
 
         if (isReinspectionRun) {
           technicianComment = techComm;
+          technicianImages = techImgs;
+          technicianVideos = techVids;
           supervisorComment = supComm;
           saComment = serviceComm;
         } else {
           previousTechnicianComment = techComm;
-          if (technicianComment.isEmpty) {
+          previousTechnicianImages = techImgs;
+          previousTechnicianVideos = techVids;
+          if (!hasReinspection && technicianComment.isEmpty) {
             technicianComment = techComm;
+            technicianImages = techImgs;
+            technicianVideos = techVids;
           }
           previousSupervisorComment = supComm;
           if (supervisorComment.isEmpty) {
@@ -422,12 +445,21 @@ class InspectionsummarypageController extends ChangeNotifier {
             final existing = categoryMap[taskKey];
             final wasReInspection = existing?.viReInspection ?? false;
             final double reTime =
-                double.tryParse(task["viReInspectionTime"]?.toString() ?? "") ??
+                double.tryParse(
+                  task["viReInspectionTime"]?.toString() ??
+                      task["vi_re_inspection_time"]?.toString() ??
+                      "",
+                ) ??
                 0.0;
             final isReInspection =
                 task["viReInspection"] == true ||
                 task["viReInspection"] == 1 ||
                 task["viReInspection"]?.toString() == "true" ||
+                task["viReInspection"]?.toString() == "1" ||
+                task["vi_re_inspection"] == true ||
+                task["vi_re_inspection"] == 1 ||
+                task["vi_re_inspection"]?.toString() == "true" ||
+                task["vi_re_inspection"]?.toString() == "1" ||
                 reTime > 0.0;
 
             final String note = (task["viNote"] ?? "").toString();

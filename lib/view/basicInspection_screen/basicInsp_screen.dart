@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+﻿// ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
 import 'dart:io';
@@ -8,13 +8,17 @@ import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/utils/permission_service.dart';
+import 'package:inspection/utils/security_service.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:native_device_orientation/native_device_orientation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:syncfusion_flutter_sliders/sliders.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
+import 'package:inspection/view/inspection_screen/widgets/video_recapture_warning_dialog.dart';
 
 class BasicinspScreen extends StatefulWidget {
   final int jobId;
@@ -29,8 +33,20 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   CameraController? _cameraController;
   bool _isCameraReady = false;
   bool _isCapturing = false;
+  bool _isStarting = false;
   bool _isRecording = false;
   bool _isStopping = false;
+  BasicinspController? _inspController;
+  bool _isHandlingPause = false;
+  AppLifecycleState? _lastLifecycleState;
+  int _cameraInitCounter = 0;
+
+  /// True while _initCamera() is executing - prevents concurrent init calls.
+  bool _isInitializing = false;
+
+  /// True while _handleImageTap() is in progress - prevents double-tap
+  /// from opening two concurrent navigation flows.
+  bool _isNavigating = false;
 
   double _currentZoom = 1.0;
   double _minZoom = 1.0;
@@ -39,6 +55,9 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   final List<double> baseLevels = [1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
   int _zoomIndex = 0;
   FlashMode _flashMode = FlashMode.auto;
+  int? _trackedStep;
+  InspectionStage? _trackedStage;
+  bool? _trackedVideoMode;
 
   Timer? _recordTimer;
   int _remainingSeconds = 30;
@@ -56,18 +75,28 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   bool _isAudioEnabled = false;
 
   Future<void> _initCamera({bool enableAudio = false}) async {
+    // Guard: prevent concurrent initializations.
+    if (_isInitializing) return;
+    _isInitializing = true;
+    try {
     if (mounted) {
       setState(() => _isCameraReady = false);
     }
-    if (_cameraController != null) {
+    // Fully release the previous controller before creating a new one.
+    final oldController = _cameraController;
+    _cameraController = null;
+    if (mounted) setState(() => _isCameraReady = false);
+    if (oldController != null) {
       try {
-        await _cameraController!.dispose();
+        await oldController.dispose();
       } catch (_) {}
-      _cameraController = null;
     }
 
-    final hasPermission = await PermissionService.instance.requestCameraPermission(context);
-    if (!hasPermission) return;
+    final status = await Permission.camera.status;
+    if (!status.isGranted) {
+      final hasPermission = await PermissionService.instance.requestCameraPermission(context);
+      if (!hasPermission) return;
+    }
     final bool hasMic = enableAudio ? await Permission.microphone.isGranted : false;
     try {
       final cameras = await availableCameras();
@@ -118,6 +147,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       }
       _cameraController = controller;
       _isAudioEnabled = enableAudio && hasMic;
+      _cameraInitCounter++;
       setState(() => _isCameraReady = true);
     } catch (e) {
       debugPrint("Error in _initCamera: $e");
@@ -125,52 +155,192 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         setState(() => _isCameraReady = false);
       }
     }
+    } finally {
+      _isInitializing = false;
+    }
+  }
+
+  Future<void> _handleAppPaused() async {
+    if (_isHandlingPause) return;
+    _isHandlingPause = true;
+
+    try {
+      _recordTimer?.cancel();
+      final cam = _cameraController;
+      if (cam != null && cam.value.isInitialized && cam.value.isRecordingVideo) {
+        try {
+          final XFile file = await cam.stopVideoRecording();
+          final videoFile = File(file.path);
+          if (await videoFile.exists() && await videoFile.length() > 0) {
+            if (_inspController != null) {
+              await _inspController!.updateCapturedVideo(videoFile);
+            }
+          }
+        } catch (e) {
+          debugPrint("⚠️ Error auto-saving video on app pause: $e");
+        }
+      }
+    } finally {
+      _isRecording = false;
+      _isStarting = false;
+      _isStopping = false;
+      await SecurityService.enableScreenshot();
+      // Null out and set ready=false BEFORE dispose so no rebuild can
+      // see a disposed but non-null controller reference.
+      final camToDispose = _cameraController;
+      _cameraController = null;
+      if (mounted) {
+        setState(() => _isCameraReady = false);
+      }
+      try {
+        await camToDispose?.dispose();
+      } catch (_) {}
+      _isHandlingPause = false;
+    }
+  }
+
+  Future<void> _handleAppResumed() async {
+    while (_isHandlingPause) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    if (!mounted) return;
+
+    // Ensure recording UI state is cleared on reopen so it never shows stuck recording
+    _recordTimer?.cancel();
+    if (_isRecording || _isStarting || _isStopping) {
+      setState(() {
+        _isRecording = false;
+        _isStarting = false;
+        _isStopping = false;
+      });
+    }
+
+    // Delay for Android Surface/Activity to be fully active before reopening camera
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    try {
+      final status = await Permission.camera.status;
+      if (status.isGranted && mounted) {
+        // Live viewfinder preview ONLY needs video stream (enableAudio: false) to prevent audio conflicts
+        await _initCamera(enableAudio: false);
+      }
+      if (_inspController != null) {
+        await _inspController!.loadDraftMediaForCurrentStep();
+      }
+    } catch (e) {
+      debugPrint("⚠️ Error in _handleAppResumed: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _isStarting = false;
+          _isStopping = false;
+        });
+      }
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final CameraController? cameraController = _cameraController;
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
-      if (mounted && _isCameraReady) {
-        setState(() => _isCameraReady = false);
-      }
-      if (cameraController != null) {
-        cameraController.dispose();
-        _cameraController = null;
-      }
+    final previous = _lastLifecycleState;
+    _lastLifecycleState = state;
+
+    // Only pause when actively going from foreground to background
+    if (state == AppLifecycleState.paused ||
+        (state == AppLifecycleState.inactive && previous == AppLifecycleState.resumed)) {
+      _handleAppPaused();
     } else if (state == AppLifecycleState.resumed) {
-      Permission.camera.status.then((status) {
-        if (status.isGranted && mounted) {
-          _initCamera(enableAudio: _isAudioEnabled);
-        }
-      });
+      _handleAppResumed();
     }
   }
 
   @override
   void dispose() {
+    SecurityService.enableScreenshot();
     WidgetsBinding.instance.removeObserver(this);
     _notesFocusNode.dispose();
     _recordTimer?.cancel();
-    _cameraController?.dispose();
+    final camToDispose = _cameraController;
     _cameraController = null;
+    try {
+      camToDispose?.setFlashMode(FlashMode.off);
+    } catch (_) {}
+    try {
+      camToDispose?.dispose();
+    } catch (_) {}
     super.dispose();
   }
 
-  Future<void> _toggleFlash() async {
+  Future<void> _toggleFlash({bool? isVideoMode}) async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
     }
-    setState(() {
-      _flashMode = _flashMode == FlashMode.off
-          ? FlashMode.auto
-          : _flashMode == FlashMode.auto
-          ? FlashMode.always
-          : FlashMode.off;
-    });
+    final controller = _inspController;
+    final bool inVideo = isVideoMode ??
+        _isRecording ||
+        (controller != null &&
+            (controller.isVideoModeSelected || controller.is360Stage));
+
+    FlashMode nextMode;
+    if (inVideo) {
+      // In video mode or recording: toggle flashlight (torch) ON / OFF
+      nextMode = _flashMode == FlashMode.torch ? FlashMode.off : FlashMode.torch;
+    } else {
+      // In photo mode: cycle off -> auto -> always -> torch -> off
+      switch (_flashMode) {
+        case FlashMode.off:
+          nextMode = FlashMode.auto;
+          break;
+        case FlashMode.auto:
+          nextMode = FlashMode.always;
+          break;
+        case FlashMode.always:
+          nextMode = FlashMode.torch;
+          break;
+        case FlashMode.torch:
+          nextMode = FlashMode.off;
+          break;
+      }
+    }
+
     try {
-      await _cameraController!.setFlashMode(_flashMode);
-    } catch (_) {}
+      await _cameraController!.setFlashMode(nextMode);
+      if (mounted) {
+        setState(() {
+          _flashMode = nextMode;
+        });
+      }
+    } catch (e) {
+      debugPrint("CameraException setting flash mode: $e");
+      try {
+        await _cameraController!.setFlashMode(FlashMode.off);
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _flashMode = FlashMode.off;
+        });
+      }
+    }
+  }
+
+  Future<void> _resetFlashForSection([BasicinspController? ctrl]) async {
+    final controller = ctrl ?? _inspController;
+    final bool isVideo = controller != null &&
+        (controller.isVideoModeSelected || controller.is360Stage);
+    final targetMode = isVideo ? FlashMode.off : FlashMode.auto;
+
+    _flashMode = targetMode;
+    if (_cameraController != null && _cameraController!.value.isInitialized) {
+      try {
+        await _cameraController!.setFlashMode(targetMode);
+      } catch (e) {
+        debugPrint("Error resetting flash for section: $e");
+      }
+    }
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   IconData get _flashIcon {
@@ -181,8 +351,20 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         return Icons.flash_auto;
       case FlashMode.always:
         return Icons.flash_on;
-      default:
-        return Icons.flash_off;
+      case FlashMode.torch:
+        return Icons.flashlight_on;
+    }
+  }
+
+  Color get _flashColor {
+    switch (_flashMode) {
+      case FlashMode.torch:
+        return Colors.amberAccent;
+      case FlashMode.always:
+        return Colors.amber;
+      case FlashMode.auto:
+      case FlashMode.off:
+        return Colors.white;
     }
   }
 
@@ -206,28 +388,87 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     _applyZoom(baseLevels[_zoomIndex]);
   }
 
-  Future<void> _takePhoto(BasicinspController controller) async {
-    CameraController? cam = _cameraController;
-    if (cam == null || !cam.value.isInitialized || _isCapturing || controller.isBusy) return;
-    if (controller.isMaxImagesCaptured) {
-      if (controller.hasVideoRequirement) {
-        controller.selectVideoMode();
-        if (!_isAudioEnabled) {
-          await _initCamera(enableAudio: false);
-        }
-        return;
+  Future<void> _handleImageTap(
+    BasicinspController controller, {
+    required int imageIndex,
+    required MediaType mediaType,
+    int? maxDuration,
+  }) async {
+    // Prevent double-tap or overlapping navigation flows.
+    if (_isNavigating) return;
+    if (controller.isBusy || _isRecording || _isStopping) return;
+
+    _isNavigating = true;
+    try {
+      // Fully release the current camera before pushing a new screen so
+      // the OS can reassign the sensor to the preview/capture screen.
+      final camToRelease = _cameraController;
+      _cameraController = null;
+      if (mounted) setState(() => _isCameraReady = false);
+      if (camToRelease != null) {
+        try {
+          await camToRelease.setFlashMode(FlashMode.off);
+        } catch (_) {}
+        try {
+          await camToRelease.dispose();
+        } catch (_) {}
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Maximum images reached for this item"),
-          duration: Duration(seconds: 1),
-          backgroundColor: ColorConstants.errorcolor,
-        ),
+
+      if (!mounted) return;
+      await controller.handleImageTap(
+        context,
+        imageIndex: imageIndex,
+        mediaType: mediaType,
+        maxDuration: maxDuration,
       );
+    } finally {
+      _isNavigating = false;
+      // Reinitialise camera only if the widget is still mounted and the
+      // controller was not already re-created (e.g. by lifecycle callbacks).
+      if (mounted && _cameraController == null) {
+        await _initCamera(enableAudio: _isAudioEnabled);
+        if (mounted) await _resetFlashForSection(controller);
+      }
+    }
+  }
+
+  Future<void> _takePhoto(BasicinspController controller) async {
+    if (_isCapturing ||
+        _isRecording ||
+        _isStopping ||
+        controller.isBusy) {
+      return;
+    }
+    if (_cameraController == null ||
+        !_cameraController!.value.isInitialized ||
+        _cameraController!.value.isRecordingVideo) {
       return;
     }
     setState(() => _isCapturing = true);
+
     try {
+      if (_cameraController == null || !_cameraController!.value.isInitialized) {
+        await _initCamera(enableAudio: false);
+      }
+      CameraController? cam = _cameraController;
+      if (cam == null || !cam.value.isInitialized) return;
+
+      if (controller.isMaxImagesCaptured) {
+        if (controller.hasVideoRequirement) {
+          controller.selectVideoMode();
+          if (_flashMode == FlashMode.auto || _flashMode == FlashMode.always) {
+            _flashMode = FlashMode.off;
+            _cameraController?.setFlashMode(FlashMode.off).catchError((_) {});
+          }
+          if (!_isAudioEnabled) {
+            await _initCamera(enableAudio: false);
+          }
+          return;
+        }
+        CustomToast.showWarning(context, "Maximum images reached for this item");
+        return;
+      }
+
       if (_isAudioEnabled) {
         await _initCamera(enableAudio: false);
         cam = _cameraController;
@@ -268,53 +509,92 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         photoFile,
         angle: angle,
       );
-      // Photo captured into box; camera stays open without auto-preview popup.
+      if (mounted) {
+        _resetFlashForSection(controller);
+      }
     } catch (e) {
       debugPrint("Error in _takePhoto: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to capture photo: ${e.toString()}"),
-            duration: const Duration(seconds: 2),
-            backgroundColor: ColorConstants.errorcolor,
-          ),
-        );
+        CustomToast.showError(context, "Failed to capture photo: ${e.toString()}");
       }
     } finally {
+      if (_flashMode == FlashMode.torch) {
+        try {
+          await _cameraController?.setFlashMode(FlashMode.auto);
+          _flashMode = FlashMode.auto;
+        } catch (_) {}
+      }
       if (mounted) setState(() => _isCapturing = false);
     }
   }
 
   Future<void> _startRecording(BasicinspController controller) async {
+    if (_isStarting ||
+        _isStopping ||
+        _isCapturing ||
+        _isRecording ||
+        controller.isBusy) {
+      return;
+    }
+    setState(() => _isStarting = true);
     if (!_isAudioEnabled) {
       await _initCamera(enableAudio: false);
     }
     final cam = _cameraController;
-    if (cam == null || !cam.value.isInitialized || cam.value.isRecordingVideo || _isRecording || controller.isBusy) {
+    if (cam == null ||
+        !cam.value.isInitialized ||
+        cam.value.isRecordingVideo) {
+      if (mounted) setState(() => _isStarting = false);
       return;
     }
     final hasMic = await PermissionService.instance.requestMicrophonePermission(context);
-    if (!hasMic) return;
+    if (!hasMic) {
+      if (mounted) setState(() => _isStarting = false);
+      return;
+    }
     try {
+      await SecurityService.disableScreenshot();
       await cam.startVideoRecording();
+
+      // If user enabled flashlight via icon, keep it ON during recording
+      if (_flashMode == FlashMode.torch) {
+        try {
+          await cam.setFlashMode(FlashMode.torch);
+        } catch (e) {
+          debugPrint("Failed to re-apply flashlight during video recording: $e");
+        }
+      }
+
       final maxDuration = controller.is360Stage
           ? controller.current360Duration
           : (controller.currentItem?['videoDuration'] ?? 30);
-      setState(() {
-        _isRecording = true;
-        _remainingSeconds = maxDuration;
-      });
+      if (mounted) {
+        setState(() {
+          _isStarting = false;
+          _isRecording = true;
+          _remainingSeconds = maxDuration;
+        });
+      }
       _recordTimer?.cancel();
       _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (_remainingSeconds <= 1) {
           _stopRecording(controller);
         } else {
-          setState(() {
-            _remainingSeconds--;
-          });
+          if (mounted) {
+            setState(() {
+              _remainingSeconds--;
+            });
+          }
         }
       });
     } catch (e) {
+      await SecurityService.enableScreenshot();
+      if (mounted) {
+        setState(() {
+          _isStarting = false;
+          _isRecording = false;
+        });
+      }
     }
   }
 
@@ -325,14 +605,34 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       setState(() => _isStopping = true);
       _recordTimer?.cancel();
       final XFile file = await cam.stopVideoRecording();
+      final videoFile = File(file.path);
+
+      // Automatically turn flashlight OFF when recording ends if it was ON
+      if (_flashMode == FlashMode.torch) {
+        try {
+          await cam.setFlashMode(FlashMode.off);
+          _flashMode = FlashMode.off;
+        } catch (_) {}
+      }
+
       setState(() {
         _isRecording = false;
         _isStopping = false;
       });
-      await controller.updateCapturedVideo(File(file.path));
+      if (await videoFile.exists() && await videoFile.length() > 0) {
+        await controller.updateCapturedVideo(videoFile);
+      }
       // Video captured into box; camera stays open without auto-preview popup.
     } catch (e) {
-      if (mounted) setState(() => _isStopping = false);
+      debugPrint("Error in _stopRecording: $e");
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _isStopping = false;
+        });
+      }
+    } finally {
+      await SecurityService.enableScreenshot();
     }
   }
 
@@ -341,6 +641,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     return ChangeNotifierProvider(
       create: (_) {
         final controller = BasicinspController(jobId: widget.jobId);
+        _inspController = controller;
         Future.microtask(() async {
           await controller.getBasicimageList();
         });
@@ -350,7 +651,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         return PopScope(
           canPop: false,
           onPopInvoked: (_) async {
-            final controller = Provider.of<BasicinspController>(context, listen: false);
+            final controller = _inspController ?? Provider.of<BasicinspController>(context, listen: false);
             if (controller.isBusy || _isRecording || _isStopping) return;
             if (await _showExitConfirmation()) {
               context.go('/home');
@@ -361,6 +662,26 @@ class _BasicinspScreenState extends State<BasicinspScreen>
             body: SafeArea(
             child: Consumer<BasicinspController>(
               builder: (context, controller, child) {
+                _inspController = controller;
+
+                // Next Section: Reset flashlight when moving to next step, stage, or mode
+                final bool isVideo = controller.isVideoModeSelected || controller.is360Stage;
+                final bool sectionChanged = _trackedStep != null &&
+                    (_trackedStep != controller.currentStep ||
+                     _trackedStage != controller.currentStage ||
+                     _trackedVideoMode != isVideo);
+                _trackedStep = controller.currentStep;
+                _trackedStage = controller.currentStage;
+                _trackedVideoMode = isVideo;
+
+                if (sectionChanged && !_isRecording) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_isRecording) {
+                      _resetFlashForSection(controller);
+                    }
+                  });
+                }
+
                 if (controller.isLoading) {
                   return Padding(
                     padding: const EdgeInsets.all(16),
@@ -520,11 +841,16 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Widget _buildCameraPreview() {
-    if (!_isCameraReady || _cameraController == null || !_cameraController!.value.isInitialized) {
+    // Capture the controller into a local variable atomically so the same
+    // instance is both checked and handed to CameraPreview.  Without this,
+    // a concurrent dispose() between the null-check and the CameraPreview
+    // constructor call triggers the 'Disposed CameraController' exception.
+    final cam = _cameraController;
+    if (!_isCameraReady || cam == null || !cam.value.isInitialized) {
       return const CameraShimmerLoader();
     }
     final size = MediaQuery.of(context).size;
-    var previewAspect = _cameraController!.value.aspectRatio;
+    var previewAspect = cam.value.aspectRatio;
     if (size.height > size.width) {
       previewAspect = 1 / previewAspect;
     }
@@ -534,6 +860,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     return NativeDeviceOrientationReader(
       useSensor: true,
       builder: (context) {
+        // Re-check inside the builder: the controller might have been
+        // disposed between the outer guard and this callback.
+        final innerCam = _cameraController;
+        if (innerCam == null || !innerCam.value.isInitialized) {
+          return const CameraShimmerLoader();
+        }
         return GestureDetector(
           onScaleStart: (details) => _baseZoom = _currentZoom,
           onScaleUpdate: (details) {
@@ -543,9 +875,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           child: Transform.scale(
             scale: scale,
             child: Center(
-              child: (_cameraController != null && _cameraController!.value.isInitialized)
-                  ? CameraPreview(_cameraController!)
-                  : const CameraShimmerLoader(),
+              child: CameraPreview(
+                innerCam,
+                key: ValueKey('cam_preview_${innerCam.cameraId}_$_cameraInitCounter'),
+              ),
             ),
           ),
         );
@@ -651,8 +984,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            icon: Icon(_flashIcon, color: Colors.white, size: 22),
-            onPressed: _toggleFlash,
+            icon: Icon(_flashIcon, color: _flashColor, size: 22),
+            onPressed: () => _toggleFlash(
+              isVideoMode: controller.isVideoModeSelected ||
+                  controller.is360Stage ||
+                  _isRecording,
+            ),
           ),
         ],
       ),
@@ -853,15 +1190,17 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                         padding: const EdgeInsets.all(8.0),
                         child: CustomButtonTwo(
                           text: "SKIP",
-                          isDisabled: controller.isBusy || _isRecording || _isStopping,
+                          isDisabled: controller.isBusy || _isRecording || _isStopping || _isCapturing,
                           onPressed:
                               (controller.isBusy ||
                                   _isRecording ||
-                                  _isStopping)
+                                  _isStopping ||
+                                  _isCapturing)
                               ? null
                               : () {
                                   _notesFocusNode.unfocus();
                                   controller.skipStep(context);
+                                  _resetFlashForSection(controller);
                                 },
                         ),
                       )
@@ -870,26 +1209,39 @@ class _BasicinspScreenState extends State<BasicinspScreen>
 
               // Shutter / Camera / Record Button
               GestureDetector(
-                onTap: (_isStopping || _isCapturing || controller.isBusy)
+                onTap: (_isStarting || _isStopping || _isCapturing || controller.isBusy)
                     ? null
                     : (controller.isVideoModeSelected || controller.is360Stage)
                     ? (_isRecording
                           ? () => _stopRecording(controller)
                           : () => _startRecording(controller))
-                    : () => _takePhoto(controller),
+                    : (_isRecording ? null : () => _takePhoto(controller)),
                 child: Container(
                   width: 68,
                   height: 68,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: ColorConstants.buttonGradient,
-                    border: Border.all(color: Colors.white, width: 3),
+                    gradient: _isRecording
+                        ? const LinearGradient(
+                            colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : ColorConstants.buttonGradient,
+                    border: Border.all(
+                      color: _isRecording ? Colors.redAccent : Colors.white,
+                      width: 3,
+                    ),
                   ),
                   child: Center(
-                    child: (_isStopping || controller.isVideoLoading || controller.isUploading)
-                        ? const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+                    child: (_isStarting || _isStopping || _isCapturing || controller.isVideoLoading || controller.isUploading)
+                        ? const SizedBox(
+                            width: 26,
+                            height: 26,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
                           )
                         : Icon(
                             _isRecording
@@ -911,31 +1263,19 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                 child: CustomButtonWidget(
                   text: "NEXT",
                   textSize: 14,
-                  showLoader: controller.isVideoLoading || controller.isUploading,
-                  isDisabled: controller.isBusy || _isRecording || _isStopping,
+                  showLoader: controller.isVideoLoading || controller.isUploading || _isCapturing,
+                  isDisabled: controller.isBusy || _isRecording || _isStopping || _isCapturing,
                   onPressed:
                       (controller.isBusy ||
                           _isRecording ||
-                          _isStopping)
+                          _isStopping ||
+                          _isCapturing)
                       ? null
                       : () async {
                           _notesFocusNode.unfocus();
-                          final isValid = controller.validateMandatoryImage();
-                          if (!isValid) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: ColorConstants.errorcolor,
-                                content: Text(
-                                  controller.is360Stage
-                                      ? "360 Video is mandatory"
-                                      : "Please capture required image",
-                                  style: ApptextstyleConstants.thinText(
-                                    color: ColorConstants.whiteColor,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            );
+                          final validationMsg = controller.validateNextStepMessage();
+                          if (validationMsg != null) {
+                            CustomToast.showWarning(context, validationMsg);
                             return;
                           }
                           final success = await controller.proceedStep(
@@ -946,20 +1286,16 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                           if (success) {
                             controller.nextStep(context);
                             controller.notesController.clear();
+                            _resetFlashForSection(controller);
+                            if (_cameraController == null || !_cameraController!.value.isInitialized) {
+                              _initCamera(enableAudio: controller.isVideoModeSelected || controller.is360Stage);
+                            }
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: ColorConstants.errorcolor,
-                                content: Text(
-                                  controller.lastErrorMessage.isNotEmpty
-                                      ? controller.lastErrorMessage
-                                      : "Failed to process inspection item.",
-                                  style: ApptextstyleConstants.thinText(
-                                    color: ColorConstants.whiteColor,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
+                            CustomToast.showError(
+                              context,
+                              controller.lastErrorMessage.isNotEmpty
+                                  ? controller.lastErrorMessage
+                                  : "Failed to process inspection item.",
                             );
                           }
                         },
@@ -980,23 +1316,27 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     final file = controller.imageAt(index);
     final isSelected =
         !controller.isVideoModeSelected && controller.selectedBoxIndex == index;
-    final isBusy = controller.isBusy || _isRecording || _isStopping;
+    final isBusy = controller.isBusy || _isRecording || _isStopping || _isCapturing;
 
     return GestureDetector(
       onTap: isBusy
           ? null
-          : () {
+          : () async {
               _notesFocusNode.unfocus();
               if (file != null) {
                 // Open Preview directly if captured
-                controller.handleImageTap(
-                  context,
+                await _handleImageTap(
+                  controller,
                   imageIndex: index,
                   mediaType: MediaType.image,
                 );
               } else {
                 // Focus this box for upcoming photo capture
                 controller.selectBoxIndex(index);
+                _resetFlashForSection(controller);
+                if (_cameraController == null || !_cameraController!.value.isInitialized) {
+                  _initCamera(enableAudio: _isAudioEnabled);
+                }
               }
             },
       child: Stack(
@@ -1009,42 +1349,54 @@ class _BasicinspScreenState extends State<BasicinspScreen>
               color: Colors.black45,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: ColorConstants.whiteColor
+                color: isSelected ? ColorConstants.syanColor : ColorConstants.whiteColor,
+                width: isSelected ? 2 : 1,
               ),
             ),
-            child: file != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      color: Colors.white,
-                      width: double.infinity,
-                      height: double.infinity,
-                      child: Image.file(
-                        file,
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        height: double.infinity,
+            child: (_isCapturing && isSelected)
+                ? const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: ColorConstants.syanColor,
+                        strokeWidth: 2,
                       ),
                     ),
                   )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.camera_alt,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "Image ${index + 1}",
-                        style: TextStyle(
+                : file != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
                           color: Colors.white,
-                          fontSize: 10,
+                          width: double.infinity,
+                          height: double.infinity,
+                          child: Image.file(
+                            file,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
                         ),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.camera_alt,
+                            color: isSelected ? ColorConstants.syanColor : Colors.white,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Image ${index + 1}",
+                            style: TextStyle(
+                              color: isSelected ? ColorConstants.syanColor : Colors.white,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
           ),
           if (file != null) ...[
             Positioned(
@@ -1053,9 +1405,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
               child: GestureDetector(
                 onTap: isBusy
                     ? null
-                    : () {
+                    : () async {
                         _notesFocusNode.unfocus();
-                        controller.removeCapturedImage(index);
+                        await controller.removeCapturedImage(index);
+                        if (mounted && (_cameraController == null || !_cameraController!.value.isInitialized)) {
+                          _initCamera(enableAudio: _isAudioEnabled);
+                        }
                       },
                 child: Container(
                   padding: const EdgeInsets.all(4),
@@ -1087,23 +1442,46 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     final isBusy = controller.isBusy || _isRecording || _isStopping;
 
     return GestureDetector(
-      onTap: isBusy
-          ? null
-          : () {
-              _notesFocusNode.unfocus();
-              if (videoFile != null && !isVideoLoading) {
-                // Open Video Preview directly if captured
-                controller.handleImageTap(
-                  context,
-                  imageIndex: 0,
-                  mediaType: MediaType.video,
-                  maxDuration: duration,
-                );
-              } else if (!isVideoLoading) {
-                // Select Video Mode
-                controller.selectVideoMode();
+      onTap: () async {
+        _notesFocusNode.unfocus();
+        if (isVideoLoading) {
+          final res = await VideoRecaptureWarningDialog.show(
+            context,
+            title: "Video is Processing",
+            bannerText: "Video operation is in progress",
+            content:
+                "A video capture or processing operation is already in progress. Please wait for it to finish, close this message, or delete the current video before attempting another capture.",
+            onDelete: () async {
+              await controller.removeCapturedVideo();
+              if (mounted &&
+                  (_cameraController == null ||
+                      !_cameraController!.value.isInitialized)) {
+                _initCamera(enableAudio: _isAudioEnabled);
               }
             },
+          );
+          return;
+        }
+        if (isBusy) return;
+
+        if (videoFile != null) {
+          // Open Video Preview directly if captured
+          await _handleImageTap(
+            controller,
+            imageIndex: 0,
+            mediaType: MediaType.video,
+            maxDuration: duration,
+          );
+        } else {
+          // Select Video Mode
+          controller.selectVideoMode();
+          _resetFlashForSection(controller);
+          if (_cameraController == null ||
+              !_cameraController!.value.isInitialized) {
+            _initCamera(enableAudio: true);
+          }
+        }
+      },
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -1114,7 +1492,8 @@ class _BasicinspScreenState extends State<BasicinspScreen>
               color: Colors.black45,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color:  ColorConstants.whiteColor
+                color: isSelected ? ColorConstants.syanColor : ColorConstants.whiteColor,
+                width: isSelected ? 2 : 1,
               ),
             ),
             child: isVideoLoading
@@ -1161,14 +1540,14 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                     children: [
                       Icon(
                         Icons.videocam,
-                        color: Colors.white,
+                        color: isSelected ? ColorConstants.syanColor : Colors.white,
                         size: 24,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         "Video",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: isSelected ? ColorConstants.syanColor : Colors.white,
                           fontSize: 10,
                         ),
                       ),
@@ -1176,16 +1555,18 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                   ),
           ),
           if (videoFile != null && !isVideoLoading) ...[
-
             Positioned(
               top: -6,
               right: -6,
               child: GestureDetector(
                 onTap: isBusy
                     ? null
-                    : () {
+                    : () async {
                         _notesFocusNode.unfocus();
-                        controller.removeCapturedVideo();
+                        await controller.removeCapturedVideo();
+                        if (mounted && (_cameraController == null || !_cameraController!.value.isInitialized)) {
+                          _initCamera(enableAudio: _isAudioEnabled);
+                        }
                       },
                 child: Container(
                   padding: const EdgeInsets.all(4),
@@ -1259,27 +1640,8 @@ class _BasicinspScreenState extends State<BasicinspScreen>
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("Discard changes?"),
-            content: const Text(
-              "Unsaved changes will be cleared. Are you sure you want to go back?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("NO"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("YES"),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final result = await ConfirmSubmissionDialog.showExit(context);
+    return result ?? false;
   }
 
   Widget _inspectionShimmer() {

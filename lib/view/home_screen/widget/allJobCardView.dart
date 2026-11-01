@@ -7,6 +7,7 @@ import 'package:inspection/controller/homeScreen_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
+import 'package:inspection/view/global_widgets/status_badge_widget.dart';
 import 'package:provider/provider.dart';
 
 class Alljobcardview extends StatefulWidget {
@@ -471,27 +472,10 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                                     ),
 
                                     /// STATUS
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-
-                                      decoration: BoxDecoration(
-                                        color: controller.getJobStatusColor(
-                                          jobStatus.toString(),
-                                        ),
-
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-
-                                      child: Text(
-                                        statusText,
-
-                                        style: ApptextstyleConstants.thinText(
-                                          fontSize: 10,
-                                          color: Colors.white,
-                                        ),
+                                    StatusBadgeWidget(
+                                      statusText: statusText,
+                                      statusColor: controller.getJobStatusColor(
+                                        jobStatus.toString(),
                                       ),
                                     ),
                                   ],

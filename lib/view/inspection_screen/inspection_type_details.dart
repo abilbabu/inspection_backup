@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/inspectionCard_controller.dart';
@@ -6,11 +9,15 @@ import 'package:inspection/controller/inspectionTypeDetails_controller.dart';
 import 'package:inspection/model/apiResponsModel.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
+import 'package:inspection/view/global_widgets/fullScreenImage.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_card.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
+import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
+import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer_animation/shimmer_animation.dart';
 
@@ -33,12 +40,19 @@ class InspectionTypeDetailspage extends StatefulWidget {
 class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
   final TextEditingController _commentController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
   final Set<int> _reInspectionTaskIds = {};
   bool _isSubmitting = false;
+
+  final List<File> _technicianPhotos = [];
+  final List<File> _technicianVideos = [];
+  List<String> _existingTechnicianPhotos = [];
+  List<String> _existingTechnicianVideos = [];
 
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -49,6 +63,22 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final deptVal = prefs.get("userDepartment");
+      final deptId = int.tryParse(deptVal?.toString() ?? "0") ?? 0;
+      if (deptId == 2 || deptId == 5) {
+        if (mounted) {
+          CustomToast.showError(context, "Access Denied: Supervisors and Job Controllers cannot access inspection details.");
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go("/home");
+          }
+        }
+        return;
+      }
+
       final detailsController = context.read<InspectionTypeDetailsController>();
       final formController = context.read<InspectionFormController>();
 
@@ -66,56 +96,144 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
           inspectionResponse.success == true &&
           inspectionResponse.data != null) {
         final data = inspectionResponse.data as Map<String, dynamic>;
-        final inspections = data["inspections"] ?? [];
-        if (inspections.isNotEmpty) {
-          final master = inspections[0]["master"];
-          if (master != null && master["vimAdditionalComments"] != null) {
-            _commentController.text = master["vimAdditionalComments"]
-                .toString();
+        final inspections = (data["inspections"] as List?) ?? [];
+
+        Map<String, dynamic>? matchingInspection;
+        final bool isCustom =
+            widget.inspectionTypeId == 2 || widget.inspectionFormId == 0;
+
+        for (final item in inspections) {
+          if (item is! Map) continue;
+          final master = item["master"];
+          final rawFormId = item["inspectionFormId"] ??
+              (master is Map ? master["vimIfMasterId"] : null);
+          final int parsedFormId = rawFormId is num
+              ? rawFormId.toInt()
+              : (int.tryParse(rawFormId?.toString() ?? "") ?? 0);
+          final rawType = master is Map ? master["vimInspectionType"] : null;
+          final int parsedType = rawType is num
+              ? rawType.toInt()
+              : (int.tryParse(rawType?.toString() ?? "") ?? 0);
+
+          if (isCustom) {
+            // Match custom inspection (formId 0, initial custom run is not re-inspection type 2)
+            if (parsedFormId == 0 && parsedType != 2) {
+              matchingInspection = Map<String, dynamic>.from(item);
+              break;
+            }
+          } else {
+            // Match predefined inspection by formId
+            if (parsedFormId == widget.inspectionFormId) {
+              matchingInspection = Map<String, dynamic>.from(item);
+              break;
+            }
           }
-          final completedTasks = inspections[0]["completedTasks"] ?? [];
+        }
+
+        // Fallback for custom inspection if only 1 custom inspection exists
+        if (matchingInspection == null && isCustom) {
+          for (final item in inspections) {
+            if (item is! Map) continue;
+            final master = item["master"];
+            final rawFormId = item["inspectionFormId"] ??
+                (master is Map ? master["vimIfMasterId"] : null);
+            final int parsedFormId = rawFormId is num
+                ? rawFormId.toInt()
+                : (int.tryParse(rawFormId?.toString() ?? "") ?? 0);
+            if (parsedFormId == 0) {
+              matchingInspection = Map<String, dynamic>.from(item);
+              break;
+            }
+          }
+        }
+
+        if (matchingInspection != null) {
+          final master = matchingInspection["master"];
+          if (master is Map) {
+            final comment =
+                master["vimAdditionalComments"]?.toString()?.trim() ?? "";
+            if (comment.isNotEmpty && comment.toLowerCase() != "null") {
+              _commentController.text = comment;
+            } else {
+              _commentController.clear();
+            }
+
+            if (master["vimTechnicianImages"] != null) {
+              final raw = master["vimTechnicianImages"].toString();
+              if (raw.trim().isNotEmpty && raw.toLowerCase() != "null") {
+                _existingTechnicianPhotos = raw
+                    .split(',')
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty && s.toLowerCase() != "null")
+                    .toList();
+              } else {
+                _existingTechnicianPhotos = [];
+              }
+            } else {
+              _existingTechnicianPhotos = [];
+            }
+
+            if (master["vimTechnicianVideos"] != null) {
+              final raw = master["vimTechnicianVideos"].toString();
+              if (raw.trim().isNotEmpty && raw.toLowerCase() != "null") {
+                _existingTechnicianVideos = raw
+                    .split(',')
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty && s.toLowerCase() != "null")
+                    .toList();
+              } else {
+                _existingTechnicianVideos = [];
+              }
+            } else {
+              _existingTechnicianVideos = [];
+            }
+          } else {
+            _commentController.clear();
+            _existingTechnicianPhotos = [];
+            _existingTechnicianVideos = [];
+          }
+
+          final completedTasks =
+              (matchingInspection["completedTasks"] as List?) ?? [];
           if (!mounted) return;
           setState(() {
             _reInspectionTaskIds.clear();
             for (final savedTask in completedTasks) {
+              if (savedTask is! Map) continue;
               final val = savedTask["viReInspection"];
-              final isRe = val == true || val == 1 || val?.toString() == "true" || val?.toString() == "1";
+              final isRe = val == true ||
+                  val == 1 ||
+                  val?.toString() == "true" ||
+                  val?.toString() == "1";
               if (isRe) {
-                _reInspectionTaskIds.add(savedTask["viTaskId"]);
+                final rawId = savedTask["viTaskId"];
+                final int? taskId = rawId is num
+                    ? rawId.toInt()
+                    : int.tryParse(rawId?.toString() ?? "");
+                if (taskId != null) {
+                  _reInspectionTaskIds.add(taskId);
+                }
               }
             }
           });
+        } else {
+          // No saved inspection found for this form/type: start fresh
+          _commentController.clear();
+          _existingTechnicianPhotos = [];
+          _existingTechnicianVideos = [];
+          if (mounted) {
+            setState(() {
+              _reInspectionTaskIds.clear();
+            });
+          }
         }
       }
     });
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text("Discard changes?"),
-              content: const Text("Are you sure you want to go back?"),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(false);
-                  },
-                  child: const Text("NO"),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(true);
-                  },
-                  child: const Text("YES"),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
+    final result = await ConfirmSubmissionDialog.showDiscard(context);
+    return result ?? false;
   }
 
   void _handleBackNavigation() async {
@@ -1072,6 +1190,86 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                       " *",
                       style: TextStyle(color: Colors.red, fontSize: 14),
                     ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.camera_alt,
+                      color: ColorConstants.textBlueColor,
+                      size: 22,
+                    ),
+                    tooltip: "Add Photo",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () async {
+                      if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                        CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                        return;
+                      }
+                      final dynamic result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CameraCaptureScreen(isVideo: false),
+                        ),
+                      );
+                      if (result != null) {
+                        File? file;
+                        if (result is Map) {
+                          file = result['file'];
+                        } else if (result is File) {
+                          file = result;
+                        }
+                        if (file != null && mounted) {
+                          if (_technicianPhotos.length + _existingTechnicianPhotos.length >= 3) {
+                            CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                            return;
+                          }
+                          setState(() {
+                            _technicianPhotos.add(file!);
+                          });
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 14),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.videocam,
+                      color: ColorConstants.textBlueColor,
+                      size: 24,
+                    ),
+                    tooltip: "Add Video",
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () async {
+                      if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                        CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                        return;
+                      }
+                      final dynamic result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CameraCaptureScreen(isVideo: true),
+                        ),
+                      );
+                      if (result != null) {
+                        File? file;
+                        if (result is Map) {
+                          file = result['file'];
+                        } else if (result is File) {
+                          file = result;
+                        }
+                        if (file != null && mounted) {
+                          if (_technicianVideos.length + _existingTechnicianVideos.length >= 1) {
+                            CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                            return;
+                          }
+                          setState(() {
+                            _technicianVideos.add(file!);
+                          });
+                        }
+                      }
+                    },
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -1082,6 +1280,8 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                     children: [
                       TextField(
                         controller: _commentController,
+                        focusNode: _commentFocusNode,
+                        enabled: !_isSubmitting,
                         maxLines: 3,
                         decoration: InputDecoration(
                           hintText: "Enter inspection comments...",
@@ -1107,18 +1307,21 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                   Icons.mic_none,
                                   color: Colors.green,
                                 ),
-                                onPressed: () async {
-                                  await controller.startListening(
-                                    controller: _commentController,
-                                    context: context,
-                                  );
-                                },
+                                onPressed: _isSubmitting
+                                    ? null
+                                    : () async {
+                                        await controller.startListening(
+                                          controller: _commentController,
+                                          context: context,
+                                        );
+                                      },
                               ),
                       ),
                     ],
                   );
                 },
               ),
+              _buildTechnicianMediaPreviewStrip(),
               if (reInspectionItems.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(
@@ -1227,31 +1430,79 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                 ),
               ],
               const SizedBox(height: 20),
-              _isSubmitting
-                  ? const Center(child: CircularProgressIndicator())
-                  : CustomButtonWidget(
-                      text: "SUBMIT INSPECTION REPORT",
-                      textSize: 16,
-                      isDisabled: formController.savedTasks == 0,
-                      onPressed: () async {
+              CustomButtonWidget(
+                text: _isSubmitting
+                    ? "Please wait..."
+                    : "SUBMIT INSPECTION REPORT",
+                textSize: 16,
+                textColor: Colors.white,
+                isDisabled: _isSubmitting ||
+                    (widget.inspectionTypeId == 2
+                        ? formController.savedTasks == 0
+                        : false),
+                showLoader: _isSubmitting,
+                onPressed: (_isSubmitting ||
+                        (widget.inspectionTypeId == 2
+                            ? formController.savedTasks == 0
+                            : false))
+                    ? null
+                    : () async {
+                        // Immediately unfocus to dismiss keyboard and remove focus from comments
+                        FocusScope.of(context).unfocus();
+                        _commentFocusNode.unfocus();
+
+                        if (_isSubmitting) return;
+                        if (widget.inspectionTypeId != 2) {
+                          if (formController.savedTasks < formController.totalTasks ||
+                              formController.savedTasks == 0) {
+                            FocusScope.of(context).unfocus();
+                            _commentFocusNode.unfocus();
+                            CustomToast.showWarning(
+                              context,
+                              "No task inspections completed",
+                            );
+                            return;
+                          }
+                        }
                         if (_reInspectionTaskIds.isNotEmpty &&
                             _commentController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              backgroundColor: ColorConstants.errorcolor,
-                              content: Text(
-                                "Technician Comments are mandatory when re-inspection items are selected.",
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          );
+                          FocusScope.of(context).unfocus();
+                          _commentFocusNode.unfocus();
+                          CustomToast.showWarning(context, "Technician Comments are mandatory when re-inspection items are selected.");
                           return;
                         }
+                        if (_technicianPhotos.length + _existingTechnicianPhotos.length > 3) {
+                          FocusScope.of(context).unfocus();
+                          _commentFocusNode.unfocus();
+                          CustomToast.showWarning(context, "Maximum 3 images can be uploaded as technician comments");
+                          return;
+                        }
+                        if (_technicianVideos.length + _existingTechnicianVideos.length > 1) {
+                          FocusScope.of(context).unfocus();
+                          _commentFocusNode.unfocus();
+                          CustomToast.showWarning(context, "Maximum 1 video can be uploaded as technician comments");
+                          return;
+                        }
+
+                        // Explicitly unfocus before opening confirmation dialog
+                        FocusScope.of(context).unfocus();
+                        _commentFocusNode.unfocus();
+
                         final confirm = await ConfirmSubmissionDialog.show(context);
+
+                        // Explicitly unfocus again upon modal return to avoid automatic focus restoration
+                        FocusScope.of(context).unfocus();
+                        _commentFocusNode.unfocus();
+
                         if (confirm != true) return;
                         setState(() {
                           _isSubmitting = true;
                         });
+
+                        // Ensure focus remains cleared when submit button is disabled
+                        FocusScope.of(context).unfocus();
+                        _commentFocusNode.unfocus();
+
                         try {
                           final itemsToSave = reInspectionItems.isNotEmpty
                               ? reInspectionItems
@@ -1259,11 +1510,22 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                                     ? [formController.orderedTasks.first]
                                     : []);
 
+                          // Save technician comments and media (photos and videos)
+                          final tempCardController = InspectioncardController();
+                          await tempCardController.uploadTechnicianCommentsMedia(
+                            jobId: widget.jobId,
+                            inspectionTypeId: widget.inspectionTypeId ?? 1,
+                            comments: _commentController.text.trim(),
+                            images: _technicianPhotos,
+                            videos: _technicianVideos,
+                            existingImages: _existingTechnicianPhotos,
+                            existingVideos: _existingTechnicianVideos,
+                          );
+
                           for (final task in itemsToSave) {
                             final isChecked = _reInspectionTaskIds.contains(
                               task.taskId,
                             );
-                            final tempCardController = InspectioncardController();
                             tempCardController.setSelectedOption(
                               task.condition ?? "Good",
                             );
@@ -1291,17 +1553,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           );
                           if (!mounted) return;
                           if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: ColorConstants.greenColor,
-                                content: Text(
-                                  widget.inspectionTypeId == 2
-                                      ? "Custom inspection complete"
-                                      : "Inspection report submitted successfully",
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            );
+                            CustomToast.showSuccess(context, widget.inspectionTypeId == 2 ? "Custom inspection complete" : "Inspection report submitted successfully");
                             final isCustom = widget.inspectionFormId == 0;
                             context.go(
                               "/inspectionsummarypage",
@@ -1311,28 +1563,14 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                               },
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: ColorConstants.errorcolor,
-                                content: Text(
-                                  "Failed to submit inspection report",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            );
+                            CustomToast.showError(context, "Failed to submit inspection report");
                           }
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: ColorConstants.errorcolor,
-                              content: Text(
-                                "Unexpected error: $e",
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          );
+                          CustomToast.showError(context, "Unexpected error: $e");
                         } finally {
                           if (mounted) {
+                            FocusScope.of(context).unfocus();
+                            _commentFocusNode.unfocus();
                             setState(() {
                               _isSubmitting = false;
                             });
@@ -1342,6 +1580,271 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                     ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTechnicianMediaPreviewStrip() {
+    final hasMedia = _technicianPhotos.isNotEmpty ||
+        _existingTechnicianPhotos.isNotEmpty ||
+        _technicianVideos.isNotEmpty ||
+        _existingTechnicianVideos.isNotEmpty;
+    if (!hasMedia) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10.0),
+      child: SizedBox(
+        height: 75,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            // Newly captured photos
+            ..._technicianPhotos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final file = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImageScreen(
+                              imageFile: file,
+                              isReadOnly: true,
+                            ),
+                          ),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Image.file(file, fit: BoxFit.cover),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _technicianPhotos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Existing uploaded photos
+            ..._existingTechnicianPhotos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final url = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenImage(
+                              imageUrl: url,
+                              label: "Technician Photo",
+                            ),
+                          ),
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image, size: 20, color: Colors.grey),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _existingTechnicianPhotos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Newly captured videos
+            ..._technicianVideos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final file = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => InspectionFullScreenVideo(
+                              videoUrl: file.path,
+                              label: "Technician Video",
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 65,
+                        height: 65,
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: const Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(Icons.play_circle_fill, color: Colors.white, size: 28),
+                            Positioned(
+                              bottom: 3,
+                              child: Text(
+                                "VIDEO",
+                                style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _technicianVideos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Existing uploaded videos
+            ..._existingTechnicianVideos.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final url = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => InspectionFullScreenVideo(
+                              videoUrl: url,
+                              label: "Technician Video",
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 65,
+                        height: 65,
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: const Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(Icons.play_circle_fill, color: Colors.white, size: 28),
+                            Positioned(
+                              bottom: 3,
+                              child: Text(
+                                "VIDEO",
+                                style: TextStyle(color: Colors.white70, fontSize: 8, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _existingTechnicianVideos.removeAt(idx);
+                          });
+                        },
+                        child: const CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
         ),
       ),
     );

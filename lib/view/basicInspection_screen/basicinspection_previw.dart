@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/controller/basicInspectionReport_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
@@ -23,7 +25,6 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
   @override
   void initState() {
     super.initState();
-    context.read<BasicInspectionReportController>().clearLoadedJobId();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final reportController = context.read<BasicInspectionReportController>();
@@ -76,126 +77,149 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
     );
   }
 
-  Container _cardiagramSection(
+  Widget _cardiagramSection(
     BuildContext context,
-    BasicInspectionReportController controller,
+    BasicInspectionReportController reportController,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        color: ColorConstants.whiteColor,
-        boxShadow: ColorConstants.dashboardboxShadow,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Inspection Diagram",
-              style: ApptextstyleConstants.mediumText(
-                fontSize: 14,
-                color: ColorConstants.blackColor,
-              ),
-            ),
-            SizedBox(height: 12),
-            InkWell(
-              onTap: () {
-                context.push(
-                  '/fullScreenImage',
-                  extra: {
-                    'imageUrl': controller.diagram!["url"],
-                    'label': "Inspection Diagram",
-                  },
-                );
-              },
-              child: Container(
-                height: 320,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  color: ColorConstants.whiteColor,
-                  boxShadow: ColorConstants.dashboardboxShadow,
+    return Consumer<BasicinspController>(
+      builder: (context, basicCtrl, _) {
+        final serverDiagramUrl = reportController.diagram?["url"];
+        final localDiagramPath = basicCtrl.carDiagramPath;
+
+        Widget imageWidget;
+        if (serverDiagramUrl != null && serverDiagramUrl.toString().isNotEmpty) {
+          imageWidget = Image.network(
+            serverDiagramUrl.toString(),
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              if (localDiagramPath != null && File(localDiagramPath).existsSync()) {
+                return Image.file(File(localDiagramPath), fit: BoxFit.contain);
+              }
+              return const Center(child: Text("No Diagram Available"));
+            },
+          );
+        } else if (localDiagramPath != null && File(localDiagramPath).existsSync()) {
+          imageWidget = Image.file(
+            File(localDiagramPath),
+            fit: BoxFit.contain,
+          );
+        } else {
+          imageWidget = const Center(child: Text("No Diagram Available"));
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            color: ColorConstants.whiteColor,
+            boxShadow: ColorConstants.dashboardboxShadow,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Inspection Diagram",
+                  style: ApptextstyleConstants.mediumText(
+                    fontSize: 14,
+                    color: ColorConstants.blackColor,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 7,
-                      child:
-                          controller.diagram != null &&
-                              controller.diagram!["url"] != null
-                          ? Image.network(
-                              controller.diagram!["url"],
-                              fit: BoxFit.contain,
-                            )
-                          : const Center(child: Text("No Diagram Available")),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () {
+                    final targetUrl = serverDiagramUrl ?? localDiagramPath;
+                    if (targetUrl != null) {
+                      context.push(
+                        '/fullScreenImage',
+                        extra: {
+                          'imageUrl': targetUrl,
+                          'label': "Inspection Diagram",
+                        },
+                      );
+                    }
+                  },
+                  child: Container(
+                    height: 320,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      color: ColorConstants.whiteColor,
+                      boxShadow: ColorConstants.dashboardboxShadow,
                     ),
-                    SizedBox(height: 5),
-                    Expanded(
-                      flex: 3,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: ColorConstants.activecolor,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Legend",
-                                  style: ApptextstyleConstants.regularText(
-                                    fontSize: 12,
-                                    color: ColorConstants.blackColor,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 7,
+                          child: imageWidget,
+                        ),
+                        const SizedBox(height: 5),
+                        Expanded(
+                          flex: 3,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: ColorConstants.activecolor,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Column(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: List.generate(
-                                    DummyDB.damageList.length,
-                                    (index) {
-                                      final item = DummyDB.damageList[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 4,
-                                        ),
-                                        child: Text(
-                                          "${item["emoji"]} ${item["label"]}",
-                                          style:
-                                              ApptextstyleConstants.lightText(
+                                  children: [
+                                    Text(
+                                      "Legend",
+                                      style: ApptextstyleConstants.regularText(
+                                        fontSize: 12,
+                                        color: ColorConstants.blackColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: List.generate(
+                                        DummyDB.damageList.length,
+                                        (index) {
+                                          final item = DummyDB.damageList[index];
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 4,
+                                            ),
+                                            child: Text(
+                                              "${item["emoji"]} ${item["label"]}",
+                                              style: ApptextstyleConstants.lightText(
                                                 color: item["color"],
                                                 fontSize: 11,
                                               ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                      ],
                     ),
-                    SizedBox(height: 10),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -549,109 +573,124 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
                         ),
                       ),
                       const Spacer(),
-                      InkWell(
-                        onTap: () {
-                          context.push(
-                            '/galleryview',
-                            extra: {'jobId': widget.jobId, 'type': 'external'},
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ColorConstants.syanColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            "View All",
-                            style: ApptextstyleConstants.mediumText(
-                              fontSize: 12,
-                              color: ColorConstants.syanColor,
+                      if (externalGroups.isNotEmpty)
+                        InkWell(
+                          onTap: () {
+                            context.push(
+                              '/galleryview',
+                              extra: {'jobId': widget.jobId, 'type': 'external'},
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorConstants.syanColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "View All",
+                              style: ApptextstyleConstants.mediumText(
+                                fontSize: 12,
+                                color: ColorConstants.syanColor,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       SizedBox(width: 10),
                     ],
                   ),
                 ),
                 SizedBox(height: 12),
-                SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: externalGroups.length > 5
-                        ? 5
-                        : externalGroups.length,
-                    itemBuilder: (context, index) {
-                      final group = externalGroups[index];
-                      final images = group["images"] as List? ?? [];
-                      if (images.isEmpty) return const SizedBox();
-                      final firstImage = images.first;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: InkWell(
-                          onTap: () {
-                            context.push(
-                              '/fullScreenImage',
-                              extra: {
-                                'imageUrl': images.first["url"] ?? "",
-                                'label': group["label"] ?? "",
-                              },
-                            );
-                          },
-                          child: Container(
-                            width: 120,
-                            decoration: BoxDecoration(
-                              color: ColorConstants.toastgrey,
-                              border: Border.all(
-                                color: ColorConstants.activecolor,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Stack(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(
-                                    firstImage["url"] ?? "",
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                  ),
+                if (externalGroups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Center(
+                      child: Text(
+                        "No external image captured",
+                        style: ApptextstyleConstants.thinText(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 180,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: externalGroups.length > 5
+                          ? 5
+                          : externalGroups.length,
+                      itemBuilder: (context, index) {
+                        final group = externalGroups[index];
+                        final images = group["images"] as List? ?? [];
+                        if (images.isEmpty) return const SizedBox();
+                        final firstImage = images.first;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: InkWell(
+                            onTap: () {
+                              context.push(
+                                '/fullScreenImage',
+                                extra: {
+                                  'imageUrl': images.first["url"] ?? "",
+                                  'label': group["label"] ?? "",
+                                },
+                              );
+                            },
+                            child: Container(
+                              width: 120,
+                              decoration: BoxDecoration(
+                                color: ColorConstants.toastgrey,
+                                border: Border.all(
+                                  color: ColorConstants.activecolor,
                                 ),
-                                Positioned(
-                                  bottom: 8,
-                                  left: 8,
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      firstImage["url"] ?? "",
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.6),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      toTitleCase(group["label"] ?? ""),
-                                      style: ApptextstyleConstants.thinText(
-                                        fontSize: 12,
-                                        color: ColorConstants.whiteColor,
+                                  ),
+                                  Positioned(
+                                    bottom: 8,
+                                    left: 8,
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.6),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        toTitleCase(group["label"] ?? ""),
+                                        style: ApptextstyleConstants.thinText(
+                                          fontSize: 12,
+                                          color: ColorConstants.whiteColor,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
               ],
             ),
             SizedBox(height: 8),
@@ -672,39 +711,54 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
                         ),
                       ),
                       const Spacer(),
-                      InkWell(
-                        onTap: () {
-                          context.push(
-                            '/galleryview',
-                            extra: {'jobId': widget.jobId, 'type': 'internal'},
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: ColorConstants.syanColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            "View All",
-                            style: ApptextstyleConstants.mediumText(
-                              fontSize: 12,
-                              color: ColorConstants.syanColor,
+                      if (internalGroups.isNotEmpty)
+                        InkWell(
+                          onTap: () {
+                            context.push(
+                              '/galleryview',
+                              extra: {'jobId': widget.jobId, 'type': 'internal'},
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ColorConstants.syanColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "View All",
+                              style: ApptextstyleConstants.mediumText(
+                                fontSize: 12,
+                                color: ColorConstants.syanColor,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       SizedBox(width: 10),
                     ],
                   ),
                 ),
-                SizedBox(height: 10),
-                SizedBox(
-                  height: 180,
-                  child: ListView.builder(
+                SizedBox(height: 12),
+                if (internalGroups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Center(
+                      child: Text(
+                        "No internal image captured",
+                        style: ApptextstyleConstants.thinText(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 180,
+                    child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: internalGroups.length > 5
                         ? 5
@@ -830,15 +884,9 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
                     ),
                   ),
                   const SizedBox(height: 5),
-                  _buildVideoPlayer(
-                    context: context,
+                  Inspection360VideoPlayerWidget(
                     controller: controller.externalVideoController,
                     isInitialized: controller.isExternalVideoInitialized,
-                    isPlaying: controller.isExternalVideoPlaying,
-                    position: controller.externalVideoPosition,
-                    duration: controller.externalVideoDuration,
-                    onPlayPause: controller.toggleExternalPlayPause,
-                    onSeek: controller.seekExternalVideo,
                   ),
                   const SizedBox(height: 10),
                   if (externalComment.isNotEmpty) ...[
@@ -879,15 +927,9 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
                     ),
                   ),
                   const SizedBox(height: 5),
-                  _buildVideoPlayer(
-                    context: context,
+                  Inspection360VideoPlayerWidget(
                     controller: controller.internalVideoController,
                     isInitialized: controller.isInternalVideoInitialized,
-                    isPlaying: controller.isInternalVideoPlaying,
-                    position: controller.internalVideoPosition,
-                    duration: controller.internalVideoDuration,
-                    onPlayPause: controller.toggleInternalPlayPause,
-                    onSeek: controller.seekInternalVideo,
                   ),
                   const SizedBox(height: 10),
                   if (internalComment.isNotEmpty) ...[
@@ -923,106 +965,6 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildVideoPlayer({
-    required BuildContext context,
-    required VideoPlayerController? controller,
-    required bool isInitialized,
-    required bool isPlaying,
-    required Duration position,
-    required Duration duration,
-    required VoidCallback onPlayPause,
-    required Function(Duration) onSeek,
-  }) {
-    return Container(
-      height: 170,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        color: ColorConstants.whiteColor,
-        boxShadow: ColorConstants.dashboardboxShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(15),
-        child: controller == null
-            ? Center(
-                child: Text(
-                  "No Video Available",
-                  style: ApptextstyleConstants.lightText(
-                    color: ColorConstants.holdorangeColor,
-                    fontSize: 14,
-                  ),
-                ),
-              )
-            : !isInitialized
-            ? const Center(child: CircularProgressIndicator())
-            : Stack(
-                children: [
-                  Positioned.fill(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: controller.value.size.width,
-                        height: controller.value.size.height,
-                        child: VideoPlayer(controller),
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: IconButton(
-                      iconSize: 52,
-                      color: ColorConstants.lightGreyColor,
-                      icon: Icon(
-                        isPlaying
-                            ? Icons.pause_circle_filled
-                            : Icons.play_circle_filled,
-                      ),
-                      onPressed: onPlayPause,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 6,
-                    left: 8,
-                    right: 8,
-                    child: Column(
-                      children: [
-                        Slider(
-                          min: 0,
-                          max: duration.inSeconds.toDouble(),
-                          value: position.inSeconds
-                              .clamp(0, duration.inSeconds)
-                              .toDouble(),
-                          onChanged: (value) =>
-                              onSeek(Duration(seconds: value.toInt())),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [_time(position), _time(duration)],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: IconButton(
-                      icon: const Icon(Icons.fullscreen, color: Colors.white),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                FullScreenVideos(controller: controller),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-      ),
     );
   }
 
@@ -1287,13 +1229,7 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
     );
   }
 
-  Widget _time(Duration d) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    return Text(
-      "${two(d.inMinutes)}:${two(d.inSeconds % 60)}",
-      style: const TextStyle(color: Colors.white, fontSize: 12),
-    );
-  }
+
 
   Widget _inspectionShimmer() {
     return Shimmer(
@@ -1322,6 +1258,170 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
             Container(height: 12, width: 200, color: Colors.grey),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class Inspection360VideoPlayerWidget extends StatefulWidget {
+  final VideoPlayerController? controller;
+  final bool isInitialized;
+
+  const Inspection360VideoPlayerWidget({
+    super.key,
+    required this.controller,
+    required this.isInitialized,
+  });
+
+  @override
+  State<Inspection360VideoPlayerWidget> createState() =>
+      _Inspection360VideoPlayerWidgetState();
+}
+
+class _Inspection360VideoPlayerWidgetState
+    extends State<Inspection360VideoPlayerWidget> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller?.addListener(_onControllerChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant Inspection360VideoPlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.removeListener(_onControllerChange);
+      widget.controller?.addListener(_onControllerChange);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller?.removeListener(_onControllerChange);
+    super.dispose();
+  }
+
+  void _onControllerChange() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Widget _time(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return Text(
+      "$minutes:$seconds",
+      style: const TextStyle(color: Colors.white, fontSize: 12),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = widget.controller;
+    return Container(
+      height: 170,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        color: ColorConstants.whiteColor,
+        boxShadow: ColorConstants.dashboardboxShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: ctrl == null
+            ? Center(
+                child: Text(
+                  "No Video Available",
+                  style: ApptextstyleConstants.lightText(
+                    color: ColorConstants.holdorangeColor,
+                    fontSize: 14,
+                  ),
+                ),
+              )
+            : !widget.isInitialized
+            ? const Center(child: CircularProgressIndicator())
+            : Stack(
+                children: [
+                  Positioned.fill(
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: ctrl.value.size.width > 0
+                            ? ctrl.value.size.width
+                            : 16,
+                        height: ctrl.value.size.height > 0
+                            ? ctrl.value.size.height
+                            : 9,
+                        child: VideoPlayer(ctrl),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: IconButton(
+                      iconSize: 52,
+                      color: ColorConstants.lightGreyColor,
+                      icon: Icon(
+                        ctrl.value.isPlaying
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_filled,
+                      ),
+                      onPressed: () {
+                        if (ctrl.value.isPlaying) {
+                          ctrl.pause();
+                        } else {
+                          ctrl.play();
+                        }
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 6,
+                    left: 8,
+                    right: 8,
+                    child: Column(
+                      children: [
+                        Slider(
+                          min: 0,
+                          max: ctrl.value.duration.inSeconds.toDouble() > 0
+                              ? ctrl.value.duration.inSeconds.toDouble()
+                              : 1,
+                          value: ctrl.value.position.inSeconds
+                              .clamp(0, ctrl.value.duration.inSeconds)
+                              .toDouble(),
+                          onChanged: (value) {
+                            ctrl.seekTo(Duration(seconds: value.toInt()));
+                          },
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _time(ctrl.value.position),
+                            _time(ctrl.value.duration),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: IconButton(
+                      icon: const Icon(Icons.fullscreen, color: Colors.white),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FullScreenVideos(controller: ctrl),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

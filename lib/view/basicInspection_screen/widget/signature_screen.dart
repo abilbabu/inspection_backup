@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -14,13 +15,16 @@ import 'package:inspection/view/basicInspection_screen/basicinspection_previw.da
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
-import 'package:shimmer_animation/shimmer_animation.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:inspection/utils/local_upload_storage_service.dart';
 import 'package:inspection/view/widgets/offline_sync_status_badge.dart';
+
+import 'package:inspection/view/widgets/job_upload_status_widget.dart';
+import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 
 class SignatureScreen extends StatefulWidget {
   final int jobId;
@@ -32,9 +36,12 @@ class SignatureScreen extends StatefulWidget {
 
 class _SignatureScreenState extends State<SignatureScreen> {
   late SignatureController _controller;
+  late SignatureController _customerSignatureController;
   late TextEditingController _additionalCommentController;
   bool _isCommentInitialized = false;
+  bool _isCustomerPresent = false;
   bool _isSubmitting = false;
+  bool _isSyncComplete = false;
 
   @override
   void initState() {
@@ -45,22 +52,27 @@ class _SignatureScreenState extends State<SignatureScreen> {
       penColor: Colors.black,
       exportBackgroundColor: Colors.white,
     );
-    Future.microtask(() {
-      context.read<BasicInspectionReportController>().getBasicInspection(
+    _customerSignatureController = SignatureController(
+      penStrokeWidth: 4,
+      penColor: Colors.black,
+      exportBackgroundColor: Colors.white,
+    );
+    Future.microtask(() async {
+      final reportCtrl = context.read<BasicInspectionReportController>();
+      await reportCtrl.getBasicInspection(
         widget.jobId,
         forceRefresh: true,
       );
+      if (mounted && !_isCommentInitialized) {
+        _additionalCommentController.text = reportCtrl.additionalCommentsController.text;
+        _isCommentInitialized = true;
+      }
     });
   }
 
   Future<File?> _saveSignature() async {
     if (_controller.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please provide a signature"),
-          backgroundColor: ColorConstants.errorcolor,
-        ),
-      );
+      CustomToast.showWarning(context, "Please provide a signature");
       return null;
     }
     final bytes = await _controller.toPngBytes();
@@ -73,315 +85,609 @@ class _SignatureScreenState extends State<SignatureScreen> {
     return file;
   }
 
+  Future<File?> _saveCustomerSignature() async {
+    if (_customerSignatureController.isEmpty) {
+      CustomToast.showWarning(context, "Please provide customer signature");
+      return null;
+    }
+    final bytes = await _customerSignatureController.toPngBytes();
+    if (bytes == null) return null;
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(
+      '${dir.path}/customer_signature_${DateTime.now().millisecondsSinceEpoch}.png',
+    );
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+
   @override
   void dispose() {
     _additionalCommentController.dispose();
     _controller.dispose();
+    _customerSignatureController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final basicReportController = context.watch<BasicInspectionReportController>();
-    if (!basicReportController.isLoading &&
-        basicReportController.loadedJobId == widget.jobId &&
-        !_isCommentInitialized) {
-      _additionalCommentController.text = basicReportController.additionalCommentsController.text;
-      _isCommentInitialized = true;
+    if (!_isCommentInitialized) {
+      final basicReportController = context.read<BasicInspectionReportController>();
+      if (!basicReportController.isLoading &&
+          basicReportController.loadedJobId == widget.jobId) {
+        _additionalCommentController.text = basicReportController.additionalCommentsController.text;
+        _isCommentInitialized = true;
+      }
     }
     context.read<BasicinspController>();
     return PopScope(
-      canPop: false,
+      canPop: !_isSubmitting,
       onPopInvoked: (_) async {
+        if (_isSubmitting) return;
         if (await _showExitConfirmation()) {
           context.go('/home');
         }
       },
-      child: Scaffold(
-        appBar: CustomAppBar(
-          title: "Basic Inspection",
-          onBackPress: () async {
-            if (await _showExitConfirmation()) {
-              context.go('/home');
-            }
-          },
-        ),
-        body: Column(
-          children: [
-            const OfflineSyncStatusBadge(),
-            Expanded(
-              child: RefreshIndicator(
-                color: ColorConstants.syanColor,
-                onRefresh: () async {
-                  await NetworkSyncManager().syncIfConnected();
-                  if (mounted) {
-                    await context
-                        .read<BasicInspectionReportController>()
-                        .getBasicInspection(widget.jobId, forceRefresh: true);
-                    await context
-                        .read<BasicinspController>()
-                        .getBasicInspection(widget.jobId);
-                  }
-                },
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-              BasicInspectionPreview(jobId: widget.jobId),
-              const SizedBox(height: 12),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  "Additional Comments",
-                  style: ApptextstyleConstants.mediumText(
-                    color: ColorConstants.blackColor,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: ColorConstants.whiteColor,
-                    border: Border.all(color: ColorConstants.greyColor),
-                    boxShadow: ColorConstants.dashboardboxShadow,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-
-                  child: Consumer<SignatureSpeechController>(
-                    builder: (context, controller, child) {
-                      return Stack(
-                        alignment: Alignment.topRight,
-                        children: [
-                          TextField(
-                            textCapitalization: TextCapitalization.sentences,
-                            controller: _additionalCommentController,
-                            maxLines: 4,
-                            textInputAction: TextInputAction.newline,
-                            style: ApptextstyleConstants.lightText(
-                              color: ColorConstants.blackColor,
-                              fontSize: 14,
-                            ),
-                            decoration: InputDecoration(
-                              hintText:
-                                  "Enter additional comments from customer",
-                              hintStyle: ApptextstyleConstants.lightText(
-                                color: ColorConstants.greyColor,
-                                fontSize: 13,
-                              ),
-                              contentPadding: const EdgeInsets.fromLTRB(
-                                12,
-                                12,
-                                50, // Space for mic button
-                                12,
-                              ),
-                              border: InputBorder.none,
-                              filled: true,
-                              fillColor: ColorConstants.whiteColor,
-                            ),
-                          ),
-
-                          Positioned(
-                            top: 6,
-                            right: 6,
-                            child: controller.isListening
-                                ? _buildSmallWaveMic(controller)
-                                : IconButton(
-                                    icon: const Icon(
-                                      Icons.mic_none,
-                                      color: Colors.green,
-                                    ),
-                                    onPressed: () async {
-                                      await controller.startListening(
-                                        controller:
-                                            _additionalCommentController,
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
-                      );
+      child: Stack(
+        children: [
+          Scaffold(
+            appBar: CustomAppBar(
+              title: "Basic Inspection",
+              onBackPress: () async {
+                if (_isSubmitting) return;
+                if (await _showExitConfirmation()) {
+                  context.go('/home');
+                }
+              },
+            ),
+            body: Column(
+              children: [
+                const OfflineSyncStatusBadge(),
+                Expanded(
+                  child: RefreshIndicator(
+                    color: ColorConstants.syanColor,
+                    onRefresh: () async {
+                      if (_isSubmitting) return;
+                      await NetworkSyncManager().syncIfConnected();
+                      if (mounted) {
+                        await context
+                            .read<BasicInspectionReportController>()
+                            .getBasicInspection(widget.jobId, forceRefresh: true);
+                        await context
+                            .read<BasicinspController>()
+                            .getBasicInspection(widget.jobId);
+                      }
                     },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    Text(
-                      "Service Advisor Signature ",
-                      style: ApptextstyleConstants.mediumText(
-                        color: ColorConstants.blackColor,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      "*",
-                      style: ApptextstyleConstants.boldText(
-                        color: ColorConstants.errorcolor,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.30,
-                  child: Stack(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          boxShadow: ColorConstants.dashboardboxShadow,
-                          border: Border.all(
-                            color: ColorConstants.syanColor,
-                            width: 1.5,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Signature(
-                          controller: _controller,
-                          backgroundColor: Colors.white,
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 12,
-                        right: 12,
-                        child: IconButton(
-                          onPressed: _controller.clear,
-                          icon: ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                            ).createShader(bounds),
-                            blendMode: BlendMode.srcIn,
-                            child: const HugeIcon(
-                              icon: HugeIcons.strokeRoundedEraser,
-                              size: 28,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          BasicInspectionPreview(jobId: widget.jobId),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              "Additional Comments",
+                              style: ApptextstyleConstants.mediumText(
+                                color: ColorConstants.blackColor,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Consumer<BasicinspController>(
-                    builder: (context, controller, _) {
-                      final reportLoading =
-                          context.watch<BasicInspectionReportController>().isLoading;
-                      if ((controller.isLoading || reportLoading) &&
-                          !controller.isUploading &&
-                          !_isSubmitting) {
-                        return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _inspectionShimmer(),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: ColorConstants.whiteColor,
+                                border: Border.all(color: ColorConstants.greyColor),
+                                boxShadow: ColorConstants.dashboardboxShadow,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Consumer<SignatureSpeechController>(
+                                builder: (context, controller, child) {
+                                  return Stack(
+                                    alignment: Alignment.topRight,
+                                    children: [
+                                      TextField(
+                                        textCapitalization: TextCapitalization.sentences,
+                                        controller: _additionalCommentController,
+                                        maxLines: 4,
+                                        textInputAction: TextInputAction.newline,
+                                        style: ApptextstyleConstants.lightText(
+                                          color: ColorConstants.blackColor,
+                                          fontSize: 14,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText:
+                                              "Enter additional comments from customer",
+                                          hintStyle: ApptextstyleConstants.lightText(
+                                            color: ColorConstants.greyColor,
+                                            fontSize: 13,
+                                          ),
+                                          contentPadding: const EdgeInsets.fromLTRB(
+                                            12,
+                                            12,
+                                            50,
+                                            12,
+                                          ),
+                                          border: InputBorder.none,
+                                          filled: true,
+                                          fillColor: ColorConstants.whiteColor,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 6,
+                                        right: 6,
+                                        child: controller.isListening
+                                            ? _buildSmallWaveMic(controller)
+                                            : IconButton(
+                                                icon: const Icon(
+                                                  Icons.mic_none,
+                                                  color: Colors.green,
+                                                ),
+                                                onPressed: () async {
+                                                  await controller.startListening(
+                                                    controller:
+                                                        _additionalCommentController,
+                                                  );
+                                                },
+                                              ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                Text(
+                                  "Service Advisor Signature ",
+                                  style: ApptextstyleConstants.mediumText(
+                                    color: ColorConstants.blackColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  "*",
+                                  style: ApptextstyleConstants.boldText(
+                                    color: ColorConstants.errorcolor,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.30,
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      boxShadow: ColorConstants.dashboardboxShadow,
+                                      border: Border.all(
+                                        color: ColorConstants.syanColor,
+                                        width: 1.5,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Signature(
+                                      controller: _controller,
+                                      backgroundColor: Colors.white,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 12,
+                                    right: 12,
+                                    child: IconButton(
+                                      onPressed: _controller.clear,
+                                      icon: ShaderMask(
+                                        shaderCallback: (bounds) => const LinearGradient(
+                                          colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                        ).createShader(bounds),
+                                        blendMode: BlendMode.srcIn,
+                                        child: const HugeIcon(
+                                          icon: HugeIcons.strokeRoundedEraser,
+                                          size: 28,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _isCustomerPresent = !_isCustomerPresent;
+                                  if (!_isCustomerPresent) {
+                                    _customerSignatureController.clear();
+                                  }
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: Checkbox(
+                                      value: _isCustomerPresent,
+                                      activeColor: ColorConstants.lightblueColor,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _isCustomerPresent = val ?? false;
+                                          if (!_isCustomerPresent) {
+                                            _customerSignatureController.clear();
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "Customer is present for inspection",
+                                      style: ApptextstyleConstants.mediumText(
+                                        color: ColorConstants.blackColor,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_isCustomerPresent) ...[
+                            const SizedBox(height: 14),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    "Customer Signature ",
+                                    style: ApptextstyleConstants.mediumText(
+                                      color: ColorConstants.blackColor,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    "*",
+                                    style: ApptextstyleConstants.boldText(
+                                      color: ColorConstants.errorcolor,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 8),
-                            const CustomButtonWidget(
-                              text: "Loading inspection...",
-                              textSize: 16,
-                              textColor: Colors.white,
-                              isDisabled: true,
-                              showLoader: true,
-                              onPressed: null,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.28,
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        boxShadow: ColorConstants.dashboardboxShadow,
+                                        border: Border.all(
+                                          color: ColorConstants.syanColor,
+                                          width: 1.5,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Signature(
+                                        controller: _customerSignatureController,
+                                        backgroundColor: Colors.white,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 12,
+                                      right: 12,
+                                      child: IconButton(
+                                        onPressed: _customerSignatureController.clear,
+                                        icon: ShaderMask(
+                                          shaderCallback: (bounds) => const LinearGradient(
+                                            colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
+                                          ).createShader(bounds),
+                                          blendMode: BlendMode.srcIn,
+                                          child: const HugeIcon(
+                                            icon: HugeIcons.strokeRoundedEraser,
+                                            size: 28,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
-                        );
-                      }
-                      return CustomButtonWidget(
-                        text: (_isSubmitting || controller.isUploading)
-                            ? "Please wait..."
-                            : controller.isCompleted
-                            ? "COMPLETED"
-                            : "SUBMIT",
-                        textSize: 16,
-                        textColor: Colors.white,
-                        isDisabled:
-                            _isSubmitting ||
-                            controller.isUploading ||
-                            controller.isCompleted ||
-                            reportLoading,
-                        showLoader: _isSubmitting || controller.isUploading,
-                        onPressed: (_isSubmitting ||
-                                controller.isUploading ||
-                                controller.isCompleted ||
-                                reportLoading)
-                            ? null
-                            : () async {
-                                if (_isSubmitting) return;
-                                setState(() {
-                                  _isSubmitting = true;
-                                });
-                                try {
-                                  final additionalComment =
-                                      _additionalCommentController.text.trim();
-                                  final file = await _saveSignature();
-                                  if (file == null) {
-                                    if (mounted) setState(() => _isSubmitting = false);
-                                    return;
-                                  }
-                                  controller.currentStage =
-                                      InspectionStage.signature;
-                                  controller.setSignatureFile(file);
-                                  final success = await controller.proceedStep(
-                                    jobId: controller.jobId,
-                                    status: 3,
-                                    additionalComment: additionalComment,
+                          const SizedBox(height: 20),
+                          JobUploadStatusWidget(
+                            jobId: widget.jobId,
+                            onSyncStatusChanged: (isComplete) {
+                              if (mounted && _isSyncComplete != isComplete) {
+                                setState(() => _isSyncComplete = isComplete);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Consumer<BasicinspController>(
+                                builder: (context, controller, _) {
+                                  return CustomButtonWidget(
+                                    text: (_isSubmitting || controller.isUploading)
+                                        ? "Please wait..."
+                                        : controller.isCompleted
+                                        ? "COMPLETED"
+                                        : (!_isSyncComplete ? "Syncing Media Files..." : "SUBMIT"),
+                                    textSize: 16,
+                                    textColor: Colors.white,
+                                    isDisabled:
+                                        _isSubmitting ||
+                                        controller.isUploading ||
+                                        controller.isCompleted ||
+                                        !_isSyncComplete,
+                                    showLoader: _isSubmitting || controller.isUploading,
+                                    onPressed: (_isSubmitting ||
+                                            controller.isUploading ||
+                                            controller.isCompleted ||
+                                            !_isSyncComplete)
+                                        ? null
+                                        : () async {
+                                            if (_isSubmitting) return;
+                                            setState(() {
+                                              _isSubmitting = true;
+                                            });
+                                            try {
+                                              final additionalComment =
+                                                  _additionalCommentController.text.trim();
+                                              final file = await _saveSignature();
+                                              if (file == null) {
+                                                if (mounted) setState(() => _isSubmitting = false);
+                                                return;
+                                              }
+                                              File? customerFile;
+                                              if (_isCustomerPresent) {
+                                                customerFile = await _saveCustomerSignature();
+                                                if (customerFile == null) {
+                                                  if (mounted) setState(() => _isSubmitting = false);
+                                                  return;
+                                                }
+                                              }
+                                              final stats = await LocalUploadStorageService.getJobUploadStats(widget.jobId);
+                                              if ((stats['failed'] ?? 0) > 0) {
+                                                if (mounted) {
+                                                  setState(() => _isSubmitting = false);
+                                                  CustomToast.showError(
+                                                    context,
+                                                    "Some inspection files could not be uploaded. Please retry failed uploads before submitting.",
+                                                  );
+                                                }
+                                                return;
+                                              }
+
+                                              controller.currentStage =
+                                                  InspectionStage.signature;
+                                              controller.setSignatureFile(file);
+                                              controller.setCustomerSignatureFile(customerFile);
+                                              final success = await controller.proceedStep(
+                                                jobId: controller.jobId,
+                                                status: 3,
+                                                additionalComment: additionalComment,
+                                              );
+                                              if (!success) {
+                                                if (mounted) {
+                                                  setState(() => _isSubmitting = false);
+                                                  if (controller.lastErrorMessage.isNotEmpty) {
+                                                    CustomToast.showError(context, controller.lastErrorMessage);
+                                                  }
+                                                }
+                                                return;
+                                              }
+
+                                              final targetJobId = widget.jobId;
+                                              controller.isCompleted = true;
+                                              if (!mounted) return;
+                                              CustomToast.showSuccess(
+                                                context,
+                                                "Basic inspection completed successfully",
+                                              );
+                                              context.go(
+                                                '/jobcarddetails',
+                                                extra: targetJobId,
+                                              );
+                                              _clearAllData(context);
+                                            } catch (e) {
+                                              if (mounted) {
+                                                setState(() => _isSubmitting = false);
+                                              }
+                                            }
+                                          },
                                   );
-                                  if (!success) {
-                                    if (mounted) setState(() => _isSubmitting = false);
-                                    return;
-                                  }
-                                  controller.isCompleted = true;
-                                  _clearAllData(context);
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        "Basic inspection completed successfully",
-                                      ),
-                                      backgroundColor: ColorConstants.greenColor,
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_isSubmitting)
+            Positioned.fill(
+              child: Material(
+                type: MaterialType.transparency,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 4.5, sigmaY: 4.5),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.55),
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 28),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: ColorConstants.syanColor.withOpacity(0.18),
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.18),
+                              blurRadius: 28,
+                              offset: const Offset(0, 10),
+                            ),
+                            BoxShadow(
+                              color: const Color(0xFF0066A6).withOpacity(0.08),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 76,
+                                  height: 76,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        ColorConstants.syanColor.withOpacity(0.14),
+                                        const Color(0xFF0066A6).withOpacity(0.08),
+                                      ],
                                     ),
-                                  );
-                                  await Future.delayed(
-                                    const Duration(seconds: 2),
-                                  );
-                                  context.go(
-                                    '/jobcarddetails',
-                                    extra: controller.jobId,
-                                  );
-                                } catch (e) {
-                                  if (mounted) {
-                                    setState(() => _isSubmitting = false);
-                                  }
-                                }
-                              },
-                      );
-                    },
+                                    border: Border.all(
+                                      color: ColorConstants.syanColor.withOpacity(0.25),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 58,
+                                  height: 58,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3.5,
+                                    strokeCap: StrokeCap.round,
+                                    valueColor: const AlwaysStoppedAnimation<Color>(
+                                      ColorConstants.syanColor,
+                                    ),
+                                    backgroundColor: ColorConstants.syanColor.withOpacity(0.12),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.cloud_upload_rounded,
+                                  size: 28,
+                                  color: Color(0xFF0066A6),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              "Submitting Inspection",
+                              style: ApptextstyleConstants.boldText(
+                                color: ColorConstants.blackColor,
+                                fontSize: 18,
+                              ).copyWith(
+                                decoration: TextDecoration.none,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Finalizing report & synchronizing data",
+                              textAlign: TextAlign.center,
+                              style: ApptextstyleConstants.mediumText(
+                                color: ColorConstants.greyColor,
+                                fontSize: 13,
+                              ).copyWith(
+                                decoration: TextDecoration.none,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ColorConstants.syanColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: ColorConstants.syanColor.withOpacity(0.25),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      strokeCap: StrokeCap.round,
+                                      valueColor: const AlwaysStoppedAnimation<Color>(
+                                        ColorConstants.syanColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    "Please wait, do not close the app",
+                                    style: ApptextstyleConstants.regularText(
+                                      color: const Color(0xFF0066A6),
+                                      fontSize: 12,
+                                    ).copyWith(
+                                      decoration: TextDecoration.none,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    ),
-  ],
-),
+            ),
+        ],
       ),
     );
   }
@@ -451,58 +757,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
   }
 
   Future<bool> _showExitConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("Discard changes?"),
-            content: const Text(
-              "Unsaved changes will be cleared. Are you sure you want to go back?",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text("NO"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text("YES"),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
-  
-  Widget _inspectionShimmer() {
-    return Shimmer(
-      duration: const Duration(seconds: 15),
-      interval: const Duration(seconds: 500),
-      color: Colors.white,
-      colorOpacity: 0.3,
-      enabled: true,
-      direction: const ShimmerDirection.fromLTRB(),
-      child: Container(
-        height: 150,
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          color: Colors.grey.shade300,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(height: 14, width: 150, color: Colors.grey.shade400),
-            const SizedBox(height: 10),
-            Container(height: 12, width: double.infinity, color: Colors.grey),
-            const SizedBox(height: 6),
-            Container(height: 12, width: 200, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
+    final res = await ConfirmSubmissionDialog.showDiscard(context);
+    return res ?? false;
   }
 }
