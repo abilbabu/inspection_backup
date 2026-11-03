@@ -116,7 +116,8 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
         if (widget.flag == 1 || widget.flag == 2) {
           context.go("/jobcarddetails", extra: widget.jobId);
         } else {
@@ -785,10 +786,10 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
             : (controller.technicianComment.trim().isNotEmpty ? controller.technicianComment : "No comments"));
 
     final List<String> techImages = widget.flag == 2
-        ? (controller.technicianImages.isNotEmpty ? controller.technicianImages : controller.previousTechnicianImages)
+        ? controller.technicianImages
         : (controller.previousTechnicianImages.isNotEmpty ? controller.previousTechnicianImages : controller.technicianImages);
     final List<String> techVideos = widget.flag == 2
-        ? (controller.technicianVideos.isNotEmpty ? controller.technicianVideos : controller.previousTechnicianVideos)
+        ? controller.technicianVideos
         : (controller.previousTechnicianVideos.isNotEmpty ? controller.previousTechnicianVideos : controller.technicianVideos);
 
     final bool showSaAndSup = widget.flag == 2;

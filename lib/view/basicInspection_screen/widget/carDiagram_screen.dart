@@ -30,6 +30,12 @@ class _CardiagramScreenState extends State<CardiagramScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    precacheImage(const AssetImage("assets/image/car diagram.jpg"), context);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final controller = context.watch<CardiagramController>();
     context.watch<BasicinspController>();
@@ -87,30 +93,52 @@ class _CardiagramScreenState extends State<CardiagramScreen> {
                         : null,
                     child: RepaintBoundary(
                       key: controller.imageKey,
-                      child: Stack(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: ColorConstants.whiteColor,
-                                width: 1.5,
+                      child: Container(
+                        color: Colors.white,
+                        child: Stack(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: ColorConstants.whiteColor,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Image.asset(
+                                "assets/image/car diagram.jpg",
+                                fit: BoxFit.contain,
+                                frameBuilder: (
+                                  context,
+                                  child,
+                                  frame,
+                                  wasSynchronouslyLoaded,
+                                ) {
+                                  if (wasSynchronouslyLoaded || frame != null) {
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      if (mounted) {
+                                        controller.setImageLoaded(true);
+                                      }
+                                    });
+                                    return child;
+                                  }
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                },
                               ),
                             ),
-                            child: Image.asset(
-                              "assets/image/car diagram.jpg",
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: DamagePainter(
-                                controller.strokes,
-                                controller.strokeColors,
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: DamagePainter(
+                                  controller.strokes,
+                                  controller.strokeColors,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -218,12 +246,14 @@ class _CardiagramScreenState extends State<CardiagramScreen> {
               SizedBox(
                 width: double.infinity,
                 child: CustomButtonWidget(
-                  text: controller.isSaving ? "Saving..." : "NEXT",
+                  text: controller.isSaving
+                      ? "Saving..."
+                      : (!controller.isImageLoaded ? "Please wait..." : "NEXT"),
                   textSize: 16,
                   textColor: ColorConstants.whiteColor,
-                  isDisabled: controller.isSaving,
-                  showLoader: controller.isSaving,
-                  onPressed: controller.isSaving
+                  isDisabled: controller.isSaving || !controller.isImageLoaded,
+                  showLoader: controller.isSaving || !controller.isImageLoaded,
+                  onPressed: (controller.isSaving || !controller.isImageLoaded)
                       ? null
                       : () async {
                           final basicController = context

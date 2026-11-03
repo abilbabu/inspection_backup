@@ -3,8 +3,76 @@ import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:intl/intl.dart';
 
 class HomescreenController with ChangeNotifier {
+  String normalizeStatus(String? status) {
+    if (status == null) return "";
+    final trimmed = status.trim();
+    final asInt = int.tryParse(trimmed);
+    if (asInt != null) return asInt.toString();
+
+    final upper = trimmed.toUpperCase().replaceAll('_', ' ').replaceAll('-', ' ');
+    if (upper.contains("BOOKING SHEET INITIALIS") || upper.contains("BOOKING SHEET INITIALIZ")) {
+      return "0";
+    }
+    if (upper.contains("BOOKING SHEET CREATED") || upper == "BOOKING SHEET") {
+      return "1";
+    }
+    if (upper.contains("BASIC INSPECTION IN PROGRESS") || upper.contains("BASIC INSPECTION")) {
+      return "2";
+    }
+    if (upper.contains("JOBCARD OPEN") || upper == "OPEN") {
+      return "3";
+    }
+    if (upper.contains("INSPECTION ASSIGNED")) {
+      return "4";
+    }
+    if (upper.contains("INSPECTION IN PROGRESS")) {
+      return "5";
+    }
+    if (upper.contains("INSPECTION COMPLETED")) {
+      return "6";
+    }
+    if (upper.contains("REPORT VERIFICATION IN PROGRESS") || upper.contains("REPORT VERIFICATION IN-PROGRESS")) {
+      return "7";
+    }
+    if (upper.contains("REPORT WAITING FOR APPROVAL")) {
+      return "8";
+    }
+    if (upper.contains("QUOTATION REQUESTED")) {
+      return "9";
+    }
+    if (upper.contains("RE INSPECTION APPROVED") || upper.contains("RE-INSPECTION APPROVED")) {
+      return "10";
+    }
+    if (upper.contains("RE INSPECTION IN PROGRESS") || upper.contains("RE-INSPECTION IN PROGRESS")) {
+      return "11";
+    }
+    if (upper.contains("RE INSPECTION COMPLETED") || upper.contains("RE-INSPECTION COMPLETED")) {
+      return "12";
+    }
+    if (upper.contains("RE INSPECTION REQUESTED") || upper.contains("RE-INSPECTION REQUESTED")) {
+      return "14";
+    }
+    if (upper.contains("RE INSPECTION VERIFICATION") || upper.contains("RE-INSPECTION VERIFICATION")) {
+      return "15";
+    }
+    if (upper.contains("RE INSPECTION WAITING FOR APPROVAL") || upper.contains("RE-INSPECTION WAITING FOR APPROVAL")) {
+      return "16";
+    }
+    if (upper.contains("RE INSPECTION REJECTED") || upper.contains("RE-INSPECTION REJECTED")) {
+      return "17";
+    }
+    if (upper.contains("RE INSPECTION ASSIGNED") || upper.contains("RE-INSPECTION ASSIGNED")) {
+      return "18";
+    }
+    if (upper.contains("QUOTATION VERIFICATION IN PROGRESS")) {
+      return "19";
+    }
+    return trimmed;
+  }
+
   String getJobStatusText(String? status) {
-    switch (status) {
+    final normalized = normalizeStatus(status);
+    switch (normalized) {
       case "0":
         return "Booking Sheet Initialised";
       case "1":
@@ -44,16 +112,20 @@ class HomescreenController with ChangeNotifier {
       case "19":
         return "Quotation Verification In Progress";
       default:
+        if (status != null && status.trim().isNotEmpty && status.trim() != "null") {
+          return status.trim();
+        }
         return "Unknown Status";
     }
   }
 
   Color getJobStatusColor(String? status) {
-    switch (status) {
+    final normalized = normalizeStatus(status);
+    switch (normalized) {
       case "0":
-        return ColorConstants.blackColor;
+        return ColorConstants.holdorangeColor;
       case "1":
-        return ColorConstants.blackColor;
+        return Colors.purple;
       case "2":
         return ColorConstants.textBlueColor;
       case "3":

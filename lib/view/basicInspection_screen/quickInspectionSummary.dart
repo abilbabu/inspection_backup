@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
+import 'package:inspection/controller/basicInspectionReport_controller.dart';
 import 'package:inspection/controller/customerDetails_controller.dart';
 import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/controller/vehicleDetails_controller.dart';
@@ -525,12 +526,28 @@ class _QuickInspectionSummaryPageState
                                               InspectionStage.signature;
                                           basicCtrl.setSignatureFile(file);
                                           basicCtrl.setCustomerSignatureFile(customerFile);
+                                          final complaintText = _complaintController.text.trim();
+                                          try {
+                                            await context
+                                                .read<BasicInspectionReportController>()
+                                                .saveCustomerComplaint(
+                                                  widget.jobId,
+                                                  complaintText,
+                                                );
+                                            if (mounted) {
+                                              context
+                                                  .read<JobcarddetailsController>()
+                                                  .updateLocalCustomerComplaint(
+                                                    complaintText,
+                                                  );
+                                            }
+                                          } catch (e) {
+                                            debugPrint("Error updating customer complaint in quick summary submit: $e");
+                                          }
                                           final success = await basicCtrl.proceedStep(
                                             jobId: widget.jobId,
                                             status: 3,
-                                            additionalComment: _complaintController
-                                                .text
-                                                .trim(),
+                                            additionalComment: complaintText,
                                           );
                                           if (success) {
                                             // Persist 'completed' so reopening still shows Summary.

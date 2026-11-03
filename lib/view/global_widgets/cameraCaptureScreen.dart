@@ -250,7 +250,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     } finally {
       if (!widget.isVideo && _flashMode == FlashMode.torch) {
         try {
-          _controller?.setFlashMode(FlashMode.auto);
+          await _controller?.setFlashMode(FlashMode.auto);
           _flashMode = FlashMode.auto;
         } catch (_) {}
       }
@@ -485,9 +485,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     _recordTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     try {
-      _controller?.setFlashMode(FlashMode.off);
+      _controller?.dispose();
     } catch (_) {}
-    _controller?.dispose();
     _controller = null;
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,

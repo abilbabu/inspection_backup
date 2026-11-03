@@ -433,6 +433,23 @@ class VehicleessentialController extends ChangeNotifier {
         if (essentinalImage != null) {
           await LocalUploadStorageService.cleanupFile(essentinalImage.path);
         }
+        // Persist customer complaint to jobcard table directly so all subsequent screens see it
+        try {
+          final complaintText = complaintController.text.trim();
+          await http.post(
+            Uri.parse("${ApiServices.baseUrl}jobcard/updateCustomerComplaint"),
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer $userToken",
+            },
+            body: jsonEncode({
+              "jobId": jobId,
+              "customerComplaint": complaintText,
+            }),
+          );
+        } catch (err) {
+          print("⚠️ [VehicleessentialController] Failed to update customer complaint: $err");
+        }
         return true;
       } else {
         return false;

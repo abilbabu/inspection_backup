@@ -116,14 +116,14 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
               : (int.tryParse(rawType?.toString() ?? "") ?? 0);
 
           if (isCustom) {
-            // Match custom inspection (formId 0, initial custom run is not re-inspection type 2)
-            if (parsedFormId == 0 && parsedType != 2) {
+            // Match custom inspection (formId 0, initial custom run is not re-inspection type 2, and not basic inspection type 0)
+            if (parsedFormId == 0 && parsedType != 2 && parsedType != 0) {
               matchingInspection = Map<String, dynamic>.from(item);
               break;
             }
           } else {
-            // Match predefined inspection by formId
-            if (parsedFormId == widget.inspectionFormId) {
+            // Match predefined inspection by formId (exclude basic inspection type 0)
+            if (parsedFormId == widget.inspectionFormId && parsedType != 0) {
               matchingInspection = Map<String, dynamic>.from(item);
               break;
             }
@@ -140,7 +140,11 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
             final int parsedFormId = rawFormId is num
                 ? rawFormId.toInt()
                 : (int.tryParse(rawFormId?.toString() ?? "") ?? 0);
-            if (parsedFormId == 0) {
+            final rawType = master is Map ? master["vimInspectionType"] : null;
+            final int parsedType = rawType is num
+                ? rawType.toInt()
+                : (int.tryParse(rawType?.toString() ?? "") ?? 0);
+            if (parsedFormId == 0 && parsedType != 0 && parsedType != 2) {
               matchingInspection = Map<String, dynamic>.from(item);
               break;
             }
@@ -231,26 +235,35 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
     });
   }
 
+  bool _canPop = false;
+
   Future<bool> _showExitConfirmation() async {
     final result = await ConfirmSubmissionDialog.showDiscard(context);
     return result ?? false;
   }
 
   void _handleBackNavigation() async {
+    if (_canPop) return;
     final shouldExit = await _showExitConfirmation();
     if (!shouldExit || !mounted) return;
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go("/home");
-    }
+    setState(() {
+      _canPop = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go("/home");
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) async {
+      canPop: _canPop,
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         _handleBackNavigation();
       },

@@ -1,4 +1,4 @@
-import 'package:inspection/utils/custom_toast.dart';
+﻿import 'package:inspection/utils/custom_toast.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -100,7 +100,13 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
-        return res["data"] ?? [];
+        final data = res["data"];
+        if (data is Map && data.containsKey("content")) {
+          return data["content"] as List? ?? [];
+        } else if (data is List) {
+          return data;
+        }
+        return [];
       }
       return [];
     } catch (e) {
@@ -113,33 +119,62 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, dynamic> item, {
     bool includeInspections = false,
   }) {
-    final vehicle = item["vehicle"] ?? {};
-    final inspections = item["inspections"];
+    final vehicle = item["vehicle"] ?? item["jobcard"]?["vehicle"] ?? {};
+    final inspections = item["inspections"] ?? item["jobcard"]?["inspections"];
     if (inspections is List && inspections.isNotEmpty) {
       final firstInspection = inspections.first;
       if (firstInspection is Map && firstInspection["master"] != null) {
         inspectionTypeId = firstInspection["master"]["vimInspectionType"];
       }
     }
+    final rawJobId = item["jobId"] ?? item["id"] ?? item["jobcard"]?["jobId"];
+    final rawJobNo = item["jobNo"] ??
+        item["jobCardNo"] ??
+        item["jobcardNo"] ??
+        item["jobcard"]?["jobNo"] ??
+        item["jobcard"]?["jobCardNo"];
+    final rawLaabsNo = item["jobLaabsJobcardno"] ??
+        item["laabsjobCardNo"] ??
+        item["laabsJobCardNo"] ??
+        item["jobcard"]?["laabsjobCardNo"] ??
+        item["jobcard"]?["laabsJobCardNo"];
+    final rawStatus = item["jobStatus"] ??
+        item["status"] ??
+        item["jobCardStatus"] ??
+        item["jobcard"]?["jobStatus"] ??
+        item["jobcard"]?["status"];
+    final HomescreenController helper = HomescreenController();
+    final String normalizedStatus = helper.normalizeStatus(rawStatus?.toString());
+    final rawCreatedOn = item["jobCreatedOn"] ??
+        item["jobcard"]?["jobCreatedOn"] ??
+        item["createdOn"] ??
+        item["createdAt"];
+    final rawTechId =
+        item["jobTechnicianId"] ?? item["jobcard"]?["jobTechnicianId"];
+
     return {
       ...item,
-      "jobId": item["jobId"]?.toString() ?? "",
-      "jobNo": item["jobNo"]?.toString() ?? "",
-      "jobLaabsJobcardno": (item["jobLaabsJobcardno"] ?? item["laabsjobCardNo"] ?? item["laabsJobCardNo"])?.toString() ?? "",
-      "make": vehicle["vMake"] ?? "",
-      "model": vehicle["vModel"] ?? "",
-      "year": vehicle["vModelYear"]?.toString() ?? "",
-      "odometer": vehicle["vOdometer"]?.toString() ?? "",
-      "plateNo": vehicle["vRegNo"]?.toString() ?? "",
-      "vinNo": vehicle["vVinNo"]?.toString() ?? "",
-      "jobStatus": item["jobStatus"]?.toString() ?? "",
-      "vehicleTypeId": vehicle["vTypeId"] ?? -1,
-      "jobCreatedOn": item["jobCreatedOn"] ?? "",
-      "jobTechnicianId": item["jobTechnicianId"],
-      "userDepartment": item["userDepartment"],
-      "inspectionType": (item["inspectionType"] ?? item["jobInspectionType"])?.toString() ?? "",
+      "jobId": rawJobId?.toString() ?? "",
+      "jobNo": rawJobNo?.toString() ?? "",
+      "jobLaabsJobcardno": rawLaabsNo?.toString() ?? "",
+      "make": vehicle["vMake"] ?? vehicle["make"] ?? "",
+      "model": vehicle["vModel"] ?? vehicle["model"] ?? "",
+      "year": (vehicle["vModelYear"] ?? vehicle["year"])?.toString() ?? "",
+      "odometer": (vehicle["vOdometer"] ?? vehicle["odometer"])?.toString() ?? "",
+      "plateNo": (vehicle["vRegNo"] ?? vehicle["plateNo"] ?? item["plateNo"])?.toString() ?? "",
+      "vinNo": (vehicle["vVinNo"] ?? vehicle["vinNo"] ?? item["vinNo"])?.toString() ?? "",
+      "jobStatus": normalizedStatus.isNotEmpty ? normalizedStatus : (rawStatus?.toString() ?? ""),
+      "vehicleTypeId": vehicle["vTypeId"] ?? vehicle["vehicleTypeId"] ?? -1,
+      "jobCreatedOn": rawCreatedOn?.toString() ?? "",
+      "jobTechnicianId": rawTechId,
+      "userDepartment": item["userDepartment"] ?? item["jobcard"]?["userDepartment"],
+      "inspectionType": (item["inspectionType"] ??
+              item["jobInspectionType"] ??
+              item["jobcard"]?["jobInspectionType"])
+          ?.toString() ??
+          "",
       "isQuick": ColorConstants.isQuickInspection(item),
-      if (includeInspections) "inspections": item["inspections"] ?? [],
+      if (includeInspections) "inspections": inspections is List ? inspections : [],
     };
   }
 
@@ -172,21 +207,33 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> getInspectionListByUserId() async {
-    final rawList = await _fetchInspectionData();
-    final filteredList = rawList
-        .where((item) {
-          final status =
-              int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
-          return status == 0 || status == 1 || status == 2;
-        })
-        .map((item) {
-          return _mapVehicleData(item);
-        })
-        .toList();
-    if (!mounted) return;
-    setState(() {
-      inspectionList = filteredList;
-    });
+    try {
+      final rawList = await _fetchInspectionData();
+      final HomescreenController helper = HomescreenController();
+      final filteredList = rawList
+          .where((item) {
+            if (item is! Map) return false;
+            final rawStatus = item["jobStatus"] ??
+                item["status"] ??
+                item["jobCardStatus"] ??
+                item["jobcard"]?["jobStatus"] ??
+                item["jobcard"]?["status"];
+            final String normalized = helper.normalizeStatus(rawStatus?.toString());
+            return normalized == "0" || normalized == "1" || normalized == "2";
+          })
+          .map((item) {
+            return _mapVehicleData(item is Map<String, dynamic>
+                ? item
+                : Map<String, dynamic>.from(item));
+          })
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        inspectionList = filteredList;
+      });
+    } catch (e) {
+      print("Error in getInspectionListByUserId: $e");
+    }
   }
 
   Future<void> getJobCardListByUserId() async {
@@ -196,20 +243,30 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       final rawList = await _fetchInspectionData();
+      final HomescreenController helper = HomescreenController();
       final filteredList = rawList
           .where((item) {
-            final status =
-                int.tryParse(item["jobStatus"]?.toString() ?? "") ?? -1;
-            return ![0, 1, 2, -1].contains(status);
+            if (item is! Map) return false;
+            final rawStatus = item["jobStatus"] ??
+                item["status"] ??
+                item["jobCardStatus"] ??
+                item["jobcard"]?["jobStatus"] ??
+                item["jobcard"]?["status"];
+            final String normalized = helper.normalizeStatus(rawStatus?.toString());
+            return !["0", "1", "2", ""].contains(normalized);
           })
           .map((item) {
-            return _mapVehicleData(item, includeInspections: true);
+            return _mapVehicleData(item is Map<String, dynamic>
+                ? item
+                : Map<String, dynamic>.from(item), includeInspections: true);
           })
           .toList();
       if (!mounted) return;
       setState(() {
         jobcardList = filteredList;
       });
+    } catch (e) {
+      print("Error in getJobCardListByUserId: $e");
     } finally {
       if (mounted) {
         setState(() {

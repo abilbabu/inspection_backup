@@ -36,6 +36,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
   bool isLoading = true;
   final Set<int> _reInspectionTaskIds = {};
   final Set<int> _initialCompletedTaskIds = {};
+  final Set<int> _tasksWithReTime = {};
   final TextEditingController _commentController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
@@ -102,14 +103,18 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
       if (inspectionResponse.success == true &&
           inspectionResponse.data != null) {
-        detailsCtrl.applySavedInspection(
-          inspectionResponse.data as Map<String, dynamic>,
-          formCtrl,
-        );
-        detailsCtrl.applySavedCustomInspection(
-          inspectionResponse.data as Map<String, dynamic>,
-          formCtrl,
-        );
+        final bool isCustom = (summaryCtrl.vimIfMasterId ?? 0) == 0;
+        if (!isCustom) {
+          detailsCtrl.applySavedInspection(
+            inspectionResponse.data as Map<String, dynamic>,
+            formCtrl,
+          );
+        } else {
+          detailsCtrl.applySavedCustomInspection(
+            inspectionResponse.data as Map<String, dynamic>,
+            formCtrl,
+          );
+        }
 
         final data = inspectionResponse.data as Map<String, dynamic>;
         int jobStatus = summaryCtrl.jobStatus;
@@ -121,12 +126,50 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         final inspections = data["inspections"] ?? [];
         _reInspectionTaskIds.clear();
         _initialCompletedTaskIds.clear();
+        _tasksWithReTime.clear();
 
-        final bool isCustom = (summaryCtrl.vimIfMasterId ?? 0) == 0;
+        // Collect all tasks that have explicit re-inspection time allocated
+        for (final inspection in inspections) {
+          final completed = inspection["completedTasks"] as List? ?? [];
+          for (final t in completed) {
+            if (t is Map) {
+              final double reTime = double.tryParse(
+                    t["viReInspectionTime"]?.toString() ??
+                        t["vi_re_inspection_time"]?.toString() ??
+                        "",
+                  ) ??
+                  0.0;
+              if (reTime > 0.0) {
+                final rawId = t["viTaskId"] ?? t["itcId"] ?? t["taskId"] ?? t["viInspectionTaskId"];
+                final int? id = rawId is num ? rawId.toInt() : int.tryParse(rawId?.toString() ?? "");
+                if (id != null) _tasksWithReTime.add(id);
+              }
+            }
+          }
+        }
+
+        // For custom inspections: accurately record all original inspection components
+        if (isCustom) {
+          for (final list in summaryCtrl.groupedItems.values) {
+            for (final item in list) {
+              if (item.taskId != null) {
+                _initialCompletedTaskIds.add(item.taskId!);
+              }
+            }
+          }
+        }
+
         final Set<int> approvedReInspectionTaskIds = {};
         for (final list in summaryCtrl.groupedItems.values) {
           for (final item in list) {
             if (item.viReInspection && item.taskId != null) {
+              if (isCustom) {
+                final status = item.originalStatus ?? item.status;
+                // For Custom Inspection: strictly only Replace and Repair items are eligible for re-inspection
+                if (status != InspectionStatus.replace && status != InspectionStatus.repair) {
+                  continue;
+                }
+              }
               approvedReInspectionTaskIds.add(item.taskId!);
             }
           }
@@ -134,9 +177,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         _reInspectionTaskIds.addAll(approvedReInspectionTaskIds);
 
         // For custom inspections: identify the re-inspection run and collect
-        // all its tasks as re-inspection items (mirrors predefined flow logic).
-        // We also identify which re-inspection masters are already completed
-        // (i.e., job is not in editable state) to determine reinspectedTaskIds.
+        // approved tasks (ensuring Poor-condition items, Good items, or unrelated tasks are strictly excluded)
         final Set<int> customReInspectionTaskIds = {};
         if (isCustom) {
           for (final inspection in inspections) {
@@ -168,7 +209,17 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                 if (t is Map) {
                   final rawId = t["viTaskId"] ?? t["itcId"] ?? t["taskId"] ?? t["viInspectionTaskId"];
                   final int? tid = rawId is num ? rawId.toInt() : int.tryParse(rawId?.toString() ?? "");
-                  if (tid != null) customReInspectionTaskIds.add(tid);
+                  if (tid != null) {
+                    final bool isPoor = t["viPoor"] == true || t["viPoor"] == 1 || t["viPoor"]?.toString() == "true";
+                    final bool isGood = t["viGood"] == true || t["viGood"] == 1 || t["viGood"]?.toString() == "true";
+                    final bool isNA = t["viNotApplicable"] == true || t["viNotApplicable"] == 1 || t["viNotApplicable"]?.toString() == "true";
+                    if (isPoor || isGood || isNA) {
+                      continue;
+                    }
+                    if (approvedReInspectionTaskIds.contains(tid)) {
+                      customReInspectionTaskIds.add(tid);
+                    }
+                  }
                 }
               }
             }
@@ -209,7 +260,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                   : int.tryParse(rawId?.toString() ?? "");
               if (taskId == null) continue;
               // Mark tasks from the initial run as initial completed
-              if (i == 0 || vimInspectionType != 2) {
+              if (i == 0 || vimInspectionType != 2 || (isCustom && i < inspections.length - 1)) {
                 _initialCompletedTaskIds.add(taskId);
               }
               final double reTime =
@@ -228,9 +279,11 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                   savedTask["vi_re_inspection"]?.toString() == "true" ||
                   savedTask["vi_re_inspection"]?.toString() == "1" ||
                   reTime > 0.0;
-              if (isReInsp || (i > 0 && vimInspectionType == 2 && !isCustom)) {
-                if (approvedReInspectionTaskIds.contains(taskId) || (i > 0 && vimInspectionType == 2)) {
-                  _reInspectionTaskIds.add(taskId);
+              if (!isCustom) {
+                if (isReInsp || (i > 0 && vimInspectionType == 2)) {
+                  if (approvedReInspectionTaskIds.contains(taskId) || (i > 0 && vimInspectionType == 2)) {
+                    _reInspectionTaskIds.add(taskId);
+                  }
                 }
               }
             }
@@ -301,19 +354,28 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     }
   }
 
+  bool _canPop = false;
+
   Future<bool> _showExitConfirmation() async {
     final result = await ConfirmSubmissionDialog.showDiscard(context);
     return result ?? false;
   }
 
   void _handleBackNavigation() async {
+    if (_canPop) return;
     final shouldExit = await _showExitConfirmation();
     if (!shouldExit || !mounted) return;
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go("/home");
-    }
+    setState(() {
+      _canPop = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go("/home");
+      }
+    });
   }
 
   @override
@@ -344,8 +406,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         .length;
 
     return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) async {
+      canPop: _canPop,
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         _handleBackNavigation();
       },
@@ -867,8 +929,21 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     final List<InspectionItem> originalReInspectionItems = [];
     final List<InspectionItem> newlyAddedSummaryItems = [];
 
+    final bool isCustom =
+        summaryController.vimIfMasterId == null ||
+        summaryController.vimIfMasterId == 0;
+
     for (final item in allSummaryItems) {
       if (!item.viReInspection || item.taskId == null) continue;
+
+      if (isCustom) {
+        // In Custom Inspection: display only explicitly approved re-inspection items (Replace and Repair)
+        if (!_reInspectionTaskIds.contains(item.taskId!)) continue;
+        final status = item.originalStatus ?? item.status;
+        if (status != InspectionStatus.replace && status != InspectionStatus.repair) {
+          continue;
+        }
+      }
 
       processedTaskIds.add(item.taskId!);
       final bool isOriginal = _initialCompletedTaskIds.contains(item.taskId!) ||
@@ -1192,6 +1267,11 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
           final isSaved = formController.isTaskSaved(idInt);
           final isNewComponent =
               !_initialCompletedTaskIds.contains(idInt) && isSaved;
+          // In Custom Inspection: strictly only approved re-inspection items and truly newly added components are allowed.
+          // Initial inspection items that were NOT approved for re-inspection (such as Poor condition items) must never appear.
+          if (_initialCompletedTaskIds.contains(idInt) && !isReInspectionItem) {
+            continue;
+          }
           if (isReInspectionItem || isNewComponent) {
             visibleTasks.add(Map<String, dynamic>.from(task));
           }
@@ -1944,12 +2024,16 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         for (final task in controller.allTaskComponents) {
           final taskId = task["itcId"];
           if (taskId != null) {
-            final isReInspectionItem = _reInspectionTaskIds.contains(taskId);
-            final isSaved = formController.isTaskSaved(taskId);
+            final int idInt = taskId is num ? taskId.toInt() : int.tryParse(taskId.toString()) ?? 0;
+            final isReInspectionItem = _reInspectionTaskIds.contains(idInt);
+            final isSaved = formController.isTaskSaved(idInt);
             final isNewComponent =
-                !_initialCompletedTaskIds.contains(taskId) && isSaved;
+                !_initialCompletedTaskIds.contains(idInt) && isSaved;
+            if (_initialCompletedTaskIds.contains(idInt) && !isReInspectionItem) {
+              continue;
+            }
             if (isReInspectionItem || isNewComponent) {
-              visibleTaskIds.add(taskId);
+              visibleTaskIds.add(idInt);
             }
           }
         }

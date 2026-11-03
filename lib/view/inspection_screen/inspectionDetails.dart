@@ -83,9 +83,28 @@ class _InspectionDetailsState extends State<InspectionDetails> {
     super.dispose();
   }
 
+  bool _canPop = false;
+
   Future<bool> _showExitConfirmation() async {
     final result = await ConfirmSubmissionDialog.showDiscard(context);
     return result ?? false;
+  }
+
+  Future<void> _handleBackNavigation() async {
+    if (_canPop) return;
+    final shouldExit = await _showExitConfirmation();
+    if (!shouldExit || !mounted) return;
+    setState(() {
+      _canPop = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop(true);
+      } else {
+        context.go("/jobcarddetails");
+      }
+    });
   }
 
   @override
@@ -96,30 +115,17 @@ class _InspectionDetailsState extends State<InspectionDetails> {
     final status = int.tryParse(jobcard?["jobStatus"]?.toString() ?? "") ?? -1;
 
     return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) async {
-        final shouldExit = await _showExitConfirmation();
-        if (shouldExit) {
-          if (context.canPop()) {
-            context.pop(true);
-          } else {
-            context.go("/jobcarddetails");
-          }
-        }
+      canPop: _canPop,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        _handleBackNavigation();
       },
 
       child: Scaffold(
         appBar: CustomAppBar(
           title: 'Inspection Types',
-          onBackPress: () async {
-            final shouldExit = await _showExitConfirmation();
-            if (shouldExit) {
-              if (context.canPop()) {
-                context.pop(true);
-              } else {
-                context.go("/jobcarddetails");
-              }
-            }
+          onBackPress: () {
+            _handleBackNavigation();
           },
         ),
 
@@ -231,28 +237,136 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                       // CUSTOM INSPECTION ASSIGNED
                       if (inspTypeCtrl.isCustomInspectionAssigned &&
                           inspTypeCtrl.isInspectionAssigned) ...[
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: CustomButtonTwo(
-                            text: " + CUSTOM INSPECTION",
-                            onPressed: (userDepartment == 2 || userDepartment == 5)
-                                ? null
-                                : () {
-                                    context.push(
-                                      "/inspectiontypedetailspage",
-                                      extra: {
-                                        "jobId": widget.jobId,
-                                        "inspectionTypeId": 2,
-                                        "inspectionFormId": 0,
-                                      },
-                                    );
-                                  },
+                        if (!_isChangingForm)
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: CustomButtonTwo(
+                              text: " + CUSTOM INSPECTION",
+                              onPressed: (userDepartment == 2 || userDepartment == 5)
+                                  ? null
+                                  : () {
+                                      context.push(
+                                        "/inspectiontypedetailspage",
+                                        extra: {
+                                          "jobId": widget.jobId,
+                                          "inspectionTypeId": 2,
+                                          "inspectionFormId": 0,
+                                        },
+                                      );
+                                    },
+                            ),
+                          )
+                        else ...[
+                          if (searchController.text.isEmpty ||
+                              "custom inspection"
+                                  .contains(searchController.text.toLowerCase().trim())) ...[
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: CustomButtonTwo(
+                                text: " + CUSTOM INSPECTION",
+                                onPressed: () async {
+                                  if (userDepartment == 0 ||
+                                      userDepartment == 1 ||
+                                      userDepartment == 2 ||
+                                      userDepartment == 5) {
+                                    await showTechnicianBottomSheet();
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                          _buildPredefinedSection(navigateDirectly: false),
+                        ],
+                        if ([4, 18].contains(status) &&
+                            (userDepartment == 0 ||
+                                userDepartment == 1 ||
+                                userDepartment == 2 ||
+                                userDepartment == 5)) ...[
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: OutlinedButton.icon(
+                              icon: Icon(
+                                _isChangingForm ? Icons.close : Icons.swap_horiz,
+                                color: ColorConstants.textBlueColor,
+                              ),
+                              label: Text(
+                                _isChangingForm
+                                    ? "CANCEL FORM REASSIGNMENT"
+                                    : "REASSIGN / CHANGE INSPECTION FORM",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: ColorConstants.textBlueColor,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: ColorConstants.textBlueColor),
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isChangingForm = !_isChangingForm;
+                                });
+                              },
+                            ),
                           ),
-                        ),
+                        ] else if ([5, 11].contains(status) &&
+                            (userDepartment == 0 ||
+                                userDepartment == 1 ||
+                                userDepartment == 2 ||
+                                userDepartment == 5)) ...[
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.block, color: Colors.grey, size: 18),
+                              label: const Text(
+                                "Form Reassignment Restricted",
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.grey),
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: null,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            "Form reassignment is restricted because inspection is in progress.",
+                            style: TextStyle(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.w500),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ]
                       // PREDEFINED INSPECTION ASSIGNED
                       else if (inspTypeCtrl.isPredefinedInspectionAssigned &&
                           inspTypeCtrl.isInspectionAssigned) ...[
+                        if (_isChangingForm &&
+                            (searchController.text.isEmpty ||
+                                "custom inspection"
+                                    .contains(searchController.text.toLowerCase().trim()))) ...[
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: CustomButtonTwo(
+                              text: " + CUSTOM INSPECTION",
+                              onPressed: () async {
+                                if (userDepartment == 0 ||
+                                    userDepartment == 1 ||
+                                    userDepartment == 2 ||
+                                    userDepartment == 5) {
+                                  await showTechnicianBottomSheet();
+                                }
+                              },
+                            ),
+                          ),
+                        ],
                         _buildPredefinedSection(navigateDirectly: !_isChangingForm),
                         if ([4, 18].contains(status) &&
                             (userDepartment == 0 ||
@@ -324,20 +438,24 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                       ]
                       // NOTHING ASSIGNED
                       else ...[
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: CustomButtonTwo(
-                            text: " + CUSTOM INSPECTION",
-                            onPressed: () async {
-                              if (userDepartment == 0 ||
-                                  userDepartment == 1 ||
-                                  userDepartment == 2 ||
-                                  userDepartment == 5) {
-                                await showTechnicianBottomSheet();
-                              }
-                            },
+                        if (searchController.text.isEmpty ||
+                            "custom inspection"
+                                .contains(searchController.text.toLowerCase().trim())) ...[
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: CustomButtonTwo(
+                              text: " + CUSTOM INSPECTION",
+                              onPressed: () async {
+                                if (userDepartment == 0 ||
+                                    userDepartment == 1 ||
+                                    userDepartment == 2 ||
+                                    userDepartment == 5) {
+                                  await showTechnicianBottomSheet();
+                                }
+                              },
+                            ),
                           ),
-                        ),
+                        ],
 
                         _buildPredefinedSection(navigateDirectly: false),
                       ],
@@ -714,7 +832,9 @@ class _InspectionDetailsState extends State<InspectionDetails> {
 
                                   if (!mounted) return;
 
-                                  setState(() {});
+                                  setState(() {
+                                    _isChangingForm = false;
+                                  });
 
                                   return;
                                 } else {

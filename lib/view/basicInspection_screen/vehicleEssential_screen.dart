@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/controller/vehicleEssential_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
@@ -71,7 +72,10 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
             if (controller.isDataLoading) {
               return const Center(child: CircularProgressIndicator());
             }
-            return SingleChildScrollView(
+            return GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: SingleChildScrollView(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
@@ -133,6 +137,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                                  showLoader: controller.isLoading || isCheckingSettings,
                                  textColor: ColorConstants.whiteColor,
                                  onPressed: () async {
+                                   FocusScope.of(context).unfocus();
                                    final vehicleCtrl = context
                                        .read<VehicleessentialController>();
                                    if (vehicleCtrl.isLoading || isCheckingSettings) return;
@@ -158,6 +163,7 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                                      }
                                    }
 
+                                   final complaintText = vehicleCtrl.complaintController.text.trim();
                                    final success = await vehicleCtrl
                                        .submitVehicleEssential(
                                          jobId: widget.jobId!,
@@ -165,6 +171,11 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                                        );
                                    if (!mounted) return;
                                    if (success) {
+                                     if (complaintText.isNotEmpty) {
+                                       context
+                                           .read<JobcarddetailsController>()
+                                           .updateLocalCustomerComplaint(complaintText);
+                                     }
                                      vehicleCtrl.clearData();
                                      setState(() => isSuccess = true);
                                      context.go(
@@ -185,8 +196,9 @@ class _VehicleEssentialScreenState extends State<VehicleEssentialScreen> {
                   ],
                 ),
               ),
-            );
-          },
+            ),
+          );
+        },
         ),
       ),
     );

@@ -1,4 +1,4 @@
-﻿// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
 import 'dart:io';
@@ -70,6 +70,12 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initCamera();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    precacheImage(const AssetImage("assets/image/car diagram.jpg"), context);
   }
 
   bool _isAudioEnabled = false;
@@ -177,7 +183,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
             }
           }
         } catch (e) {
-          debugPrint("⚠️ Error auto-saving video on app pause: $e");
+          debugPrint("?? Error auto-saving video on app pause: $e");
         }
       }
     } finally {
@@ -229,7 +235,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         await _inspController!.loadDraftMediaForCurrentStep();
       }
     } catch (e) {
-      debugPrint("⚠️ Error in _handleAppResumed: $e");
+      debugPrint("?? Error in _handleAppResumed: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -263,9 +269,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     _recordTimer?.cancel();
     final camToDispose = _cameraController;
     _cameraController = null;
-    try {
-      camToDispose?.setFlashMode(FlashMode.off);
-    } catch (_) {}
     try {
       camToDispose?.dispose();
     } catch (_) {}
@@ -331,9 +334,10 @@ class _BasicinspScreenState extends State<BasicinspScreen>
     final targetMode = isVideo ? FlashMode.off : FlashMode.auto;
 
     _flashMode = targetMode;
-    if (_cameraController != null && _cameraController!.value.isInitialized) {
+    final cam = _cameraController;
+    if (cam != null && cam.value.isInitialized) {
       try {
-        await _cameraController!.setFlashMode(targetMode);
+        await cam.setFlashMode(targetMode);
       } catch (e) {
         debugPrint("Error resetting flash for section: $e");
       }
@@ -458,7 +462,9 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           controller.selectVideoMode();
           if (_flashMode == FlashMode.auto || _flashMode == FlashMode.always) {
             _flashMode = FlashMode.off;
-            _cameraController?.setFlashMode(FlashMode.off).catchError((_) {});
+            try {
+              await _cameraController?.setFlashMode(FlashMode.off);
+            } catch (_) {}
           }
           if (!_isAudioEnabled) {
             await _initCamera(enableAudio: false);
@@ -658,6 +664,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
             }
           },
           child: Scaffold(
+            resizeToAvoidBottomInset: false,
             backgroundColor: Colors.black,
             body: SafeArea(
             child: Consumer<BasicinspController>(
@@ -683,17 +690,16 @@ class _BasicinspScreenState extends State<BasicinspScreen>
                 }
 
                 if (controller.isLoading) {
-                  return Padding(
+                  return ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: List.generate(4, (_) => _inspectionShimmer()),
-                    ),
+                    itemCount: 4,
+                    itemBuilder: (context, index) => _inspectionShimmer(),
                   );
                 }
                 controller.checkAndShowResumeStage(context);
                 if (!controller.isBackendFullyConfigured) {
                   return Center(
-                    child: Padding(
+                    child: SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1108,7 +1114,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── ROW 1: [ Image Boxes ] [ Video Box ] ──────────────────────────
+          // -- ROW 1: [ Image Boxes ] [ Video Box ] --------------------------
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -1129,7 +1135,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
 
           const SizedBox(height: 10),
 
-          // ── ROW 2: [ Zoom Controller ] ────────────────────────────────────
+          // -- ROW 2: [ Zoom Controller ] ------------------------------------
           Row(
             children: [
               IconButton(
@@ -1178,7 +1184,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
 
           const SizedBox(height: 6),
 
-          // ── ROW 3: [ Skip ] [ Camera Button ] [ Next ] ───────────────────
+          // -- ROW 3: [ Skip ] [ Camera Button ] [ Next ] -------------------
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

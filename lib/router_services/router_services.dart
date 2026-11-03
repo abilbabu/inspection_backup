@@ -313,7 +313,7 @@ final GoRouter router = GoRouter(
       path: '/allpendinginspection',
       name: 'Basic Inspection Pending List',
       builder: (BuildContext context, GoRouterState state) {
-        final inspectionList = state.extra as List;
+        final inspectionList = (state.extra as List?) ?? [];
 
         return Allpendinginspection(inspectionList: inspectionList);
       },

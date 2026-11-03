@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:hugeicons/hugeicons.dart';
+import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/controller/basicInspectionReport_controller.dart';
 import 'package:inspection/controller/customerDetails_controller.dart';
@@ -14,6 +17,7 @@ import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/view/basicInspection_screen/basicinspection_previw.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signature/signature.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
@@ -43,6 +47,63 @@ class _SignatureScreenState extends State<SignatureScreen> {
   bool _isSubmitting = false;
   bool _isSyncComplete = false;
 
+  Future<void> _fetchCustomerComplaint() async {
+    // 1. Check in-memory JobcarddetailsController first
+    final jobCardCtrl = context.read<JobcarddetailsController>();
+    final inMemoryComplaint =
+        jobCardCtrl.jobCardData?['jobcard']?['customerComplaint']?.toString();
+    if (inMemoryComplaint != null &&
+        inMemoryComplaint.trim().isNotEmpty &&
+        mounted) {
+      if (_additionalCommentController.text.trim().isEmpty) {
+        setState(() {
+          _additionalCommentController.text = inMemoryComplaint.trim();
+          _isCommentInitialized = true;
+        });
+      }
+    }
+
+    // 2. Fetch fresh customer complaint from API
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('userToken');
+      final response = await http.post(
+        Uri.parse(ApiServices.getCustomerVehicleByJobId),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({"jobId": widget.jobId}),
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final jobcard = decoded['data']?['jobcard'];
+        if (jobcard != null && jobcard['customerComplaint'] != null) {
+          final complaint = jobcard['customerComplaint'].toString().trim();
+          if (complaint.isNotEmpty && mounted) {
+            setState(() {
+              _additionalCommentController.text = complaint;
+              _isCommentInitialized = true;
+            });
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Fallback to basic report controller
+    if (mounted && _additionalCommentController.text.trim().isEmpty) {
+      final reportCtrl = context.read<BasicInspectionReportController>();
+      final reportComment = reportCtrl.additionalCommentsController.text.trim();
+      if (reportComment.isNotEmpty) {
+        setState(() {
+          _additionalCommentController.text = reportComment;
+          _isCommentInitialized = true;
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -57,15 +118,19 @@ class _SignatureScreenState extends State<SignatureScreen> {
       penColor: Colors.black,
       exportBackgroundColor: Colors.white,
     );
+    _fetchCustomerComplaint();
     Future.microtask(() async {
       final reportCtrl = context.read<BasicInspectionReportController>();
       await reportCtrl.getBasicInspection(
         widget.jobId,
         forceRefresh: true,
       );
-      if (mounted && !_isCommentInitialized) {
-        _additionalCommentController.text = reportCtrl.additionalCommentsController.text;
-        _isCommentInitialized = true;
+      if (mounted && _additionalCommentController.text.trim().isEmpty) {
+        final comment = reportCtrl.additionalCommentsController.text.trim();
+        if (comment.isNotEmpty) {
+          _additionalCommentController.text = comment;
+          _isCommentInitialized = true;
+        }
       }
     });
   }
@@ -110,12 +175,15 @@ class _SignatureScreenState extends State<SignatureScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isCommentInitialized) {
+    if (!_isCommentInitialized && _additionalCommentController.text.trim().isEmpty) {
       final basicReportController = context.read<BasicInspectionReportController>();
       if (!basicReportController.isLoading &&
           basicReportController.loadedJobId == widget.jobId) {
-        _additionalCommentController.text = basicReportController.additionalCommentsController.text;
-        _isCommentInitialized = true;
+        final comment = basicReportController.additionalCommentsController.text.trim();
+        if (comment.isNotEmpty) {
+          _additionalCommentController.text = comment;
+          _isCommentInitialized = true;
+        }
       }
     }
     context.read<BasicinspController>();
@@ -168,7 +236,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
-                              "Additional Comments",
+                              "Customer Complaints",
                               style: ApptextstyleConstants.mediumText(
                                 color: ColorConstants.blackColor,
                                 fontSize: 14,
@@ -200,8 +268,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
                                           fontSize: 14,
                                         ),
                                         decoration: InputDecoration(
-                                          hintText:
-                                              "Enter additional comments from customer",
+                                          hintText: "Customer Complaints",
                                           hintStyle: ApptextstyleConstants.lightText(
                                             color: ColorConstants.greyColor,
                                             fontSize: 13,
@@ -491,6 +558,26 @@ class _SignatureScreenState extends State<SignatureScreen> {
                                                   InspectionStage.signature;
                                               controller.setSignatureFile(file);
                                               controller.setCustomerSignatureFile(customerFile);
+
+                                              // Save updated customer complaint to jobcard table directly
+                                              try {
+                                                await context
+                                                    .read<BasicInspectionReportController>()
+                                                    .saveCustomerComplaint(
+                                                      widget.jobId,
+                                                      additionalComment,
+                                                    );
+                                                if (mounted) {
+                                                  context
+                                                      .read<JobcarddetailsController>()
+                                                      .updateLocalCustomerComplaint(
+                                                        additionalComment,
+                                                      );
+                                                }
+                                              } catch (e) {
+                                                debugPrint("Error updating customer complaint on submit: $e");
+                                              }
+
                                               final success = await controller.proceedStep(
                                                 jobId: controller.jobId,
                                                 status: 3,
