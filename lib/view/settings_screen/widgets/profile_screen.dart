@@ -23,6 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       "name": prefs.getString("userName") ?? "",
       "role": prefs.getString("userRole") ?? "",
       "email": prefs.getString("userEmail") ?? "",
+      "loginId": prefs.getString("userLoginId") ?? "",
       "phone": prefs.getString("userPhone") ?? "",
       "phoneCode": prefs.getString("userPhoneCode") ?? "",
     };
@@ -170,6 +171,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
+                        if ((user["loginId"] ?? "").toString().trim().isNotEmpty) ...[
+                          SizedBox(height: 5),
+                          Text(
+                            "Login ID",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: ColorConstants.greyColor,
+                            ),
+                          ),
+                          SizedBox(height: 5),
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.black26),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              user["loginId"],
+                              style: ApptextstyleConstants.lightText(
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
                         SizedBox(height: 5),
                         Text(
                           "Email Address",

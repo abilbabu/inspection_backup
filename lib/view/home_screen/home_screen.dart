@@ -1,4 +1,4 @@
-﻿import 'package:inspection/utils/custom_toast.dart';
+import 'package:inspection/utils/custom_toast.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -1859,19 +1859,29 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        item['jobNo'] ?? "",
-                                        style: ApptextstyleConstants.regularText(
-                                          fontSize: 16,
-                                          color: ColorConstants.blackColor,
-                                        ),
+                                    Text(
+                                      item['jobNo'] ?? "",
+                                      maxLines: 1,
+                                      style: ApptextstyleConstants.regularText(
+                                        fontSize: 15,
+                                        color: ColorConstants.blackColor,
                                       ),
                                     ),
-                                    StatusBadgeWidget(
-                                      statusText: statusText,
-                                      statusColor: controller.getJobStatusColor(
-                                        jobStatus.toString(),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: StatusBadgeWidget(
+                                          statusText: statusText,
+                                          statusColor: controller.getJobStatusColor(
+                                            jobStatus.toString(),
+                                          ),
+                                          fontSize: 9,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 2.5,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -2027,19 +2037,29 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        item['jobNo'] ?? "",
-                                        style: ApptextstyleConstants.regularText(
-                                          fontSize: 16,
-                                          color: ColorConstants.blackColor,
-                                        ),
+                                    Text(
+                                      item['jobNo'] ?? "",
+                                      maxLines: 1,
+                                      style: ApptextstyleConstants.regularText(
+                                        fontSize: 15,
+                                        color: ColorConstants.blackColor,
                                       ),
                                     ),
-                                    StatusBadgeWidget(
-                                      statusText: statusText,
-                                      statusColor: controller.getJobStatusColor(
-                                        jobStatus.toString(),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: StatusBadgeWidget(
+                                          statusText: statusText,
+                                          statusColor: controller.getJobStatusColor(
+                                            jobStatus.toString(),
+                                          ),
+                                          fontSize: 9,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 2.5,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],

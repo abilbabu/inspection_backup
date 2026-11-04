@@ -33,21 +33,25 @@ class StatusBadgeWidget extends StatelessWidget {
         children: [
           if (showDot) ...[
             Container(
-              width: 7,
-              height: 7,
+              width: 6,
+              height: 6,
               decoration: BoxDecoration(
                 color: statusColor,
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
           ],
-          Text(
-            statusText,
-            style: ApptextstyleConstants.thinText(
-              fontSize: fontSize,
-              color: statusColor,
-            ).copyWith(fontWeight: FontWeight.w600),
+          Flexible(
+            child: Text(
+              statusText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: ApptextstyleConstants.thinText(
+                fontSize: fontSize,
+                color: statusColor,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),

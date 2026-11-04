@@ -459,23 +459,29 @@ class _AlljobcardviewState extends State<Alljobcardview> {
                                 /// TOP ROW
                                 Row(
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        item['jobNo'] ?? "",
-
-                                        style: ApptextstyleConstants.regularText(
-                                          fontSize: 16,
-
-                                          color: ColorConstants.blackColor,
-                                        ),
+                                    Text(
+                                      item['jobNo'] ?? "",
+                                      maxLines: 1,
+                                      style: ApptextstyleConstants.regularText(
+                                        fontSize: 15,
+                                        color: ColorConstants.blackColor,
                                       ),
                                     ),
-
-                                    /// STATUS
-                                    StatusBadgeWidget(
-                                      statusText: statusText,
-                                      statusColor: controller.getJobStatusColor(
-                                        jobStatus.toString(),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: StatusBadgeWidget(
+                                          statusText: statusText,
+                                          statusColor: controller.getJobStatusColor(
+                                            jobStatus.toString(),
+                                          ),
+                                          fontSize: 9,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 2.5,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],

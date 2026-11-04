@@ -53,14 +53,15 @@ class AuthenticationController with ChangeNotifier {
       final body = jsonDecode(response.body);
       if (response.statusCode == 200 && body["statusCode"] == 200) {
         String userId = body["data"]["userId"].toString();
-        String userName = body["data"]["userName"];
-        String userEmail = body["data"]["userEmail"];
+        String userName = body["data"]["userName"] ?? "";
+        String userEmail = body["data"]["userEmail"] ?? "";
+        String userLoginId = body["data"]["userLoginId"] ?? "";
         String userPhone = body["data"]["userPhone"] ?? "";
         String userPhoneCode = body["data"]["userPhoneCode"] ?? "";
         String userToken = body["data"]["userToken"] ?? "";
-        String userRole = body["data"]["userRole"]["roleName"] ?? "";
+        String userRole = body["data"]["userRole"]?["roleName"] ?? "";
         String userPassword = passwordController.text.trim();
-        String department = body["data"]["userDepartment"].toString();
+        String department = (body["data"]["userDepartment"] ?? "").toString();
 
         userDepartment = int.tryParse(department) ?? 0;
         // log("Controller Department : $userDepartment");
@@ -71,6 +72,7 @@ class AuthenticationController with ChangeNotifier {
         await prefs.setString("userId", userId);
         await prefs.setString("userName", userName);
         await prefs.setString("userEmail", userEmail);
+        await prefs.setString("userLoginId", userLoginId);
         await prefs.setString("userPassword", userPassword);
         await prefs.setString("userToken", userToken);
         await prefs.setString("userRole", userRole);

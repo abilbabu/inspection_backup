@@ -164,16 +164,31 @@ class _InspectionCardState extends State<InspectionCard> {
                 //       child: Text(
                 //         "Group Name : $groupName",
                 //         style: const TextStyle(
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    if (widget.inspectionTaskGoodFlag) _buildRadio("Good"),
-                    if (widget.inspectionTaskRepairFlag) _buildRadio("Repair"),
-                    if (widget.inspectionTaskPoorFlag) _buildRadio("Poor"),
-                    if (widget.inspectionTaskReplaceFlag)
-                      _buildRadio("Replace"),
-                    if (widget.inspectionTaskNotApplicable) _buildRadio("N/A"),
-                  ],
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.inspectionTaskGoodFlag) _buildRadio("Good"),
+                      if (widget.inspectionTaskRepairFlag) ...[
+                        const SizedBox(width: 6),
+                        _buildRadio("Repair"),
+                      ],
+                      if (widget.inspectionTaskPoorFlag) ...[
+                        const SizedBox(width: 6),
+                        _buildRadio("Poor"),
+                      ],
+                      if (widget.inspectionTaskReplaceFlag) ...[
+                        const SizedBox(width: 6),
+                        _buildRadio("Replace"),
+                      ],
+                      if (widget.inspectionTaskNotApplicable) ...[
+                        const SizedBox(width: 6),
+                        _buildRadio("N/A"),
+                      ],
+                    ],
+                  ),
                 ),
                 SizedBox(height: 5),
                 if (!cardController.isNotApplicable) ...[
@@ -959,33 +974,43 @@ class _InspectionCardState extends State<InspectionCard> {
 
   Widget _buildRadio(String value) {
     return Consumer<InspectioncardController>(
-      builder: (context, radioButtonController, child) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Radio<String>(
-            value: value,
-            groupValue: radioButtonController.selectedOption,
-            onChanged: (val) async {
-                    final formController = context
-                        .read<InspectionFormController>();
-                    final controller = context.read<InspectioncardController>();
-                    final allowed = await formController
-                        .checkUnsavedBeforeEditing(
-                          context,
-                          widget.taskid,
-                          controller,
-                        );
-                    if (!allowed) return;
-                    radioButtonController.setSelectedOption(val!);
-                    radioButtonController.markChanged();
-                  },
-            activeColor: ColorConstants.bottamNavBarButton,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
+      builder: (context, radioButtonController, child) {
+        Future<void> selectOption() async {
+          final formController = context.read<InspectionFormController>();
+          final controller = context.read<InspectioncardController>();
+          final allowed = await formController.checkUnsavedBeforeEditing(
+            context,
+            widget.taskid,
+            controller,
+          );
+          if (!allowed) return;
+          radioButtonController.setSelectedOption(value);
+          radioButtonController.markChanged();
+        }
+
+        return InkWell(
+          onTap: selectOption,
+          borderRadius: BorderRadius.circular(4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Radio<String>(
+                value: value,
+                groupValue: radioButtonController.selectedOption,
+                onChanged: (val) async => await selectOption(),
+                activeColor: ColorConstants.bottamNavBarButton,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+              ),
+              const SizedBox(width: 2),
+              Text(
+                value,
+                style: ApptextstyleConstants.thinText(fontSize: 11),
+              ),
+            ],
           ),
-          Text(value, style: ApptextstyleConstants.thinText(fontSize: 12)),
-        ],
-      ),
+        );
+      },
     );
   }
 

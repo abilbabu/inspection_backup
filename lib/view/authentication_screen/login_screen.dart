@@ -65,7 +65,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: auth.emailController,
                     decoration: InputDecoration(
-                      labelText: "Email Address",
+                      labelText: "Email or Login ID",
+                      hintText: "Enter Email or Login ID",
                       labelStyle: ApptextstyleConstants.extraLightText(
                         fontSize: 14,
                         color: ColorConstants.blackColor,
@@ -108,11 +109,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter an email';
-                      }
-                      if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
-                        return 'Enter a valid email';
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter email or login ID';
                       }
                       return null;
                     },
