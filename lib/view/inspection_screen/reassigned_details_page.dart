@@ -162,7 +162,9 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         final Set<int> approvedReInspectionTaskIds = {};
         for (final list in summaryCtrl.groupedItems.values) {
           for (final item in list) {
-            if (item.viReInspection && item.taskId != null) {
+            if (item.taskId == null) continue;
+            final bool isReInsp = item.viReInspection || _tasksWithReTime.contains(item.taskId!);
+            if (isReInsp) {
               if (isCustom) {
                 final status = item.originalStatus ?? item.status;
                 // For Custom Inspection: strictly only Replace and Repair items are eligible for re-inspection
@@ -175,6 +177,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
           }
         }
         _reInspectionTaskIds.addAll(approvedReInspectionTaskIds);
+        _reInspectionTaskIds.addAll(_tasksWithReTime);
 
         // For custom inspections: identify the re-inspection run and collect
         // approved tasks (ensuring Poor-condition items, Good items, or unrelated tasks are strictly excluded)
@@ -216,9 +219,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     if (isPoor || isGood || isNA) {
                       continue;
                     }
-                    if (approvedReInspectionTaskIds.contains(tid)) {
-                      customReInspectionTaskIds.add(tid);
-                    }
+                    customReInspectionTaskIds.add(tid);
                   }
                 }
               }
@@ -934,7 +935,11 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         summaryController.vimIfMasterId == 0;
 
     for (final item in allSummaryItems) {
-      if (!item.viReInspection || item.taskId == null) continue;
+      if (item.taskId == null) continue;
+      final bool isReInspItem = item.viReInspection ||
+          _reInspectionTaskIds.contains(item.taskId!) ||
+          _tasksWithReTime.contains(item.taskId!);
+      if (!isReInspItem) continue;
 
       if (isCustom) {
         // In Custom Inspection: display only explicitly approved re-inspection items (Replace and Repair)
@@ -970,7 +975,13 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     });
 
     final List<Map<String, dynamic>> extraNewlyAdded = [];
-    for (final taskId in formCtrl.savedTaskIds) {
+    final Set<int> candidateTaskIds = Set.from(formCtrl.savedTaskIds);
+    for (final tid in _reInspectionTaskIds) {
+      if (!processedTaskIds.contains(tid)) {
+        candidateTaskIds.add(tid);
+      }
+    }
+    for (final taskId in candidateTaskIds) {
       if (!processedTaskIds.contains(taskId) &&
           !_initialCompletedTaskIds.contains(taskId)) {
         processedTaskIds.add(taskId);
@@ -1014,6 +1025,13 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         }
 
         InspectionStatus status = InspectionStatus.repair;
+        if (componentData != null) {
+          if (componentData["viReplace"] == true || componentData["viReplace"] == 1 || componentData["viReplace"]?.toString() == "true") {
+            status = InspectionStatus.replace;
+          } else if (componentData["viRepair"] == true || componentData["viRepair"] == 1 || componentData["viRepair"]?.toString() == "true") {
+            status = InspectionStatus.repair;
+          }
+        }
         if (taskSavedData != null && taskSavedData.condition != null) {
           final cond = taskSavedData.condition!.toLowerCase();
           if (cond == "good") {
