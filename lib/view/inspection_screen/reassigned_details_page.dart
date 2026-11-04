@@ -148,8 +148,20 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
           }
         }
 
-        // For custom inspections: accurately record all original inspection components
+        // For custom inspections: accurately record all original inspection components and identify initial custom run
+        int firstCustomIdx = -1;
         if (isCustom) {
+          for (int i = 0; i < inspections.length; i++) {
+            final master = inspections[i]["master"] ?? {};
+            final int vimInspectionType = master["vimInspectionType"] is num
+                ? (master["vimInspectionType"] as num).toInt()
+                : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
+            final dynamic vimIfMasterId = master["vimIfMasterId"];
+            if (vimInspectionType != 0 && (vimIfMasterId == null || vimIfMasterId == 0)) {
+              firstCustomIdx = i;
+              break;
+            }
+          }
           for (final list in summaryCtrl.groupedItems.values) {
             for (final item in list) {
               if (item.taskId != null) {
@@ -177,19 +189,20 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
           }
         }
         _reInspectionTaskIds.addAll(approvedReInspectionTaskIds);
-        _reInspectionTaskIds.addAll(_tasksWithReTime);
+        if (!isCustom) {
+          _reInspectionTaskIds.addAll(_tasksWithReTime);
+        }
 
-        // For custom inspections: identify the re-inspection run and collect
-        // approved tasks (ensuring Poor-condition items, Good items, or unrelated tasks are strictly excluded)
+        // For custom inspections: only identify approved tasks from subsequent re-inspection runs (i > firstCustomIdx)
         final Set<int> customReInspectionTaskIds = {};
-        if (isCustom) {
-          for (final inspection in inspections) {
+        if (isCustom && firstCustomIdx != -1) {
+          for (int i = firstCustomIdx + 1; i < inspections.length; i++) {
+            final inspection = inspections[i];
             final master = inspection["master"] ?? {};
             final int vimInspectionType = master["vimInspectionType"] is num
                 ? (master["vimInspectionType"] as num).toInt()
                 : int.tryParse(master["vimInspectionType"]?.toString() ?? "") ?? 0;
             final dynamic vimIfMasterId = master["vimIfMasterId"];
-            // Custom re-inspection run: type == 2 and no predefined form
             if (vimInspectionType == 2 &&
                 (vimIfMasterId == null || vimIfMasterId == 0)) {
               final List reTasks = [];
@@ -216,7 +229,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                     final bool isPoor = t["viPoor"] == true || t["viPoor"] == 1 || t["viPoor"]?.toString() == "true";
                     final bool isGood = t["viGood"] == true || t["viGood"] == 1 || t["viGood"]?.toString() == "true";
                     final bool isNA = t["viNotApplicable"] == true || t["viNotApplicable"] == 1 || t["viNotApplicable"]?.toString() == "true";
-                    if (isPoor || isGood || isNA) {
+                    final bool isReInsp = t["viReInspection"] == true || t["viReInspection"] == 1 || t["vi_re_inspection"] == true || t["vi_re_inspection"] == 1;
+                    if (isPoor || isGood || isNA || !isReInsp) {
                       continue;
                     }
                     customReInspectionTaskIds.add(tid);
@@ -261,7 +275,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                   : int.tryParse(rawId?.toString() ?? "");
               if (taskId == null) continue;
               // Mark tasks from the initial run as initial completed
-              if (i == 0 || vimInspectionType != 2 || (isCustom && i < inspections.length - 1)) {
+              if (i == 0 || vimInspectionType != 2 || (isCustom && (i == firstCustomIdx || i < inspections.length - 1))) {
                 _initialCompletedTaskIds.add(taskId);
               }
               final double reTime =
