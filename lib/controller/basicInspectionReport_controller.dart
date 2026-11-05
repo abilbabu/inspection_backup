@@ -454,20 +454,21 @@ class BasicInspectionReportController with ChangeNotifier {
         }
       }
 
-      // Local storage fallback for pending/recently captured 360 videos
+      // Local storage fallback for pending/recently captured 360 videos, diagram and signatures
       try {
         final pendingQueue = await LocalUploadStorageService.getQueue();
         for (var task in pendingQueue) {
           if (task.jobId == jobId) {
+            final attachType = task.fields["attachType"]?.toString() ?? "";
+            final stage = task.fields["stage"]?.toString() ?? "";
             for (var m in task.mediaItems) {
               final isTask360 = m.is360 ||
-                  task.fields["attachType"] == "10" ||
+                  attachType == "10" ||
                   task.fields["inspectionImageId"] == "-10" ||
                   task.fields["inspectionImageId"] == "-20";
               if (isTask360) {
                 final f = File(m.filePath);
                 if (f.existsSync()) {
-                  final stage = task.fields["stage"] ?? "";
                   final isExternal = stage == "external360" ||
                       stage == "external_360" ||
                       task.fields["inspectionImageId"] == "-10";
@@ -479,6 +480,27 @@ class BasicInspectionReportController with ChangeNotifier {
                   } else if (isInternal) {
                     internal360Video ??= m.filePath;
                   }
+                }
+              }
+
+              if (attachType == "11" || stage == "car_diagram" || stage == "diagram") {
+                final f = File(m.filePath);
+                if (f.existsSync()) {
+                  diagram = {"url": m.filePath};
+                }
+              }
+
+              if (attachType == "12" || stage == "signature") {
+                final f = File(m.filePath);
+                if (f.existsSync()) {
+                  signature = {"url": m.filePath};
+                }
+              }
+
+              if (attachType == "13" || stage == "customer_signature") {
+                final f = File(m.filePath);
+                if (f.existsSync()) {
+                  customerSignature = {"url": m.filePath};
                 }
               }
             }

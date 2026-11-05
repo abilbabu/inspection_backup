@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:inspection/view/basicInspection_screen/widget/carDiagram_screen.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -51,13 +50,14 @@ class CardiagramController extends ChangeNotifier {
   }
 
   void onPanStart(DragStartDetails details) {
-    final RenderBox box =
-        imageKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox? box =
+        imageKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
     final Offset localPosition = box.globalToLocal(details.globalPosition);
     final Size size = box.size;
     final Offset normalizedPosition = Offset(
-      size.width > 0 ? localPosition.dx / size.width : 0.0,
-      size.height > 0 ? localPosition.dy / size.height : 0.0,
+      size.width > 0 ? (localPosition.dx / size.width).clamp(0.0, 1.0) : 0.0,
+      size.height > 0 ? (localPosition.dy / size.height).clamp(0.0, 1.0) : 0.0,
     );
     currentStroke = [normalizedPosition];
     strokes.add(currentStroke);
@@ -68,13 +68,14 @@ class CardiagramController extends ChangeNotifier {
   }
 
   void onPanUpdate(DragUpdateDetails details) {
-    final RenderBox box =
-        imageKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox? box =
+        imageKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
     final Offset localPosition = box.globalToLocal(details.globalPosition);
     final Size size = box.size;
     final Offset normalizedPosition = Offset(
-      size.width > 0 ? localPosition.dx / size.width : 0.0,
-      size.height > 0 ? localPosition.dy / size.height : 0.0,
+      size.width > 0 ? (localPosition.dx / size.width).clamp(0.0, 1.0) : 0.0,
+      size.height > 0 ? (localPosition.dy / size.height).clamp(0.0, 1.0) : 0.0,
     );
     currentStroke.add(normalizedPosition);
     notifyListeners();
@@ -106,65 +107,122 @@ class CardiagramController extends ChangeNotifier {
 
   Future<String?> saveMarkedImage() async {
     try {
-      // If no strokes were drawn, immediately use the clean asset.
-      // This is 100% reliable, instant, and never black.
+      // If no strokes were drawn, use the clean asset directly.
       if (strokes.isEmpty) {
         return await _fallbackCleanAsset();
       }
 
-      await WidgetsBinding.instance.endOfFrame;
+      // Deterministically compose the base image and damage strokes using ui.PictureRecorder + Canvas.
+      // This is 100% reliable, never blank, and independent of render boundary lifecycle or frame timings.
+      final ByteData data = await rootBundle.load("assets/image/car diagram.jpg");
+      final ui.Codec codec =
+          await ui.instantiateImageCodec(data.buffer.asUint8List());
+      final ui.FrameInfo fi = await codec.getNextFrame();
+      final ui.Image baseImage = fi.image;
 
+      final int width = baseImage.width;
+      final int height = baseImage.height;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(
+        recorder,
+        Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      );
+
+      // White solid background to prevent transparency artifacts
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+        Paint()..color = Colors.white,
+      );
+
+      // Draw the base car diagram asset
+      canvas.drawImage(baseImage, Offset.zero, Paint());
+
+      // Scale stroke width to match visual thickness from screen
+      double strokeWidth = 8.0;
+      final RenderBox? box =
+          imageKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box != null && box.hasSize && box.size.width > 0) {
+        strokeWidth = 4.0 * (width / box.size.width);
+      }
+
+      // Draw all user-drawn damage strokes
+      for (int i = 0; i < strokes.length; i++) {
+        final stroke = strokes[i];
+        if (stroke.isEmpty) continue;
+        final color =
+            (i < strokeColors.length) ? strokeColors[i] : selectedColor;
+
+        final paint = Paint()
+          ..color = color
+          ..strokeWidth = strokeWidth
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+
+        if (stroke.length == 1) {
+          // Single tap / dot
+          canvas.drawCircle(
+            Offset(stroke.first.dx * width, stroke.first.dy * height),
+            strokeWidth / 1.5,
+            Paint()..color = color..style = PaintingStyle.fill,
+          );
+        } else {
+          final path = Path()
+            ..moveTo(stroke.first.dx * width, stroke.first.dy * height);
+          for (int j = 1; j < stroke.length; j++) {
+            path.lineTo(stroke[j].dx * width, stroke[j].dy * height);
+          }
+          canvas.drawPath(path, paint);
+        }
+      }
+
+      final picture = recorder.endRecording();
+      final renderedImage = await picture.toImage(width, height);
+      final byteData =
+          await renderedImage.toByteData(format: ui.ImageByteFormat.png);
+
+      if (byteData == null) {
+        throw Exception("Failed to encode marked car diagram to PNG bytes");
+      }
+
+      final directory = await getTemporaryDirectory();
+      final outputPath =
+          '${directory.path}/car_diagram_${DateTime.now().millisecondsSinceEpoch}.png';
+      final file = File(outputPath);
+      await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+
+      debugPrint("✅ Marked car diagram saved successfully to $outputPath (${file.lengthSync()} bytes)");
+      return outputPath;
+    } catch (e, stack) {
+      debugPrint("❌ Error composing marked diagram on canvas: $e\n$stack");
+      // As a fallback, try RepaintBoundary if canvas composition failed
+      final boundaryPath = await _saveViaRepaintBoundary();
+      if (boundaryPath != null) return boundaryPath;
+      return await _fallbackCleanAsset();
+    }
+  }
+
+  Future<String?> _saveViaRepaintBoundary() async {
+    try {
+      await WidgetsBinding.instance.endOfFrame;
       final boundary =
           imageKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null || !boundary.hasSize || boundary.size.isEmpty) {
-        return await _fallbackCleanAsset();
+        return null;
       }
-
-      if (boundary.debugNeedsPaint) {
-        await WidgetsBinding.instance.endOfFrame;
-      }
-
-      // pixelRatio 2.0 provides plenty of resolution for diagram markings
       final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        return await _fallbackCleanAsset();
-      }
-      
+      if (byteData == null) return null;
       final directory = await getTemporaryDirectory();
       final tempPngPath =
-          '${directory.path}/temp_car_diagram_${DateTime.now().millisecondsSinceEpoch}.png';
-      final pngFile = File(tempPngPath);
-      await pngFile.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
-
-      final jpgPath =
-          '${directory.path}/car_diagram_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      final XFile? compressedXFile =
-          await FlutterImageCompress.compressAndGetFile(
-            tempPngPath,
-            jpgPath,
-            quality: 75,
-            format: CompressFormat.jpeg,
-            minWidth: 1080,
-            minHeight: 1080,
-          );
-
-      // Clean up the temporary PNG file
-      try {
-        if (await pngFile.exists()) {
-          await pngFile.delete();
-        }
-      } catch (e) {
-      }
-
-      if (compressedXFile != null) {
-        return compressedXFile.path;
-      }
-      return tempPngPath; // Fallback to raw png if compression fails
+          '${directory.path}/temp_boundary_diagram_${DateTime.now().millisecondsSinceEpoch}.png';
+      final file = File(tempPngPath);
+      await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+      return tempPngPath;
     } catch (e) {
-      debugPrint("Error in saveMarkedImage: $e");
-      return await _fallbackCleanAsset();
+      debugPrint("RepaintBoundary fallback failed: $e");
+      return null;
     }
   }
 

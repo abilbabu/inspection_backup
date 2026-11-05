@@ -304,7 +304,18 @@ class DamagePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
       final stroke = strokes[i];
-      if (stroke.length < 2) continue;
+      if (stroke.isEmpty) continue;
+      if (stroke.length == 1) {
+        final dotPaint = Paint()
+          ..color = colors[i]
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(
+          Offset(stroke.first.dx * size.width, stroke.first.dy * size.height),
+          paint.strokeWidth / 1.5,
+          dotPaint,
+        );
+        continue;
+      }
       final path = Path()
         ..moveTo(stroke.first.dx * size.width, stroke.first.dy * size.height);
       for (int j = 1; j < stroke.length; j++) {

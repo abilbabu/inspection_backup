@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -139,10 +140,16 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
               child:
                   controller.signature != null &&
                       controller.signature!["url"] != null
-                  ? Image.network(
-                      controller.signature!["url"],
-                      fit: BoxFit.contain,
-                    )
+                  ? (controller.signature!["url"].toString().startsWith("http://") ||
+                          controller.signature!["url"].toString().startsWith("https://"))
+                      ? Image.network(
+                          controller.signature!["url"],
+                          fit: BoxFit.contain,
+                        )
+                      : Image.file(
+                          File(controller.signature!["url"]),
+                          fit: BoxFit.contain,
+                        )
                   : const Center(child: Text("No Signature Available")),
             ),
             if (controller.customerSignature != null &&
@@ -164,10 +171,16 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                   borderRadius: BorderRadius.circular(15),
                   color: ColorConstants.whiteColor,
                 ),
-                child: Image.network(
-                  controller.customerSignature!["url"],
-                  fit: BoxFit.contain,
-                ),
+                child: (controller.customerSignature!["url"].toString().startsWith("http://") ||
+                        controller.customerSignature!["url"].toString().startsWith("https://"))
+                    ? Image.network(
+                        controller.customerSignature!["url"],
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(
+                        File(controller.customerSignature!["url"]),
+                        fit: BoxFit.contain,
+                      ),
               ),
             ],
             SizedBox(height: 20),
@@ -217,10 +230,12 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
             SizedBox(height: 12),
             InkWell(
               onTap: () {
+                final url = controller.diagram?["url"];
+                if (url == null || url.toString().isEmpty) return;
                 context.push(
                   '/fullScreenImage',
                   extra: {
-                    'imageUrl': controller.diagram!["url"],
+                    'imageUrl': url,
                     'label': "Inspection Diagram",
                   },
                 );
@@ -239,10 +254,16 @@ class _BasicInspectionReportState extends State<BasicInspectionReport> {
                       child:
                           controller.diagram != null &&
                               controller.diagram!["url"] != null
-                          ? Image.network(
-                              controller.diagram!["url"],
-                              fit: BoxFit.contain,
-                            )
+                          ? (controller.diagram!["url"].toString().startsWith("http://") ||
+                                  controller.diagram!["url"].toString().startsWith("https://"))
+                              ? Image.network(
+                                  controller.diagram!["url"],
+                                  fit: BoxFit.contain,
+                                )
+                              : Image.file(
+                                  File(controller.diagram!["url"]),
+                                  fit: BoxFit.contain,
+                                )
                           : const Center(child: Text("No Diagram Available")),
                     ),
                     SizedBox(height: 5),

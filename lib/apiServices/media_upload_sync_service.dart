@@ -107,10 +107,12 @@ class MediaUploadSyncService {
           if (!file.existsSync()) continue;
 
           if (item.type == "0") {
+            final ext = file.path.split('.').last.toLowerCase();
+            final isPng = ext == 'png';
             final multipartFile = await MultipartFile.fromFile(
               file.path,
-              filename: "inspection_image_${item.imgIndex}_${DateTime.now().millisecondsSinceEpoch}.jpg",
-              contentType: http_parser.MediaType("image", "jpeg"),
+              filename: "inspection_image_${item.imgIndex}_${DateTime.now().millisecondsSinceEpoch}.${isPng ? 'png' : 'jpg'}",
+              contentType: http_parser.MediaType("image", isPng ? "png" : "jpeg"),
             );
             formData.files.add(MapEntry("viimagefiles", multipartFile));
           } else if (item.type == "2") {
@@ -181,10 +183,12 @@ class MediaUploadSyncService {
               contentType: http_parser.MediaType("video", "mp4"),
             );
           } else if (item.type == "0") {
+            final ext = file.path.split('.').last.toLowerCase();
+            final isPng = ext == 'png';
             multipartFile = await MultipartFile.fromFile(
               file.path,
-              filename: "inspection_image_${item.imgIndex}_${DateTime.now().millisecondsSinceEpoch}.jpg",
-              contentType: http_parser.MediaType("image", "jpeg"),
+              filename: "inspection_image_${item.imgIndex}_${DateTime.now().millisecondsSinceEpoch}.${isPng ? 'png' : 'jpg'}",
+              contentType: http_parser.MediaType("image", isPng ? "png" : "jpeg"),
             );
           } else if (item.type == "2") {
             final ext = item.filePath.split('.').last.toLowerCase();

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
@@ -153,24 +155,36 @@ class _FullScreenImageState extends State<FullScreenImage> {
                             width: double.infinity,
                             height: double.infinity,
                             alignment: Alignment.center,
-                            child: Image.network(
-                              widget.imageUrl,
-                              fit: BoxFit.contain,
-                              loadingBuilder: (context, child, progress) {
-                                if (progress == null) return child;
-                                return const Center(
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
+                            child: (widget.imageUrl.startsWith("http://") ||
+                                  widget.imageUrl.startsWith("https://"))
+                              ? Image.network(
+                                  widget.imageUrl,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.white54,
+                                    size: 60,
                                   ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                Icons.broken_image,
-                                color: Colors.white54,
-                                size: 60,
-                              ),
-                            ),
+                                )
+                              : Image.file(
+                                  File(widget.imageUrl),
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.white54,
+                                    size: 60,
+                                  ),
+                                ),
                           ),
                         ),
                       ),
