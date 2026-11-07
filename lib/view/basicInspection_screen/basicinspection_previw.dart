@@ -83,21 +83,37 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
   ) {
     return Consumer<BasicinspController>(
       builder: (context, basicCtrl, _) {
-        final serverDiagramUrl = reportController.diagram?["url"];
+        final rawDiagramUrl = reportController.diagram?["url"]?.toString();
         final localDiagramPath = basicCtrl.carDiagramPath;
 
         Widget imageWidget;
-        if (serverDiagramUrl != null && serverDiagramUrl.toString().isNotEmpty) {
-          imageWidget = Image.network(
-            serverDiagramUrl.toString(),
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              if (localDiagramPath != null && File(localDiagramPath).existsSync()) {
-                return Image.file(File(localDiagramPath), fit: BoxFit.contain);
-              }
-              return const Center(child: Text("No Diagram Available"));
-            },
-          );
+        if (rawDiagramUrl != null && rawDiagramUrl.isNotEmpty) {
+          final isNetwork = rawDiagramUrl.startsWith("http://") ||
+              rawDiagramUrl.startsWith("https://");
+          if (isNetwork) {
+            imageWidget = Image.network(
+              rawDiagramUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                if (localDiagramPath != null && File(localDiagramPath).existsSync()) {
+                  return Image.file(File(localDiagramPath), fit: BoxFit.contain);
+                }
+                return const Center(child: Text("No Diagram Available"));
+              },
+            );
+          } else if (File(rawDiagramUrl).existsSync()) {
+            imageWidget = Image.file(
+              File(rawDiagramUrl),
+              fit: BoxFit.contain,
+            );
+          } else if (localDiagramPath != null && File(localDiagramPath).existsSync()) {
+            imageWidget = Image.file(
+              File(localDiagramPath),
+              fit: BoxFit.contain,
+            );
+          } else {
+            imageWidget = const Center(child: Text("No Diagram Available"));
+          }
         } else if (localDiagramPath != null && File(localDiagramPath).existsSync()) {
           imageWidget = Image.file(
             File(localDiagramPath),
@@ -128,7 +144,7 @@ class _BasicInspectionPreviewState extends State<BasicInspectionPreview> {
                 const SizedBox(height: 12),
                 InkWell(
                   onTap: () {
-                    final targetUrl = serverDiagramUrl ?? localDiagramPath;
+                    final targetUrl = rawDiagramUrl ?? localDiagramPath;
                     if (targetUrl != null) {
                       context.push(
                         '/fullScreenImage',

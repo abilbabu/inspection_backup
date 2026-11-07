@@ -549,6 +549,15 @@ class BasicinspController extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     await getBasicInspection(jobId);
+    if (carDiagramPath == null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getString('car_diagram_path_$jobId');
+        if (saved != null && File(saved).existsSync()) {
+          carDiagramPath = saved;
+        }
+      } catch (_) {}
+    }
     // Load persisted Quick Inspection stage so _calculateResumeStep can override
     // the API-computed stage when the persisted stage is further ahead in the flow.
     if (isQuick) {
@@ -1279,6 +1288,10 @@ class BasicinspController extends ChangeNotifier {
     );
     if (result != null) {
       carDiagramPath = result;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('car_diagram_path_$jobId', result);
+      } catch (_) {}
       if (isQuick) {
         currentStage = InspectionStage.completed;
         // Car Diagram successfully saved; Quick Inspection Summary is now pending.
@@ -1623,6 +1636,7 @@ class BasicinspController extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('quick_stage_$jobId');
+      await prefs.remove('car_diagram_path_$jobId');
     } catch (e) {
     }
   }

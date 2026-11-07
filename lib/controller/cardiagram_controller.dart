@@ -105,6 +105,17 @@ class CardiagramController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Uint8List? _cachedBaseAssetBytes;
+
+  Future<Uint8List> getBaseAssetBytes() async {
+    if (_cachedBaseAssetBytes != null && _cachedBaseAssetBytes!.isNotEmpty) {
+      return _cachedBaseAssetBytes!;
+    }
+    final ByteData data = await rootBundle.load("assets/image/car diagram.jpg");
+    _cachedBaseAssetBytes = data.buffer.asUint8List();
+    return _cachedBaseAssetBytes!;
+  }
+
   Future<String?> saveMarkedImage() async {
     try {
       // If no strokes were drawn, use the clean asset directly.
@@ -114,9 +125,9 @@ class CardiagramController extends ChangeNotifier {
 
       // Deterministically compose the base image and damage strokes using ui.PictureRecorder + Canvas.
       // This is 100% reliable, never blank, and independent of render boundary lifecycle or frame timings.
-      final ByteData data = await rootBundle.load("assets/image/car diagram.jpg");
+      final Uint8List assetBytes = await getBaseAssetBytes();
       final ui.Codec codec =
-          await ui.instantiateImageCodec(data.buffer.asUint8List());
+          await ui.instantiateImageCodec(assetBytes);
       final ui.FrameInfo fi = await codec.getNextFrame();
       final ui.Image baseImage = fi.image;
 
@@ -199,6 +210,11 @@ class CardiagramController extends ChangeNotifier {
       // As a fallback, try RepaintBoundary if canvas composition failed
       final boundaryPath = await _saveViaRepaintBoundary();
       if (boundaryPath != null) return boundaryPath;
+      // If user drew strokes, never return an empty clean asset — inform caller of failure
+      if (strokes.isNotEmpty) {
+        debugPrint("⚠️ Marked strokes exist but saving failed; not falling back to clean asset.");
+        return null;
+      }
       return await _fallbackCleanAsset();
     }
   }

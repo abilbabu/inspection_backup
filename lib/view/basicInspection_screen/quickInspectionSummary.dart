@@ -18,12 +18,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:signature/signature.dart';
 import 'package:http/http.dart' as http;
-import 'package:hugeicons/hugeicons.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/signatureSpeech_controller .dart';
+import 'package:inspection/view/global_widgets/smart_signature_pad.dart';
 import 'package:inspection/view/widgets/job_upload_status_widget.dart';
 
 class QuickInspectionSummaryPage extends StatefulWidget {
@@ -306,49 +306,10 @@ class _QuickInspectionSummaryPageState
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                               ),
-                              child: SizedBox(
-                                height:
-                                    MediaQuery.of(context).size.height * 0.30,
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        boxShadow:
-                                            ColorConstants.dashboardboxShadow,
-                                        border: Border.all(
-                                          color: ColorConstants.syanColor,
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Signature(
-                                        controller: _signatureController,
-                                        backgroundColor: Colors.white,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      bottom: 12,
-                                      right: 12,
-                                      child: IconButton(
-                                        onPressed: _signatureController.clear,
-                                        icon: ShaderMask(
-                                          shaderCallback: (bounds) =>
-                                              const LinearGradient(
-                                                colors: [
-                                                  Color(0xFF0066A6),
-                                                  Color(0xFF00BFA6),
-                                                ],
-                                              ).createShader(bounds),
-                                          blendMode: BlendMode.srcIn,
-                                          child: const HugeIcon(
-                                            icon: HugeIcons.strokeRoundedEraser,
-                                            size: 28,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              child: SmartSignaturePad(
+                                controller: _signatureController,
+                                height: MediaQuery.of(context).size.height * 0.30,
+                                label: "Service Advisor Signature",
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -427,43 +388,10 @@ class _QuickInspectionSummaryPageState
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
                                 ),
-                                child: SizedBox(
+                                child: SmartSignaturePad(
+                                  controller: _customerSignatureController,
                                   height: MediaQuery.of(context).size.height * 0.28,
-                                  child: Stack(
-                                    children: [
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          boxShadow: ColorConstants.dashboardboxShadow,
-                                          border: Border.all(
-                                            color: ColorConstants.syanColor,
-                                            width: 1.5,
-                                          ),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Signature(
-                                          controller: _customerSignatureController,
-                                          backgroundColor: Colors.white,
-                                        ),
-                                      ),
-                                      Positioned(
-                                        bottom: 12,
-                                        right: 12,
-                                        child: IconButton(
-                                          onPressed: _customerSignatureController.clear,
-                                          icon: ShaderMask(
-                                            shaderCallback: (bounds) => const LinearGradient(
-                                              colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                                            ).createShader(bounds),
-                                            blendMode: BlendMode.srcIn,
-                                            child: const HugeIcon(
-                                              icon: HugeIcons.strokeRoundedEraser,
-                                              size: 28,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  label: "Customer Signature",
                                 ),
                               ),
                             ],

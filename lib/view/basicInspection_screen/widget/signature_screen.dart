@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
-import 'package:hugeicons/hugeicons.dart';
 import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/basicInsp_controller.dart';
 import 'package:inspection/controller/basicInspectionReport_controller.dart';
@@ -21,6 +20,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signature/signature.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
+import 'package:inspection/view/global_widgets/smart_signature_pad.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
@@ -333,43 +333,10 @@ class _SignatureScreenState extends State<SignatureScreen> {
                           const SizedBox(height: 8),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: SizedBox(
+                            child: SmartSignaturePad(
+                              controller: _controller,
                               height: MediaQuery.of(context).size.height * 0.30,
-                              child: Stack(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      boxShadow: ColorConstants.dashboardboxShadow,
-                                      border: Border.all(
-                                        color: ColorConstants.syanColor,
-                                        width: 1.5,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Signature(
-                                      controller: _controller,
-                                      backgroundColor: Colors.white,
-                                    ),
-                                  ),
-                                  Positioned(
-                                    bottom: 12,
-                                    right: 12,
-                                    child: IconButton(
-                                      onPressed: _controller.clear,
-                                      icon: ShaderMask(
-                                        shaderCallback: (bounds) => const LinearGradient(
-                                          colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                                        ).createShader(bounds),
-                                        blendMode: BlendMode.srcIn,
-                                        child: const HugeIcon(
-                                          icon: HugeIcons.strokeRoundedEraser,
-                                          size: 28,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              label: "Service Advisor Signature",
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -446,43 +413,10 @@ class _SignatureScreenState extends State<SignatureScreen> {
                             const SizedBox(height: 8),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: SizedBox(
+                              child: SmartSignaturePad(
+                                controller: _customerSignatureController,
                                 height: MediaQuery.of(context).size.height * 0.28,
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        boxShadow: ColorConstants.dashboardboxShadow,
-                                        border: Border.all(
-                                          color: ColorConstants.syanColor,
-                                          width: 1.5,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Signature(
-                                        controller: _customerSignatureController,
-                                        backgroundColor: Colors.white,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      bottom: 12,
-                                      right: 12,
-                                      child: IconButton(
-                                        onPressed: _customerSignatureController.clear,
-                                        icon: ShaderMask(
-                                          shaderCallback: (bounds) => const LinearGradient(
-                                            colors: [Color(0xFF0066A6), Color(0xFF00BFA6)],
-                                          ).createShader(bounds),
-                                          blendMode: BlendMode.srcIn,
-                                          child: const HugeIcon(
-                                            icon: HugeIcons.strokeRoundedEraser,
-                                            size: 28,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                label: "Customer Signature",
                               ),
                             ),
                           ],

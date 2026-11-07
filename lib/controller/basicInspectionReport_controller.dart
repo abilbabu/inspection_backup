@@ -507,6 +507,13 @@ class BasicInspectionReportController with ChangeNotifier {
           }
         }
 
+        if (diagram == null) {
+          final savedDiagram = prefs.getString('car_diagram_path_$jobId');
+          if (savedDiagram != null && File(savedDiagram).existsSync()) {
+            diagram = {"url": savedDiagram};
+          }
+        }
+
         final extDraft = await LocalUploadStorageService.getDraftMedia(
                 jobId: jobId, stageKey: 'external_360') ??
             await LocalUploadStorageService.getDraftMedia(
