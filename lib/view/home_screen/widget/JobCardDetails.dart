@@ -34,9 +34,10 @@ class JobCardDetails extends StatefulWidget {
 class _JobCardDetailsState extends State<JobCardDetails> {
   void _goBack() {
     final authCtrl = context.read<AuthenticationController>();
-    final int userDepartment = authCtrl.userDepartment;
     final bool isJobCardDepartment =
-        userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
+        authCtrl.isTechnician ||
+        authCtrl.isJobController ||
+        authCtrl.isSupervisor;
     final List<String> routes = isJobCardDepartment
         ? ['/home', '/history', '/settings']
         : ['/home', '/quotation', '/history', '/settings'];
@@ -160,9 +161,36 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                   }
                   if (jobController.jobCardData == null) {
                     return Center(
-                      child: Text(
-                        "No Job Card Data Found",
-                        style: TextStyle(color: Colors.red),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.wifi_off, size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text(
+                              "No Job Card Data Found",
+                              style: ApptextstyleConstants.mediumText(
+                                color: ColorConstants.blackColor,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              "Please check your internet connection and try again",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                jobController.postJobCardDetails(widget.jobId);
+                              },
+                              icon: const Icon(Icons.refresh, size: 18),
+                              label: const Text("Retry"),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -183,7 +211,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           VehicleSummaryWidget(jobId: widget.jobId),
                           SizedBox(height: 15),
                           if (jobStatus != 5 &&
-                              userDepartment != 3 &&
+                              !authCtrl.isServiceAdvisor &&
                               jobStatus != 6 &&
                               jobController.isTechnicianAssigned == false)
                             Align(
@@ -235,7 +263,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                               ),
                             ),
                           if (jobController.isTechnicianAssigned && ![10, 12, 13, 14].contains(jobStatus) &&
-                              userDepartment != 3 &&
+                              !authCtrl.isServiceAdvisor &&
                               !isHistoryTab) ...[
                             SizedBox(height: 16),
                             Container(
@@ -260,7 +288,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 ),
                               ),
                             ),
-                            if ((userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
+                            if ((authCtrl.canAssignInspection)) ...[
                               if ([4, 5, 18, 11].contains(jobStatus)) ...[
                                 const SizedBox(height: 10),
                                 SizedBox(
@@ -320,7 +348,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                               ],
                             ],
                           ],
-                          if (userDepartment == 3) ...[
+                          if (authCtrl.isServiceAdvisor) ...[
                             Container(
                               width: double.infinity,
                               padding: EdgeInsets.all(12),
@@ -346,12 +374,12 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           ],
                           SizedBox(height: 12),
                           if (isHistoryTab ||
-                              (userDepartment != 2 &&
-                                  userDepartment != 4 &&
-                                  userDepartment != 5)) ...[
-                            if (userDepartment != 2 &&
-                                userDepartment != 4 &&
-                                userDepartment != 5)
+                              (!authCtrl.isSupervisor &&
+                                  !authCtrl.isTechnician &&
+                                  !authCtrl.isJobController)) ...[
+                            if (!authCtrl.isSupervisor &&
+                                !authCtrl.isTechnician &&
+                                !authCtrl.isJobController)
                               _shareOptions(context),
                             _customerDetilas(
                               customer,
@@ -364,9 +392,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                           ],
                           SizedBox(height: 5),
                           if (jobStatus == 5 &&
-                              !((userDepartment == 2 ||
-                                      userDepartment == 5 ||
-                                      userDepartment == 3) &&
+                              !((authCtrl.isSupervisor ||
+                                      authCtrl.isJobController ||
+                                      authCtrl.isServiceAdvisor) &&
                                   jobController.isTechnicianAssigned))
                             Builder(
                               builder: (context) {
@@ -386,7 +414,7 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                 );
                               },
                             ),
-                          if ((userDepartment == 0 || userDepartment == 1 || userDepartment == 2 || userDepartment == 5) &&
+                          if (authCtrl.canAssignInspection &&
                               jobController.isTechnicianAssigned &&
                               ![5, 6, 7, 8, 9, 10,11,12,13,14,15,16,17,18,19].contains(jobStatus))
                             Builder(

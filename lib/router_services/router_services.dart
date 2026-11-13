@@ -66,13 +66,13 @@ final GoRouter router = GoRouter(
                     body: Center(child: CircularProgressIndicator()),
                   );
                 }
-                if (authCtrl.userDepartment == 4) {
+                if (authCtrl.isTechnician) {
                   return const TechnicianDashboard();
                 }
-                if (authCtrl.userDepartment == 5) {
+                if (authCtrl.isJobController) {
                   return const JobControllerDashboard();
                 }
-                if (authCtrl.userDepartment == 2) {
+                if (authCtrl.isSupervisor) {
                   return const SupervisorDashboard();
                 }
                 return const HomeScreen();

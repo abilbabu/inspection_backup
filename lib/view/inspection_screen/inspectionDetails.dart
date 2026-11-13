@@ -1,3 +1,4 @@
+import 'package:inspection/controller/authentication_ controller.dart';
 import 'package:inspection/utils/custom_toast.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
 import 'dart:async';
@@ -31,6 +32,12 @@ class _InspectionDetailsState extends State<InspectionDetails> {
   Timer? _debounce;
   int? userDepartment;
   bool _isChangingForm = false;
+
+  bool get canAssignInspection =>
+      context.read<AuthenticationController>().canAssignInspection;
+
+  bool get isAdmin =>
+      context.read<AuthenticationController>().isAdmin;
 
   @override
   void initState() {
@@ -109,6 +116,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
 
   @override
   Widget build(BuildContext context) {
+    final authCtrl = context.watch<AuthenticationController>();
     final jobCtrl = context.watch<JobcarddetailsController>();
     final inspTypeCtrl = context.read<InspectionsummarypageController>();
     final jobcard = jobCtrl.jobCardData?["jobcard"];
@@ -158,7 +166,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                       ),
                     ),
                   ),
-                  if ((userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
+                  if (authCtrl.canAssignInspection) ...[
                     if ([4, 5, 18, 11].contains(status)) ...[
                       const SizedBox(height: 10),
                       SizedBox(
@@ -242,7 +250,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                             padding: const EdgeInsets.all(8.0),
                             child: CustomButtonTwo(
                               text: " + CUSTOM INSPECTION",
-                              onPressed: (userDepartment == 2 || userDepartment == 5)
+                              onPressed: (authCtrl.isSupervisor || authCtrl.isJobController || authCtrl.isAdmin)
                                   ? null
                                   : () {
                                       context.push(
@@ -265,10 +273,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                               child: CustomButtonTwo(
                                 text: " + CUSTOM INSPECTION",
                                 onPressed: () async {
-                                  if (userDepartment == 0 ||
-                                      userDepartment == 1 ||
-                                      userDepartment == 2 ||
-                                      userDepartment == 5) {
+                                  if (canAssignInspection) {
                                     await showTechnicianBottomSheet();
                                   }
                                 },
@@ -277,11 +282,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                           ],
                           _buildPredefinedSection(navigateDirectly: false),
                         ],
-                        if ([4, 18].contains(status) &&
-                            (userDepartment == 0 ||
-                                userDepartment == 1 ||
-                                userDepartment == 2 ||
-                                userDepartment == 5)) ...[
+                        if ([4, 18].contains(status) && canAssignInspection) ...[
                           const SizedBox(height: 10),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -313,11 +314,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                               },
                             ),
                           ),
-                        ] else if ([5, 11].contains(status) &&
-                            (userDepartment == 0 ||
-                                userDepartment == 1 ||
-                                userDepartment == 2 ||
-                                userDepartment == 5)) ...[
+                        ] else if ([5, 11].contains(status) && canAssignInspection) ...[
                           const SizedBox(height: 10),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -357,10 +354,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                             child: CustomButtonTwo(
                               text: " + CUSTOM INSPECTION",
                               onPressed: () async {
-                                if (userDepartment == 0 ||
-                                    userDepartment == 1 ||
-                                    userDepartment == 2 ||
-                                    userDepartment == 5) {
+                                if (canAssignInspection) {
                                   await showTechnicianBottomSheet();
                                 }
                               },
@@ -368,11 +362,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                           ),
                         ],
                         _buildPredefinedSection(navigateDirectly: !_isChangingForm),
-                        if ([4, 18].contains(status) &&
-                            (userDepartment == 0 ||
-                                userDepartment == 1 ||
-                                userDepartment == 2 ||
-                                userDepartment == 5)) ...[
+                        if ([4, 18].contains(status) && canAssignInspection) ...[
                           const SizedBox(height: 10),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -404,11 +394,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                               },
                             ),
                           ),
-                        ] else if ([5, 11].contains(status) &&
-                            (userDepartment == 0 ||
-                                userDepartment == 1 ||
-                                userDepartment == 2 ||
-                                userDepartment == 5)) ...[
+                        ] else if ([5, 11].contains(status) && canAssignInspection) ...[
                           const SizedBox(height: 10),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -446,10 +432,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                             child: CustomButtonTwo(
                               text: " + CUSTOM INSPECTION",
                               onPressed: () async {
-                                if (userDepartment == 0 ||
-                                    userDepartment == 1 ||
-                                    userDepartment == 2 ||
-                                    userDepartment == 5) {
+                                if (canAssignInspection) {
                                   await showTechnicianBottomSheet();
                                 }
                               },
@@ -597,6 +580,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
         ),
         Consumer<InspectionDetailsController>(
           builder: (context, inspectionController, child) {
+            final authCtrl = context.read<AuthenticationController>();
             if (inspectionController.isLoading) {
               return const Padding(
                 padding: EdgeInsets.all(20),
@@ -638,12 +622,12 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                     text: (item["inspectionFormName"] ?? "No Name")
                         .toUpperCase(),
                     textSize: 16,
-                    onPressed: (navigateDirectly && (userDepartment == 2 || userDepartment == 5))
+                    onPressed: (navigateDirectly && (authCtrl.isSupervisor || authCtrl.isJobController))
                         ? null
                         : () async {
                             // PREDEFINED ALREADY ASSIGNED
                             if (navigateDirectly) {
-                              if (userDepartment == 2 || userDepartment == 5) return;
+                              if (authCtrl.isSupervisor || authCtrl.isJobController) return;
                               context.push(
                                 "/inspectiontypedetailspage",
                                 extra: {
@@ -655,10 +639,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                             }
 
                             // FIRST TIME ASSIGNMENT
-                            if (userDepartment == 0 ||
-                                userDepartment == 1 ||
-                                userDepartment == 2 ||
-                                userDepartment == 5) {
+                            if (canAssignInspection) {
                               await showTechnicianBottomSheet(
                                 inspectionFormId: item["inspectionFormId"],
                               );
@@ -816,8 +797,7 @@ class _InspectionDetailsState extends State<InspectionDetails> {
                                 // log(success.toString());
 
                                 CustomToast.showSuccess(parentContext, "Technician Assigned Successfully");
-                                if (userDepartment == 0 ||
-                                    userDepartment == 1) {
+                                if (isAdmin) {
                                   await parentContext
                                       .read<InspectionsummarypageController>()
                                       .getInspectionSummary(widget.jobId!);

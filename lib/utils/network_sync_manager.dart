@@ -52,11 +52,23 @@ class NetworkSyncManager extends ChangeNotifier {
   /// Check active internet connectivity via socket DNS lookup
   Future<bool> checkInternetConnection() async {
     try {
+      final connectivity = await Connectivity().checkConnectivity();
+      if (connectivity.every((c) => c == ConnectivityResult.none)) {
+        _isNetworkAvailable = false;
+        notifyListeners();
+        return false;
+      }
       final result = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 3));
       _isNetworkAvailable = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
     } catch (_) {
-      _isNetworkAvailable = false;
+      try {
+        final result2 = await InternetAddress.lookup('one.one.one.one')
+            .timeout(const Duration(seconds: 3));
+        _isNetworkAvailable = result2.isNotEmpty && result2[0].rawAddress.isNotEmpty;
+      } catch (_) {
+        _isNetworkAvailable = false;
+      }
     }
     notifyListeners();
     return _isNetworkAvailable;

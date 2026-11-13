@@ -1,3 +1,4 @@
+import 'package:inspection/controller/authentication_ controller.dart';
 import 'package:inspection/utils/custom_toast.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -49,7 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> refreshData() async {
-    await Future.wait([getInspectionListByUserId(), getJobCardListByUserId()]);
+    context.read<AuthenticationController>().refreshPermissions();
+    await loadDashboardData();
   }
 
   @override
@@ -61,10 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         isLoading = true;
       });
-      await Future.wait([
-        getInspectionListByUserId(),
-        getJobCardListByUserId(),
-      ]);
+      await loadDashboardData();
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -206,37 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> getInspectionListByUserId() async {
-    try {
-      final rawList = await _fetchInspectionData();
-      final HomescreenController helper = HomescreenController();
-      final filteredList = rawList
-          .where((item) {
-            if (item is! Map) return false;
-            final rawStatus = item["jobStatus"] ??
-                item["status"] ??
-                item["jobCardStatus"] ??
-                item["jobcard"]?["jobStatus"] ??
-                item["jobcard"]?["status"];
-            final String normalized = helper.normalizeStatus(rawStatus?.toString());
-            return normalized == "0" || normalized == "1" || normalized == "2";
-          })
-          .map((item) {
-            return _mapVehicleData(item is Map<String, dynamic>
-                ? item
-                : Map<String, dynamic>.from(item));
-          })
-          .toList();
-      if (!mounted) return;
-      setState(() {
-        inspectionList = filteredList;
-      });
-    } catch (e) {
-      print("Error in getInspectionListByUserId: $e");
-    }
-  }
-
-  Future<void> getJobCardListByUserId() async {
+  Future<void> loadDashboardData() async {
     if (!mounted) return;
     setState(() {
       isJobcardLoading = true;
@@ -244,29 +213,35 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final rawList = await _fetchInspectionData();
       final HomescreenController helper = HomescreenController();
-      final filteredList = rawList
-          .where((item) {
-            if (item is! Map) return false;
-            final rawStatus = item["jobStatus"] ??
-                item["status"] ??
-                item["jobCardStatus"] ??
-                item["jobcard"]?["jobStatus"] ??
-                item["jobcard"]?["status"];
-            final String normalized = helper.normalizeStatus(rawStatus?.toString());
-            return !["0", "1", "2", ""].contains(normalized);
-          })
-          .map((item) {
-            return _mapVehicleData(item is Map<String, dynamic>
-                ? item
-                : Map<String, dynamic>.from(item), includeInspections: true);
-          })
-          .toList();
+      final List<Map<String, dynamic>> pendingInspections = [];
+      final List<Map<String, dynamic>> activeJobCards = [];
+
+      for (var raw in rawList) {
+        if (raw is! Map) continue;
+        final item = raw is Map<String, dynamic>
+            ? raw
+            : Map<String, dynamic>.from(raw);
+        final rawStatus = item["jobStatus"] ??
+            item["status"] ??
+            item["jobCardStatus"] ??
+            item["jobcard"]?["jobStatus"] ??
+            item["jobcard"]?["status"];
+        final String normalized = helper.normalizeStatus(rawStatus?.toString());
+
+        if (normalized == "0" || normalized == "1" || normalized == "2") {
+          pendingInspections.add(_mapVehicleData(item));
+        } else if (!["", null].contains(normalized)) {
+          activeJobCards.add(_mapVehicleData(item, includeInspections: true));
+        }
+      }
+
       if (!mounted) return;
       setState(() {
-        jobcardList = filteredList;
+        inspectionList = pendingInspections;
+        jobcardList = activeJobCards;
       });
     } catch (e) {
-      print("Error in getJobCardListByUserId: $e");
+      print("Error in loadDashboardData: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -275,6 +250,9 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
+
+  Future<void> getInspectionListByUserId() => loadDashboardData();
+  Future<void> getJobCardListByUserId() => loadDashboardData();
 
   @override
   void dispose() {
@@ -291,11 +269,12 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final authCtrl = context.watch<AuthenticationController>();
     final bool hasInspection = inspectionList.isNotEmpty;
     // final bool hasJobCard = jobcardList.isNotEmpty;
 
     final bool isOnlyJobCardDepartment =
-        userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
+        authCtrl.isTechnician || authCtrl.isJobController || authCtrl.isSupervisor;
 
     final reversedList = jobcardList.reversed.toList();
 
@@ -318,16 +297,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const SizedBox(height: 60),
                       _headerSection(),
-                      if (hasInspection) ...[
+                      if (hasInspection &&
+                          (authCtrl.canViewGeneralInspection ||
+                              authCtrl.canViewQuickInspection ||
+                              authCtrl.canViewJobCardInspection ||
+                              authCtrl.canViewJobCardList)) ...[
                         const SizedBox(height: 12),
                         appointmentSection(),
                       ],
+                      if (authCtrl.canViewInspectionMode) ...[
+                        const SizedBox(height: 12),
+                        inspectionModeSection(context),
+                      ],
+                      if (authCtrl.canViewJobCardList) ...[
+                        const SizedBox(height: 12),
+                        jobCardSection(),
+                      ],
                       const SizedBox(height: 12),
-                      inspectionModeSection(context),
-                      SizedBox(height: 12),
-                      jobCardSection(),
-                      SizedBox(height: 12),
-                      if ((userDepartment == 0 || userDepartment == 1) &&
+                      if (authCtrl.isAdmin &&
                           reInspectionList.isNotEmpty) ...[
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -370,8 +357,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     const SizedBox(height: 60),
                     _headerSection(),
-                    SizedBox(height: 12),
-                    jobCardSection(),
+                    if (authCtrl.canViewJobCardList) ...[
+                      const SizedBox(height: 12),
+                      jobCardSection(),
+                    ],
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -419,6 +408,60 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget inspectionModeSection(BuildContext context) {
+    final authCtrl = context.read<AuthenticationController>();
+    final List<Widget> modeCards = [];
+
+    if (authCtrl.canViewGeneralInspection) {
+      modeCards.add(
+        Expanded(
+          child: _inspectionModeCard(
+            title: "General",
+            icon: Icons.car_repair,
+            enabled: true,
+            underlineColor: Colors.green.shade600,
+            onTap: () => context.go("/vehicledetails"),
+          ),
+        ),
+      );
+    }
+
+    if (authCtrl.canViewQuickInspection) {
+      if (modeCards.isNotEmpty) {
+        modeCards.add(const SizedBox(width: 8));
+      }
+      modeCards.add(
+        Expanded(
+          child: _inspectionModeCard(
+            title: "Quick",
+            icon: Icons.flash_on,
+            enabled: true,
+            underlineColor: Colors.amber.shade700,
+            onTap: () => context.go("/vehicledetails", extra: {"isQuick": true}),
+          ),
+        ),
+      );
+    }
+
+    if (authCtrl.canViewJobCardInspection) {
+      if (modeCards.isNotEmpty) {
+        modeCards.add(const SizedBox(width: 8));
+      }
+      modeCards.add(
+        Expanded(
+          child: _inspectionModeCard(
+            title: "Jobcard",
+            icon: Icons.assignment,
+            enabled: false,
+            underlineColor: Colors.grey,
+          ),
+        ),
+      );
+    }
+
+    if (modeCards.isEmpty) {
+      return const SizedBox();
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
@@ -435,36 +478,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
-              children: [
-                Expanded(
-                  child: _inspectionModeCard(
-                    title: "General",
-                    icon: Icons.car_repair,
-                    enabled: true,
-                    underlineColor: Colors.green.shade600,
-                    onTap: () => context.go("/vehicledetails"),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _inspectionModeCard(
-                    title: "Quick",
-                    icon: Icons.flash_on,
-                    enabled: true,
-                    underlineColor: Colors.amber.shade700,
-                    onTap: () => context.go("/vehicledetails", extra: {"isQuick": true}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _inspectionModeCard(
-                    title: "Jobcard",
-                    icon: Icons.assignment,
-                    enabled: false,
-                    underlineColor: Colors.grey,
-                  ),
-                ),
-              ],
+              children: modeCards,
             ),
           ),
         ],
@@ -649,7 +663,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget jobCardSection() {
-    // if (jobcardList.isEmpty) return const SizedBox();
+    final authCtrl = context.read<AuthenticationController>();
+    if (!authCtrl.canViewJobCardList) return const SizedBox();
     final reversedList = jobcardList.reversed.toList();
     final latestFiveList = reversedList
         .where((item) {
@@ -665,7 +680,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (userDepartment != 2 && userDepartment != 4 && userDepartment != 5)
+          if (!authCtrl.isTechnician && !authCtrl.isJobController && !authCtrl.isSupervisor)
             Row(
               children: [
                 Text(
@@ -691,9 +706,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           const SizedBox(height: 10),
-          if (userDepartment != 2 &&
-              userDepartment != 4 &&
-              userDepartment != 5) ...[
+          if (!authCtrl.isTechnician &&
+              !authCtrl.isJobController &&
+              !authCtrl.isSupervisor) ...[
             if (latestFiveList.isNotEmpty) ...[
               SizedBox(
                 height: 240,
@@ -1966,7 +1981,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
-        if (userDepartment == 2 || userDepartment == 5) {
+        final authCtrl = context.read<AuthenticationController>();
+        if (authCtrl.isSupervisor || authCtrl.isJobController) {
           context.go("/inspectiondetails", extra: jobId);
           return;
         }

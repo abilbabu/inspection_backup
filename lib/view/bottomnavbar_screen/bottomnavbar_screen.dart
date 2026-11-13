@@ -24,37 +24,51 @@ class _BottomnavbarScreenState extends State<BottomnavbarScreen> {
           );
         }
 
-        final int userDepartment = controller.userDepartment;
-
         final bool isJobCardDepartment =
-            userDepartment == 2 || userDepartment == 4 || userDepartment == 5;
+            controller.isTechnician ||
+            controller.isJobController ||
+            controller.isSupervisor;
 
-        final List<String> routes = isJobCardDepartment
-            ? ['/home', '/history', '/settings']
-            : ['/home', '/quotation', '/history', '/settings'];
+        final bool showQuotation = controller.canViewQuotation && !isJobCardDepartment;
+
+        final List<String> routes = showQuotation
+            ? ['/home', '/quotation', '/history', '/settings']
+            : ['/home', '/history', '/settings'];
 
         /// NAV ITEMS
-        final List<BottomNavigationBarItem> navItems = isJobCardDepartment
-            ? [
-                _buildNavItem(Icons.home_filled, 0, controller.currentIndex),
+        final List<BottomNavigationBarItem> navItems = [];
+        navItems.add(_buildNavItem(Icons.home_filled, 0, controller.currentIndex));
 
-                _buildNavItem(Icons.history, 1, controller.currentIndex),
+        if (showQuotation) {
+          navItems.add(
+            _buildNavItem(
+              Icons.request_quote_rounded,
+              1,
+              controller.currentIndex,
+            ),
+          );
+        }
 
-                _buildNavItem(Icons.settings, 2, controller.currentIndex),
-              ]
-            : [
-                _buildNavItem(Icons.home_filled, 0, controller.currentIndex),
+        navItems.add(
+          _buildNavItem(
+            Icons.history,
+            navItems.length,
+            controller.currentIndex,
+          ),
+        );
 
-                _buildNavItem(
-                  Icons.request_quote_rounded,
-                  1,
-                  controller.currentIndex,
-                ),
+        navItems.add(
+          _buildNavItem(
+            Icons.settings,
+            navItems.length,
+            controller.currentIndex,
+          ),
+        );
 
-                _buildNavItem(Icons.history, 2, controller.currentIndex),
-
-                _buildNavItem(Icons.settings, 3, controller.currentIndex),
-              ];
+        final int safeIndex =
+            (controller.currentIndex >= 0 && controller.currentIndex < navItems.length)
+                ? controller.currentIndex
+                : 0;
 
         return Scaffold(
           extendBody: true,
@@ -65,7 +79,7 @@ class _BottomnavbarScreenState extends State<BottomnavbarScreen> {
               backgroundColor: ColorConstants.whiteColor.withOpacity(0.9),
               elevation: 0,
               type: BottomNavigationBarType.fixed,
-              currentIndex: controller.currentIndex,
+              currentIndex: safeIndex,
               selectedItemColor: null,
               unselectedItemColor: ColorConstants.greyColor,
               enableFeedback: false,

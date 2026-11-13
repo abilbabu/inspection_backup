@@ -1,3 +1,4 @@
+import 'package:inspection/controller/authentication_ controller.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -65,6 +66,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
 
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     _userDepartment =
         int.tryParse(prefs.getString('userDepartment') ?? '0') ?? 0;
     await _fetchAllFromApi();
@@ -79,13 +81,15 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
   }
 
   List<int> get _allowedStatuses {
-    if (_userDepartment == 2 || _userDepartment == 4 || _userDepartment == 5) {
+    final authCtrl = context.read<AuthenticationController>();
+    if (authCtrl.isSupervisor || authCtrl.isTechnician || authCtrl.isJobController) {
       return [6, 9, 12, 14];
     }
     return [6, 7, 8, 9, 12, 14, 15, 16, 17, 18, 19];
   }
 
   Future<void> _fetchAllFromApi() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -94,6 +98,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
       final userDepartment = prefs.getString('userDepartment');
 
       if (userId == null || userToken == null || userDepartment == null) return;
+      if (!mounted) return;
 
       _userDepartment = int.tryParse(userDepartment) ?? 0;
 
@@ -108,6 +113,8 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
           'userDepartment': int.parse(userDepartment),
         }),
       );
+
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final res = json.decode(response.body);
@@ -150,11 +157,14 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
       }
     } catch (e) {
     } finally {
-      _applyFilterAndReset();
+      if (mounted) {
+        _applyFilterAndReset();
+      }
     }
   }
 
   void _applyFilterAndReset() {
+    if (!mounted) return;
     final filtered = _allJobs.where((item) {
       return _searchText.isEmpty ||
           (item['jobNo']?.toString().toLowerCase().contains(
@@ -164,6 +174,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
     }).toList();
 
     final firstPage = filtered.take(_pageSize).toList();
+    if (!mounted) return;
     setState(() {
       _jobs = firstPage;
       _currentPage = 1;
@@ -174,7 +185,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
   }
 
   void _loadNextPage() {
-    if (!_hasMore || _isMoreLoading) return;
+    if (!mounted || !_hasMore || _isMoreLoading) return;
     setState(() => _isMoreLoading = true);
 
     final filtered = _allJobs.where((item) {
@@ -189,6 +200,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
     final end = (start + _pageSize).clamp(0, filtered.length);
 
     if (start >= filtered.length) {
+      if (!mounted) return;
       setState(() {
         _hasMore = false;
         _isMoreLoading = false;
@@ -197,6 +209,7 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
     }
 
     final nextItems = filtered.sublist(start, end);
+    if (!mounted) return;
     setState(() {
       _jobs.addAll(nextItems);
       _currentPage++;

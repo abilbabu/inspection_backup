@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:inspection/utils/custom_toast.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -43,10 +46,44 @@ class _QuickInspectionSummaryPageState
   bool _isCustomerPresent = false;
   bool _isLoading = false;
   bool _isSyncComplete = false;
+  bool _isOnline = true;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  Future<void> _checkInitialConnectivity() async {
+    try {
+      final connectivity = await Connectivity().checkConnectivity();
+      final hasNet = connectivity.any((r) => r != ConnectivityResult.none);
+      if (mounted) {
+        setState(() => _isOnline = hasNet);
+      }
+      if (hasNet) {
+        final canReach = await NetworkSyncManager().checkInternetConnection();
+        if (mounted) {
+          setState(() => _isOnline = canReach);
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   void initState() {
     super.initState();
+    _checkInitialConnectivity();
+    _connectivitySubscription = Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> results) {
+      final hasNet = results.any((r) => r != ConnectivityResult.none);
+      if (mounted && _isOnline != hasNet) {
+        setState(() => _isOnline = hasNet);
+      }
+      if (hasNet) {
+        NetworkSyncManager().checkInternetConnection().then((canReach) {
+          if (mounted && _isOnline != canReach) {
+            setState(() => _isOnline = canReach);
+          }
+        });
+      }
+    });
     _complaintController = TextEditingController();
     _signatureController = SignatureController(
       penStrokeWidth: 4,
@@ -134,6 +171,7 @@ class _QuickInspectionSummaryPageState
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _signatureController.dispose();
     _customerSignatureController.dispose();
     _complaintController.dispose();
@@ -409,23 +447,46 @@ class _QuickInspectionSummaryPageState
                               width: double.infinity,
                               height: 48,
                               child: CustomButtonWidget(
-                                text: _isLoading
+                                text: !_isOnline
+                                    ? "Waiting for internet connection..."
+                                    : _isLoading
                                     ? "Please wait..."
                                     : (!_isSyncComplete
                                         ? "Syncing Media Files..."
                                         : "Complete Quick Inspection"),
                                 textSize: 16,
                                 isDisabled:
-                                    _isLoading || basicCtrl.isUploading || !_isSyncComplete,
+                                    !_isOnline ||
+                                    _isLoading ||
+                                    basicCtrl.isUploading ||
+                                    !_isSyncComplete,
                                 showLoader: _isLoading,
-                                onPressed: _isLoading || basicCtrl.isUploading || !_isSyncComplete
+                                onPressed: !_isOnline ||
+                                        _isLoading ||
+                                        basicCtrl.isUploading ||
+                                        !_isSyncComplete
                                     ? null
                                     : () async {
+                                        if (!_isOnline) return;
                                         if (_isLoading) return;
                                         setState(() {
                                           _isLoading = true;
                                         });
                                         try {
+                                          final isStillOnline = await NetworkSyncManager().checkInternetConnection();
+                                          if (!isStillOnline) {
+                                            if (mounted) {
+                                              setState(() {
+                                                _isOnline = false;
+                                                _isLoading = false;
+                                              });
+                                              CustomToast.showWarning(
+                                                context,
+                                                "No internet connection. Waiting for network...",
+                                              );
+                                            }
+                                            return;
+                                          }
                                           final stats = await LocalUploadStorageService.getJobUploadStats(widget.jobId);
                                           if ((stats['failed'] ?? 0) > 0) {
                                             if (mounted) {

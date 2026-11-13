@@ -1,3 +1,4 @@
+import 'package:inspection/controller/authentication_ controller.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -440,9 +441,8 @@ class _TechnicianDashboardState extends State<TechnicianDashboard> {
     return GestureDetector(
       onTap: () async {
         final int jobId = int.tryParse(item["jobId"]?.toString() ?? "0") ?? 0;
-        final prefs = await SharedPreferences.getInstance();
-        final userDept = int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
-        if (userDept == 2 || userDept == 5) {
+        final authCtrl = context.read<AuthenticationController>();
+        if (authCtrl.isSupervisor || authCtrl.isJobController) {
           context.go("/inspectiondetails", extra: jobId);
           return;
         }

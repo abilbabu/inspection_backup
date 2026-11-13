@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -46,6 +48,24 @@ class _SignatureScreenState extends State<SignatureScreen> {
   bool _isCustomerPresent = false;
   bool _isSubmitting = false;
   bool _isSyncComplete = false;
+  bool _isOnline = true;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  Future<void> _checkInitialConnectivity() async {
+    try {
+      final connectivity = await Connectivity().checkConnectivity();
+      final hasNet = connectivity.any((r) => r != ConnectivityResult.none);
+      if (mounted) {
+        setState(() => _isOnline = hasNet);
+      }
+      if (hasNet) {
+        final canReach = await NetworkSyncManager().checkInternetConnection();
+        if (mounted) {
+          setState(() => _isOnline = canReach);
+        }
+      }
+    } catch (_) {}
+  }
 
   Future<void> _fetchCustomerComplaint() async {
     // 1. Check in-memory JobcarddetailsController first
@@ -107,6 +127,22 @@ class _SignatureScreenState extends State<SignatureScreen> {
   @override
   void initState() {
     super.initState();
+    _checkInitialConnectivity();
+    _connectivitySubscription = Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> results) {
+      final hasNet = results.any((r) => r != ConnectivityResult.none);
+      if (mounted && _isOnline != hasNet) {
+        setState(() => _isOnline = hasNet);
+      }
+      if (hasNet) {
+        NetworkSyncManager().checkInternetConnection().then((canReach) {
+          if (mounted && _isOnline != canReach) {
+            setState(() => _isOnline = canReach);
+          }
+        });
+      }
+    });
     _additionalCommentController = TextEditingController();
     _controller = SignatureController(
       penStrokeWidth: 4,
@@ -167,6 +203,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _additionalCommentController.dispose();
     _controller.dispose();
     _customerSignatureController.dispose();
@@ -437,7 +474,9 @@ class _SignatureScreenState extends State<SignatureScreen> {
                               child: Consumer<BasicinspController>(
                                 builder: (context, controller, _) {
                                   return CustomButtonWidget(
-                                    text: (_isSubmitting || controller.isUploading)
+                                    text: !_isOnline
+                                        ? "Waiting for internet connection..."
+                                        : (_isSubmitting || controller.isUploading)
                                         ? "Please wait..."
                                         : controller.isCompleted
                                         ? "COMPLETED"
@@ -445,22 +484,39 @@ class _SignatureScreenState extends State<SignatureScreen> {
                                     textSize: 16,
                                     textColor: Colors.white,
                                     isDisabled:
+                                        !_isOnline ||
                                         _isSubmitting ||
                                         controller.isUploading ||
                                         controller.isCompleted ||
                                         !_isSyncComplete,
                                     showLoader: _isSubmitting || controller.isUploading,
-                                    onPressed: (_isSubmitting ||
+                                    onPressed: (!_isOnline ||
+                                            _isSubmitting ||
                                             controller.isUploading ||
                                             controller.isCompleted ||
                                             !_isSyncComplete)
                                         ? null
                                         : () async {
+                                            if (!_isOnline) return;
                                             if (_isSubmitting) return;
                                             setState(() {
                                               _isSubmitting = true;
                                             });
                                             try {
+                                              final isStillOnline = await NetworkSyncManager().checkInternetConnection();
+                                              if (!isStillOnline) {
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _isOnline = false;
+                                                    _isSubmitting = false;
+                                                  });
+                                                  CustomToast.showWarning(
+                                                    context,
+                                                    "No internet connection. Waiting for network...",
+                                                  );
+                                                }
+                                                return;
+                                              }
                                               final additionalComment =
                                                   _additionalCommentController.text.trim();
                                               final file = await _saveSignature();

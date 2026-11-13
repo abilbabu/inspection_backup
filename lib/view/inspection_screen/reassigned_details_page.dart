@@ -9,6 +9,7 @@ import 'package:inspection/controller/inspectionTypeDetails_controller.dart';
 import 'package:inspection/controller/inspectionDetails_controller.dart';
 import 'package:inspection/controller/inspectionSummaryPage_controller.dart';
 import 'package:inspection/controller/jobCardDetails_controller.dart';
+import 'package:inspection/controller/authentication_ controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
@@ -118,7 +119,8 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
 
         final data = inspectionResponse.data as Map<String, dynamic>;
         int jobStatus = summaryCtrl.jobStatus;
-        if (jobStatus == 18 && userDepartment == 4) {
+        final authCtrl = context.read<AuthenticationController>();
+        if (jobStatus == 18 && authCtrl.isTechnician) {
           await detailsCtrl.changeStatus(jobId: widget.jobId, status: 11);
           if (!mounted) return;
           jobStatus = 11;
@@ -406,12 +408,13 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
         jobCardCtrl.assignedTechnicianName != null &&
         jobCardCtrl.assignedTechnicianName!.trim().isNotEmpty;
 
-    final bool showEditable = (userDepartment == 4) ||
-        ((userDepartment == 0 || userDepartment == 1) &&
+    final authCtrl = context.watch<AuthenticationController>();
+    final bool showEditable = (authCtrl.isTechnician) ||
+        ((authCtrl.isAdmin) &&
             (jobStatus == 18 || jobStatus == 11));
 
-    final bool showAssignment = (userDepartment == 2 || userDepartment == 5) ||
-        ((userDepartment == 0 || userDepartment == 1) &&
+    final bool showAssignment = (authCtrl.isSupervisor || authCtrl.isJobController) ||
+        ((authCtrl.isAdmin) &&
             (jobStatus != 18 && jobStatus != 11));
 
     final bool isAllChecklistSaved = _isAllChecklistSaved(formCtrl);
@@ -465,7 +468,7 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
                           ),
                         ),
                       ),
-                      if ((userDepartment == 0 || userDepartment == 1 || userDepartment == 2 || userDepartment == 5)) ...[
+                      if (authCtrl.canAssignInspection) ...[
                         if ([4, 5, 18, 11].contains(jobStatus)) ...[
                           const SizedBox(height: 10),
                           SizedBox(

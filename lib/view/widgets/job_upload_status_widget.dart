@@ -97,6 +97,33 @@ class _JobUploadStatusWidgetState extends State<JobUploadStatusWidget> {
         final totalQueue = _stats['totalQueue'] ?? 0;
         final isOnline = syncManager.isNetworkAvailable;
 
+        if (!isOnline) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.orange.shade300),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.wifi_off, color: Colors.orange.shade800, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "No internet connection. Waiting for network to submit...",
+                    style: ApptextstyleConstants.mediumText(
+                      color: Colors.orange.shade900,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         if (totalQueue == 0 && failed == 0) {
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
