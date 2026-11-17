@@ -22,6 +22,7 @@ import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_scree
 import 'package:inspection/view/inspection_screen/widgets/inspection_card.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
+import 'package:inspection/view/inspection_screen/widgets/inspection_review_confirmation_modal.dart';
 import 'package:inspection/view/inspection_screen/inspection_summary_page.dart';
 
 class ReassignedDetailsPage extends StatefulWidget {
@@ -1943,6 +1944,84 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     return "Task #$taskId";
   }
 
+  Map<String, dynamic>? _getComponentMetadata(
+    int taskId,
+    InspectionTypeDetailsController detailsCtrl,
+    InspectionsummarypageController summaryCtrl,
+  ) {
+    String? customerComments;
+    try {
+      for (final items in summaryCtrl.groupedItems.values) {
+        for (final item in items) {
+          if (item.taskId == taskId) {
+            if (item.initialNote.isNotEmpty) {
+              customerComments = item.initialNote;
+            }
+            break;
+          }
+        }
+        if (customerComments != null) break;
+      }
+    } catch (_) {}
+
+    for (final task in detailsCtrl.allTaskComponents) {
+      if (task is Map && task["itcId"] == taskId) {
+        return {
+          "itcId": task["itcId"],
+          "itcName": task["itcName"],
+          "categoryId": task["categoryId"] ?? 0,
+          "categoryName": task["categoryName"] ?? "Custom Re-Inspection",
+          "allowGood": task["allowGood"] ?? true,
+          "allowRepair": task["allowRepair"] ?? true,
+          "allowReplace": task["allowReplace"] ?? true,
+          "allowPoor": task["allowPoor"] ?? true,
+          "allowNotApplicable": task["allowNotApplicable"] ?? false,
+          "allowPhoto": task["allowPhoto"] ?? true,
+          "allowAudio": task["allowAudio"] ?? true,
+          "photoMandatory": task["photoMandatory"] ?? false,
+          "audioMandatory": task["audioMandatory"] ?? false,
+          "instructionText": task["instructionText"],
+          "assemblyCodeName": task["assemblyCodeName"],
+          "assemblyCodeDesc": task["assemblyCodeDesc"],
+          "repairGroupName": task["repairGroupName"],
+          "repairGroupDesc": task["repairGroupDesc"],
+          "customerComments": customerComments ?? task["customerComments"],
+        };
+      }
+    }
+    for (final entry in detailsCtrl.groupedTasks.entries) {
+      for (final task in entry.value) {
+        final comp = task["components"];
+        if (comp is Map && comp["itcId"] == taskId) {
+          return {
+            "itcId": comp["itcId"],
+            "itcName": comp["itcName"],
+            "categoryId": entry.key,
+            "categoryName":
+                task["categoryName"] ?? comp["categoryName"] ?? "General Re-Inspection",
+            "allowGood": comp["allowGood"] ?? true,
+            "allowRepair": comp["allowRepair"] ?? true,
+            "allowReplace": comp["allowReplace"] ?? true,
+            "allowPoor": comp["allowPoor"] ?? true,
+            "allowNotApplicable": comp["allowNotApplicable"] ?? false,
+            "allowPhoto": comp["allowPhoto"] ?? true,
+            "allowAudio": comp["allowAudio"] ?? true,
+            "photoMandatory": comp["photoMandatory"] ?? false,
+            "audioMandatory": comp["audioMandatory"] ?? false,
+            "instructionText": comp["instructionText"],
+            "assemblyCodeName": comp["assemblyCodeName"],
+            "assemblyCodeDesc": comp["assemblyCodeDesc"],
+            "repairGroupName": comp["repairGroupName"],
+            "repairGroupDesc": comp["repairGroupDesc"],
+            "customerComments":
+                customerComments ?? comp["customerComments"] ?? task["customerComments"],
+          };
+        }
+      }
+    }
+    return null;
+  }
+
   void _showPendingChecklistWarning(
     InspectionTypeDetailsController detailsCtrl,
     InspectionFormController formCtrl,
@@ -2035,7 +2114,15 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
     FocusScope.of(context).unfocus();
     _commentFocusNode.unfocus();
 
-    final confirm = await ConfirmSubmissionDialog.show(context);
+    final confirm = await InspectionReviewConfirmationModal.show(
+      context: context,
+      jobId: widget.jobId,
+      formId: summaryController.vimIfMasterId ?? 0,
+      inspectionTypeId: 2,
+      isReInspection: true,
+      lookupComponent: (taskId) =>
+          _getComponentMetadata(taskId, controller, summaryController),
+    );
 
     // Explicitly unfocus again upon modal return to avoid automatic focus restoration
     FocusScope.of(context).unfocus();

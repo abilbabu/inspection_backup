@@ -631,9 +631,9 @@ class CustomerDetailsController extends ChangeNotifier {
     if (apiCountryCode != null && apiCountryCode.isNotEmpty) {
       _selectedCountryCode = "+$apiCountryCode";
     }
-    vehicleCtrl.nameController.text = cust["custName"] ?? "";
-    vehicleCtrl.selectedCustomerTypeId = cust["custType"] ?? "";
-    vehicleCtrl.selectedLanguages = cust["custLanguage"] ?? "";
+    vehicleCtrl.nameController.text = cust["custName"]?.toString() ?? "";
+    vehicleCtrl.selectedCustomerTypeId = cust["custType"]?.toString() ?? "";
+    vehicleCtrl.selectedLanguages = cust["custLanguage"]?.toString() ?? "";
     customerId = cust["custId"];
     filteredVehicles.clear();
     allCustomerVehicles.clear();

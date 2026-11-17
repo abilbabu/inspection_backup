@@ -37,6 +37,7 @@ class InspectionCard extends StatefulWidget {
   final String? repairGroupDesc;
   final bool isReInspection;
   final bool isInBottomSheet;
+  final VoidCallback? onSaved;
 
   const InspectionCard({
     super.key,
@@ -65,6 +66,7 @@ class InspectionCard extends StatefulWidget {
     this.repairGroupDesc,
     this.isReInspection = false,
     this.isInBottomSheet = false,
+    this.onSaved,
   });
 
   @override
@@ -440,6 +442,10 @@ class _InspectionCardState extends State<InspectionCard> {
                                         widget.inspectionTypeid ?? (widget.isReInspection ? 2 : 1),
                                     isReInspection: widget.isReInspection,
                                   );
+                              if (widget.onSaved != null &&
+                                  formController.isTaskSaved(widget.taskid)) {
+                                widget.onSaved!();
+                              }
                               if (isCompleted) {
                                 context.go(
                                   "/inspectionsummarypage",
@@ -467,6 +473,10 @@ class _InspectionCardState extends State<InspectionCard> {
                                     inspectionTypeId: widget.inspectionTypeid,
                                     isReInspection: widget.isReInspection,
                                   );
+                              if (widget.onSaved != null &&
+                                  formController.isTaskSaved(widget.taskid)) {
+                                widget.onSaved!();
+                              }
                               if (isCompleted) {
                                 context.go(
                                   "/inspectionsummarypage",

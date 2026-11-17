@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/inspectionCard_controller.dart';
 import 'package:inspection/controller/inspectionFormController.dart';
 import 'package:inspection/controller/inspectionTypeDetails_controller.dart';
-import 'package:inspection/model/apiResponsModel.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
@@ -16,6 +15,7 @@ import 'package:inspection/view/global_widgets/fullScreenImage.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_card.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
+import 'package:inspection/view/inspection_screen/widgets/inspection_review_confirmation_modal.dart';
 import 'package:inspection/view/inspection_screen/widgets/fullscreen_image_screen.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_fullscreenvideo.dart';
 import 'package:provider/provider.dart';
@@ -1501,7 +1501,16 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                         FocusScope.of(context).unfocus();
                         _commentFocusNode.unfocus();
 
-                        final confirm = await ConfirmSubmissionDialog.show(context);
+                        final confirm =
+                            await InspectionReviewConfirmationModal.show(
+                          context: context,
+                          jobId: widget.jobId,
+                          formId: widget.inspectionFormId,
+                          inspectionTypeId: widget.inspectionTypeId ?? 1,
+                          isReInspection: false,
+                          lookupComponent: (taskId) =>
+                              _getComponentMetadata(taskId, controller),
+                        );
 
                         // Explicitly unfocus again upon modal return to avoid automatic focus restoration
                         FocusScope.of(context).unfocus();
@@ -1886,6 +1895,69 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
       }
     }
     return "Task $taskId";
+  }
+
+  Map<String, dynamic>? _getComponentMetadata(
+    int taskId,
+    InspectionTypeDetailsController controller,
+  ) {
+    for (final entry in controller.groupedTasks.entries) {
+      final categoryTasks = entry.value;
+      for (final task in categoryTasks) {
+        final comp = task["components"];
+        if (comp != null && comp["itcId"] == taskId) {
+          return {
+            "itcId": comp["itcId"],
+            "itcName": comp["itcName"],
+            "categoryId": entry.key,
+            "categoryName":
+                task["categoryName"] ?? comp["categoryName"] ?? "General Inspection",
+            "allowGood": comp["allowGood"] ?? true,
+            "allowRepair": comp["allowRepair"] ?? true,
+            "allowReplace": comp["allowReplace"] ?? true,
+            "allowPoor": comp["allowPoor"] ?? true,
+            "allowNotApplicable": comp["allowNotApplicable"] ?? false,
+            "allowPhoto": comp["allowPhoto"] ?? true,
+            "allowAudio": comp["allowAudio"] ?? true,
+            "photoMandatory": comp["photoMandatory"] ?? false,
+            "audioMandatory": comp["audioMandatory"] ?? false,
+            "instructionText": comp["instructionText"],
+            "assemblyCodeName": comp["assemblyCodeName"],
+            "assemblyCodeDesc": comp["assemblyCodeDesc"],
+            "repairGroupName": comp["repairGroupName"],
+            "repairGroupDesc": comp["repairGroupDesc"],
+            "customerComments":
+                comp["customerComments"] ?? task["customerComments"],
+          };
+        }
+      }
+    }
+    for (final comp in controller.allTaskComponents) {
+      if (comp != null && comp["itcId"] == taskId) {
+        return {
+          "itcId": comp["itcId"],
+          "itcName": comp["itcName"],
+          "categoryId": comp["categoryId"] ?? 0,
+          "categoryName": comp["categoryName"] ?? "Custom Inspection",
+          "allowGood": comp["allowGood"] ?? true,
+          "allowRepair": comp["allowRepair"] ?? true,
+          "allowReplace": comp["allowReplace"] ?? true,
+          "allowPoor": comp["allowPoor"] ?? true,
+          "allowNotApplicable": comp["allowNotApplicable"] ?? false,
+          "allowPhoto": comp["allowPhoto"] ?? true,
+          "allowAudio": comp["allowAudio"] ?? true,
+          "photoMandatory": comp["photoMandatory"] ?? false,
+          "audioMandatory": comp["audioMandatory"] ?? false,
+          "instructionText": comp["instructionText"],
+          "assemblyCodeName": comp["assemblyCodeName"],
+          "assemblyCodeDesc": comp["assemblyCodeDesc"],
+          "repairGroupName": comp["repairGroupName"],
+          "repairGroupDesc": comp["repairGroupDesc"],
+          "customerComments": comp["customerComments"],
+        };
+      }
+    }
+    return null;
   }
 
   Widget _inspectionShimmer() {
