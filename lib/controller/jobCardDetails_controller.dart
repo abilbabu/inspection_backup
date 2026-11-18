@@ -48,6 +48,9 @@ class JobcarddetailsController extends ChangeNotifier {
     if (!forceRefresh && hasLoaded && jobCardData != null && loadedJobId == jobId) {
       return ApiResponse(success: true, data: jobCardData);
     }
+    if (!forceRefresh && isLoading && loadedJobId == jobId) {
+      return ApiResponse(success: true);
+    }
     if (loadedJobId != jobId) {
       jobCardData = null;
       loadedJobId = jobId;
@@ -169,7 +172,6 @@ class JobcarddetailsController extends ChangeNotifier {
     transmissionTypeName = "";
     customerTypeName = "";
     serviceTypeName = "";
-    notifyListeners();
     hasLoaded = false;
     isLoading = false;
   }

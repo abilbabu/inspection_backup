@@ -59,4 +59,6 @@ class ApiServices {
   static String reassignTechnician = "${baseUrl}jobcard/reassignTechnician";
   static String saveTechnicianCommentsMedia =
       "${baseUrl}vehicleinspection/saveTechnicianCommentsMedia";
+  static String getPreviousInspectionHistory =
+      "${baseUrl}customer/getPreviousInspectionHistory";
 }

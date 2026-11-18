@@ -15,6 +15,7 @@ import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/controller/signatureSpeech_controller%20.dart';
 import 'package:inspection/controller/vehicleDetails_controller.dart';
 import 'package:inspection/controller/vehicleEssential_controller.dart';
+import 'package:inspection/controller/customer_inspection_history_controller.dart';
 import 'package:inspection/main.dart';
 import 'package:provider/provider.dart';
 
@@ -62,6 +63,9 @@ class MultiProviderAccess extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (context) => SignatureSpeechController(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => CustomerInspectionHistoryController(),
         ),
       ],
       child: const MyApp(),

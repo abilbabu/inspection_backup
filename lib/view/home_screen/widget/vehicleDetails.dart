@@ -17,6 +17,7 @@ import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
+import 'package:inspection/view/global_widgets/previous_inspection_history_modal.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
@@ -1877,17 +1878,64 @@ class _VehicleDetailsState extends State<VehicleDetails> {
 
   Widget _statusLabel(CustomerDetailsController controller) {
     if (controller.customerStatusLabel.isEmpty) return const SizedBox();
+    final bool isExisting = controller.customerStatusLabel != "New Customer";
     return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 4),
-      child: Text(
-        controller.customerStatusLabel,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: controller.customerStatusLabel == "New Customer"
-              ? Colors.blue
-              : Colors.green,
-        ),
+      padding: const EdgeInsets.only(left: 4, top: 4, right: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            controller.customerStatusLabel,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isExisting ? Colors.green : Colors.blue,
+            ),
+          ),
+          if (isExisting)
+            InkWell(
+              onTap: () {
+                final vehicleCtrl = context.read<VehicleDetailsController>();
+                showPreviousInspectionHistoryModal(
+                  context,
+                  customerId: controller.customerId,
+                  customerMobile: controller.mobileNumController.text.trim(),
+                  customerName: vehicleCtrl.nameController.text.trim(),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: ColorConstants.textBlueColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: ColorConstants.textBlueColor.withOpacity(0.6),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.history,
+                      size: 14,
+                      color: ColorConstants.textBlueColor,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      "Inspection History",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: ColorConstants.textBlueColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

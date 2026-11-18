@@ -17,6 +17,7 @@ import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
+import 'package:inspection/view/global_widgets/previous_inspection_history_modal.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:provider/provider.dart';
 import 'package:share_link/share_link.dart';
@@ -24,8 +25,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class JobCardDetails extends StatefulWidget {
   final int jobId;
+  final bool isHistorical;
 
-  const JobCardDetails({super.key, required this.jobId});
+  const JobCardDetails({
+    super.key,
+    required this.jobId,
+    this.isHistorical = false,
+  });
 
   @override
   State<JobCardDetails> createState() => _JobCardDetailsState();
@@ -58,8 +64,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
       final jobCtrl = context.read<JobcarddetailsController>();
       final custCtrl = context.read<CustomerDetailsController>();
       final vehicleCtrl = context.read<VehicleDetailsController>();
-
-      jobCtrl.reset();
 
       // Run all initial API calls concurrently in parallel to maximize performance
       await Future.wait([
@@ -137,27 +141,94 @@ class _JobCardDetailsState extends State<JobCardDetails> {
     final bool isHistoryTab = isJobCardDept
         ? (authCtrl.currentIndex == 1)
         : (authCtrl.currentIndex == 2);
+    final bool canPop = Navigator.of(context).canPop();
 
     return Stack(
       children: [
         PopScope(
-          canPop: false,
-          onPopInvoked: (didPop) {
+          canPop: canPop,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
             _goBack();
           },
           child: Scaffold(
             appBar: CustomAppBar(
-              title: "Job Card Details",
+              title: widget.isHistorical
+                  ? "Job Card History"
+                  : "Job Card Details",
               onBackPress: () {
-                _goBack();
+                if (canPop) {
+                  Navigator.of(context).pop();
+                } else {
+                  _goBack();
+                }
               },
+              actions: [
+                if (!widget.isHistorical)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Center(
+                      child: InkWell(
+                        onTap: () {
+                          final jobController =
+                              context.read<JobcarddetailsController>();
+                          final customer =
+                              jobController.jobCardData?['jobcard']?['customer'];
+                          showPreviousInspectionHistoryModal(
+                            context,
+                            jobId: widget.jobId,
+                            customerId: int.tryParse(
+                              customer?["custId"]?.toString() ?? "",
+                            ),
+                            customerMobile: customer?["custMobile"]?.toString(),
+                            customerName: customer?["custName"]?.toString(),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.35),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(
+                                Icons.history,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "History",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             body: Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
               child: Consumer<JobcarddetailsController>(
                 builder: (context, jobController, child) {
-                  if (jobController.isLoading) {
-                    return Center(child: CircularProgressIndicator());
+                  if (jobController.isLoading || !jobController.hasLoaded) {
+                    return const Center(child: CircularProgressIndicator());
                   }
                   if (jobController.jobCardData == null) {
                     return Center(
@@ -184,7 +255,10 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                             const SizedBox(height: 16),
                             ElevatedButton.icon(
                               onPressed: () {
-                                jobController.postJobCardDetails(widget.jobId);
+                                jobController.postJobCardDetails(
+                                  widget.jobId,
+                                  forceRefresh: true,
+                                );
                               },
                               icon: const Icon(Icons.refresh, size: 18),
                               label: const Text("Retry"),
@@ -387,6 +461,10 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                               vehicle,
                               jobcard,
                             ),
+                            if (!widget.isHistorical) ...[
+                              const SizedBox(height: 5),
+                              _previousInspectionHistoryCard(context, customer),
+                            ],
                             SizedBox(height: 5),
                             _basicInspectionReport(context),
                           ],
@@ -891,6 +969,91 @@ class _JobCardDetailsState extends State<JobCardDetails> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _previousInspectionHistoryCard(
+    BuildContext context,
+    dynamic customer,
+  ) {
+    if (widget.isHistorical) return const SizedBox();
+    return InkWell(
+      onTap: () {
+        showPreviousInspectionHistoryModal(
+          context,
+          jobId: widget.jobId,
+          customerId: int.tryParse(customer?["custId"]?.toString() ?? ""),
+          customerMobile: customer?["custMobile"]?.toString(),
+          customerName: customer?["custName"]?.toString(),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: ColorConstants.whiteColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: ColorConstants.dashboardboxShadow,
+          border: Border.all(
+            color: ColorConstants.textBlueColor.withOpacity(0.18),
+            width: 1,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    ColorConstants.textBlueColor.withOpacity(0.12),
+                    ColorConstants.syanColor.withOpacity(0.18),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.history_rounded,
+                color: ColorConstants.textBlueColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Previous Inspection History",
+                    style: ApptextstyleConstants.boldText(
+                      fontSize: 14,
+                      color: ColorConstants.blackColor,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    "View prior visits & inspection records",
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Colors.grey.shade400,
+            ),
+          ],
+        ),
       ),
     );
   }
