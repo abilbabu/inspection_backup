@@ -166,31 +166,41 @@ class _InspectionCardState extends State<InspectionCard> {
                 //       child: Text(
                 //         "Group Name : $groupName",
                 //         style: const TextStyle(
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.inspectionTaskGoodFlag) _buildRadio("Good"),
-                      if (widget.inspectionTaskRepairFlag) ...[
-                        const SizedBox(width: 6),
-                        _buildRadio("Repair"),
-                      ],
-                      if (widget.inspectionTaskPoorFlag) ...[
-                        const SizedBox(width: 6),
-                        _buildRadio("Poor"),
-                      ],
-                      if (widget.inspectionTaskReplaceFlag) ...[
-                        const SizedBox(width: 6),
-                        _buildRadio("Replace"),
-                      ],
-                      if (widget.inspectionTaskNotApplicable) ...[
-                        const SizedBox(width: 6),
-                        _buildRadio("N/A"),
-                      ],
-                    ],
-                  ),
+                // Condition flags: spread evenly across the full card width.
+                // On narrow screens (content wider than the card) the row keeps
+                // its natural width and FittedBox scales it down, as before.
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final double minRowWidth = constraints.maxWidth.isFinite
+                        ? constraints.maxWidth
+                        : 0;
+                    return FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minWidth: minRowWidth),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.inspectionTaskGoodFlag) "Good",
+                            if (widget.inspectionTaskRepairFlag) "Repair",
+                            if (widget.inspectionTaskPoorFlag) "Poor",
+                            if (widget.inspectionTaskReplaceFlag) "Replace",
+                            if (widget.inspectionTaskNotApplicable) "N/A",
+                          ]
+                              .map(
+                                (option) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 4),
+                                  child: _buildRadio(option),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 SizedBox(height: 5),
                 if (!cardController.isNotApplicable) ...[

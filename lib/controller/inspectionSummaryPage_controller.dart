@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:inspection/utils/inspection_round_helper.dart';
 import 'package:inspection/utils/permission_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -168,8 +169,13 @@ class InspectionsummarypageController extends ChangeNotifier {
       saComment = "";
       previousSaComment = "";
       jobStatus = 0;
+      // Only the active inspection round is summarised; earlier rounds must
+      // not leak into assigned-kind, form id/type, re-inspection or results.
       final inspections = List.from(
-        result["data"]["inspections"] as List? ?? [],
+        InspectionRoundHelper.activeRoundInspections(
+          result["data"]["inspections"] as List? ?? [],
+          jobRound: InspectionRoundHelper.jobRoundOf(result["data"]),
+        ),
       );
       hasReinspection = inspections.any((insp) =>
           insp["master"]?["vimInspectionType"] == 2 ||

@@ -485,24 +485,35 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                   ),
                 ),
                 SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    if (item.allowGood)
-                      _summaryRadio("Good", InspectionStatus.good, displayStatus),
-
-                    if (item.allowRepair)
-                      _summaryRadio("Repair", InspectionStatus.repair, displayStatus),
-
-                    if (item.allowPoor)
-                      _summaryRadio("Poor", InspectionStatus.poor, displayStatus),
-
-                    if (item.allowReplace)
-                      _summaryRadio("Replace", InspectionStatus.replace, displayStatus),
-
-                    if (item.allowNA)
-                      _summaryRadio("N/A", InspectionStatus.na, displayStatus),
-                  ],
+                Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (item.allowGood)
+                          _summaryRadio("Good", InspectionStatus.good, displayStatus),
+                        if (item.allowRepair) ...[
+                          const SizedBox(width: 8),
+                          _summaryRadio("Repair", InspectionStatus.repair, displayStatus),
+                        ],
+                        if (item.allowPoor) ...[
+                          const SizedBox(width: 8),
+                          _summaryRadio("Poor", InspectionStatus.poor, displayStatus),
+                        ],
+                        if (item.allowReplace) ...[
+                          const SizedBox(width: 8),
+                          _summaryRadio("Replace", InspectionStatus.replace, displayStatus),
+                        ],
+                        if (item.allowNA) ...[
+                          const SizedBox(width: 8),
+                          _summaryRadio("N/A", InspectionStatus.na, displayStatus),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
 
                 SizedBox(height: 8),

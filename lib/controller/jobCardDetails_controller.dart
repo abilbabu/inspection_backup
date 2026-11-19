@@ -89,11 +89,11 @@ class JobcarddetailsController extends ChangeNotifier {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         userDepartment =
             int.tryParse(prefs.getString("userDepartment") ?? "0") ?? 0;
-        if (technicianData != null) {
-          isTechnicianAssigned = true;
-        } else {
-          isTechnicianAssigned = false;
-        }
+        // Match web logic: status 3 ("Jobcard Open") means assignment is
+        // still pending even if jobTechnicianId is populated.
+        final int jobStatus =
+            int.tryParse(jobcard["jobStatus"]?.toString() ?? "") ?? -1;
+        isTechnicianAssigned = technicianData != null && jobStatus != 3;
         if (technicianData != null) {
           assignedTechnicianId = technicianData!["userId"];
           assignedTechnicianName = technicianData!["userName"] ?? "";
@@ -321,6 +321,7 @@ class JobcarddetailsController extends ChangeNotifier {
                 "jobCreatedOn": item["jobCreatedOn"] ?? "",
                 "jobTechnicianId": item["jobTechnicianId"],
                 "inspections": item["inspections"] ?? [],
+                "jobInspectionRound": item["jobInspectionRound"],
               };
             })
             .toList();

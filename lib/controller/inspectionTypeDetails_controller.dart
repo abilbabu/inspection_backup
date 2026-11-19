@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:inspection/utils/inspection_round_helper.dart';
 import 'package:inspection/utils/permission_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
@@ -220,6 +221,15 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           statusCode: result["statusCode"],
           status: "No data",
           timeStamp: result["timeStamp"],
+        );
+      }
+      // A job card can hold several sequential inspection rounds; every
+      // consumer of this response (form prefill, custom/re-inspection
+      // matching, reassigned page) works on the active round only.
+      if (data is Map && data["inspections"] is List) {
+        data["inspections"] = InspectionRoundHelper.activeRoundInspections(
+          data["inspections"] as List,
+          jobRound: InspectionRoundHelper.jobRoundOf(data),
         );
       }
       return ApiResponse(

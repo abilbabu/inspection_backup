@@ -6,12 +6,14 @@ import 'package:go_router/go_router.dart';
 import 'package:inspection/controller/inspectionCard_controller.dart';
 import 'package:inspection/controller/inspectionFormController.dart';
 import 'package:inspection/controller/inspectionTypeDetails_controller.dart';
+import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
 import 'package:inspection/view/global_widgets/cameraCaptureScreen.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/fullScreenImage.dart';
+import 'package:inspection/view/global_widgets/previous_inspection_history_modal.dart';
 import 'package:inspection/view/global_widgets/vehicleSummaryWidget.dart';
 import 'package:inspection/view/inspection_screen/widgets/inspection_card.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
@@ -289,17 +291,87 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                 children: [
                   SizedBox(height: 16),
                   VehicleSummaryWidget(jobId: widget.jobId),
-                  SizedBox(height: 10),
-                  Center(
-                    child: Text(
-                      controller.inspectionFormName.toUpperCase(),
-                      style: ApptextstyleConstants.mediumText(
-                        color: ColorConstants.textBlueColor,
-                        fontSize: 15,
-                      ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            controller.inspectionFormName.toUpperCase(),
+                            style: ApptextstyleConstants.boldText(
+                              color: ColorConstants.textBlueColor,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            final jobCtrl =
+                                context.read<JobcarddetailsController>();
+                            final jobcard = jobCtrl.jobCardData?["jobcard"];
+                            final customer = jobcard?["customer"];
+                            showPreviousInspectionHistoryModal(
+                              context,
+                              jobId: widget.jobId,
+                              customerId: int.tryParse(
+                                (customer?["custId"] ?? customer?["cust_id"])
+                                        ?.toString() ??
+                                    "",
+                              ),
+                              customerMobile:
+                                  (customer?["custMobile"] ??
+                                          customer?["cust_mobile"])
+                                      ?.toString(),
+                              customerName:
+                                  (customer?["custName"] ??
+                                          customer?["cust_name"])
+                                      ?.toString(),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  ColorConstants.textBlueColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: ColorConstants.textBlueColor
+                                    .withOpacity(0.4),
+                                width: 0.9,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.history_rounded,
+                                  size: 15,
+                                  color: ColorConstants.textBlueColor,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  "Inspection History",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: ColorConstants.textBlueColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   if (widget.inspectionTypeId == 2) ...[
                     Consumer<InspectionFormController>(
                       builder: (context, formController, _) {

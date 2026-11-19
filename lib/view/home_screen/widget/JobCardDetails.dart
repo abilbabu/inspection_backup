@@ -15,6 +15,7 @@ import 'package:inspection/controller/jobCardDetails_controller.dart';
 import 'package:inspection/controller/vehicleDetails_controller.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/inspection_round_helper.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/customButtonWidget.dart';
 import 'package:inspection/view/global_widgets/previous_inspection_history_modal.dart';
@@ -68,7 +69,9 @@ class _JobCardDetailsState extends State<JobCardDetails> {
       // Run all initial API calls concurrently in parallel to maximize performance
       await Future.wait([
         summaryCtrl.getInspectionSummary(widget.jobId),
-        jobCtrl.postJobCardDetails(widget.jobId),
+        // Always fetch fresh: status/technician can change on other screens
+        // (e.g. technician assigned), and stale cache hides reassign options.
+        jobCtrl.postJobCardDetails(widget.jobId, forceRefresh: true),
         custCtrl.getFuelTypeList(),
         custCtrl.getTransmissionList(),
         vehicleCtrl.getCustomerTypeList(),
@@ -163,65 +166,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                   _goBack();
                 }
               },
-              actions: [
-                if (!widget.isHistorical)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Center(
-                      child: InkWell(
-                        onTap: () {
-                          final jobController =
-                              context.read<JobcarddetailsController>();
-                          final customer =
-                              jobController.jobCardData?['jobcard']?['customer'];
-                          showPreviousInspectionHistoryModal(
-                            context,
-                            jobId: widget.jobId,
-                            customerId: int.tryParse(
-                              customer?["custId"]?.toString() ?? "",
-                            ),
-                            customerMobile: customer?["custMobile"]?.toString(),
-                            customerName: customer?["custName"]?.toString(),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.18),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.35),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(
-                                Icons.history,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                "History",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
             ),
             body: Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
@@ -447,6 +391,15 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                             ),
                           ],
                           SizedBox(height: 12),
+                          // Job Controller only: show Previous Inspection
+                          // History tile on the job card (non-history) view.
+                          // On the History tab it is already rendered below.
+                          if (authCtrl.isJobController &&
+                              !isHistoryTab &&
+                              !widget.isHistorical) ...[
+                            _previousInspectionHistoryCard(context, customer),
+                            const SizedBox(height: 5),
+                          ],
                           if (isHistoryTab ||
                               (!authCtrl.isSupervisor &&
                                   !authCtrl.isTechnician &&
@@ -618,7 +571,11 @@ class _JobCardDetailsState extends State<JobCardDetails> {
         final rawInspections = item['inspections'];
         final inspectionTypeid = controller.vimInspectionTypeId;
         final int jobId = int.tryParse(rawJobId?.toString() ?? '0') ?? 0;
-        final List inspections = rawInspections is List ? rawInspections : [];
+        // Only the active inspection round decides which form to open.
+        final List inspections = InspectionRoundHelper.activeRoundInspections(
+          rawInspections is List ? rawInspections : [],
+          jobRound: InspectionRoundHelper.jobRoundOf(item),
+        );
         int inspectionMasterId = 0;
         for (final inspection in inspections) {
           if (inspection is! Map) continue;

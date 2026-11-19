@@ -10,6 +10,7 @@ import 'package:inspection/controller/homeScreen_controller.dart';
 import 'package:inspection/utils/app_theme/app_theme.dart';
 import 'package:inspection/utils/constant/appTextStyle_constants.dart';
 import 'package:inspection/utils/constant/color_constants.dart';
+import 'package:inspection/utils/inspection_round_helper.dart';
 import 'package:inspection/view/global_widgets/customAppBar.dart';
 import 'package:inspection/view/global_widgets/status_badge_widget.dart';
 import 'package:provider/provider.dart';
@@ -1994,7 +1995,11 @@ class _HomeScreenState extends State<HomeScreen> {
         int inspectionTypeId = 2;
         int inspectionMasterId = 0;
         if (inspections.isNotEmpty) {
-          final master = inspections.first["master"];
+          // Only the active inspection round drives routing.
+          final master = InspectionRoundHelper.primaryActiveMaster(
+            inspections,
+            jobRound: InspectionRoundHelper.jobRoundOf(item),
+          );
           inspectionTypeId =
               int.tryParse(master?["vimInspectionType"]?.toString() ?? "2") ??
               2;
