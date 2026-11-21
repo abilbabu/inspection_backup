@@ -10,6 +10,18 @@ class AuthenticationController with ChangeNotifier {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  static const String loginTypeEmail = "EMAIL";
+  static const String loginTypeLaabs = "LAABS";
+
+  /// Email login and LAABS ID login have separate passwords; the backend validates
+  /// the password that belongs to the selected method only.
+  String _loginType = loginTypeEmail;
+  String get loginType => _loginType;
+  bool get isLaabsLogin => _loginType == loginTypeLaabs;
+
+  /// Server message of the last failed login (generic "Invalid credentials" or "account not active").
+  String? lastLoginError;
+
   bool isLoading = false;
   bool isSuccess = false;
   bool _passwordVisible = false;
@@ -145,12 +157,37 @@ class AuthenticationController with ChangeNotifier {
     refreshPermissions();
   }
 
+  /// Switches between "Login Using Email" and "Login Using LAABS ID".
+  void setLoginType(String type) {
+    final next = type == loginTypeLaabs ? loginTypeLaabs : loginTypeEmail;
+    if (next == _loginType) return;
+    _loginType = next;
+    emailController.clear();
+    passwordController.clear();
+    notifyListeners();
+  }
+
+  /// Restores the login method used last time so the toggle opens on it.
+  Future<void> loadLastLoginType() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString("lastLoginType");
+    if (saved != null && saved != _loginType) {
+      _loginType = saved == loginTypeLaabs ? loginTypeLaabs : loginTypeEmail;
+      notifyListeners();
+    }
+  }
+
   Future<void> refreshPermissions() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString("userEmail");
       final password = prefs.getString("userPassword");
-      if (email == null || email.isEmpty || password == null || password.isEmpty) {
+      // Re-authenticate with the SAME method and identifier the user logged in with,
+      // otherwise the stored password would be checked against the other login's password.
+      final storedType = prefs.getString("loginType");
+      final identifier = storedType != null
+          ? prefs.getString("loginIdentifier")
+          : prefs.getString("userEmail"); // sessions created before this release
+      if (identifier == null || identifier.isEmpty || password == null || password.isEmpty) {
         return;
       }
       final url = Uri.parse(ApiServices.loginUrl);
@@ -158,8 +195,9 @@ class AuthenticationController with ChangeNotifier {
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "userEmail": email,
+          "userEmail": identifier,
           "userPassword": password,
+          if (storedType != null) "loginType": storedType,
         }),
       );
       if (response.statusCode == 200) {
@@ -188,16 +226,21 @@ class AuthenticationController with ChangeNotifier {
 
   Future<bool> postAuthUser() async {
     isSuccess = false;
+    lastLoginError = null;
     isLoading = true;
     notifyListeners();
     final url = Uri.parse(ApiServices.loginUrl);
+    final identifier = emailController.text.trim();
+    final selectedType = _loginType;
     try {
       var response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "userEmail": emailController.text.trim(),
+          // Field name kept for API compatibility: holds the email OR the LAABS ID.
+          "userEmail": identifier,
           "userPassword": passwordController.text.trim(),
+          "loginType": selectedType,
         }),
       );
 
@@ -230,6 +273,9 @@ class AuthenticationController with ChangeNotifier {
         await prefs.setString("userEmail", userEmail);
         await prefs.setString("userLoginId", userLoginId);
         await prefs.setString("userPassword", userPassword);
+        await prefs.setString("loginType", selectedType);
+        await prefs.setString("loginIdentifier", identifier);
+        await prefs.setString("lastLoginType", selectedType);
         await prefs.setString("userToken", userToken);
         await prefs.setString("userRole", userRole);
         await prefs.setInt("userRoleLevel", roleLevel);
@@ -253,12 +299,15 @@ class AuthenticationController with ChangeNotifier {
         notifyListeners();
         return true;
       } else {
+        final msg = body is Map ? body["errMessage"] : null;
+        lastLoginError = (msg is String && msg.trim().isNotEmpty) ? msg : null;
         isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
       log("Login Error : $e");
+      lastLoginError = null;
       isLoading = false;
       notifyListeners();
       return false;
@@ -268,6 +317,8 @@ class AuthenticationController with ChangeNotifier {
   Future<void> logout(BuildContext context) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+    // Keep only the preferred login method (not a credential) so the toggle opens on it.
+    await prefs.setString("lastLoginType", _loginType);
     emailController.clear();
     passwordController.clear();
     currentIndex = 0;

@@ -21,10 +21,61 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  static final RegExp _laabsIdRegex = RegExp(r'^[a-zA-Z0-9._-]+$');
+
   @override
   void initState() {
     super.initState();
     _checkLogin();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AuthenticationController>().loadLastLoginType();
+    });
+  }
+
+  Widget _loginTypeOption(AuthenticationController auth, String type, String label, IconData icon) {
+    final selected = auth.loginType == type;
+    return Expanded(
+      child: Semantics(
+        selected: selected,
+        button: true,
+        label: label,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: auth.isLoading
+              ? null
+              : () {
+                  auth.setLoginType(type);
+                  _formKey.currentState?.reset();
+                },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+            decoration: BoxDecoration(
+              color: selected ? ColorConstants.blackColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: selected ? Colors.white : ColorConstants.blackColor),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: ApptextstyleConstants.lightText(
+                      fontSize: 13,
+                      color: selected ? Colors.white : ColorConstants.blackColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _checkLogin() async {
@@ -61,12 +112,34 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: ColorConstants.blackColor,
                     ),
                   ),
-                  SizedBox(height: 25),
+                  SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: ColorConstants.blackColor, width: 1),
+                    ),
+                    child: Row(
+                      children: [
+                        _loginTypeOption(auth, AuthenticationController.loginTypeEmail,
+                            "Login Using Email", Icons.email_outlined),
+                        const SizedBox(width: 4),
+                        _loginTypeOption(auth, AuthenticationController.loginTypeLaabs,
+                            "Login Using LAABS ID", Icons.badge_outlined),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 20),
                   TextFormField(
+                    key: ValueKey("identifier_${auth.loginType}"),
                     controller: auth.emailController,
+                    keyboardType: auth.isLaabsLogin
+                        ? TextInputType.text
+                        : TextInputType.emailAddress,
+                    autocorrect: false,
                     decoration: InputDecoration(
-                      labelText: "Email or Login ID",
-                      hintText: "Enter Email or Login ID",
+                      labelText: auth.isLaabsLogin ? "LAABS ID" : "Email Address",
+                      hintText: auth.isLaabsLogin ? "Enter LAABS ID" : "Enter Email Address",
                       labelStyle: ApptextstyleConstants.extraLightText(
                         fontSize: 14,
                         color: ColorConstants.blackColor,
@@ -109,18 +182,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter email or login ID';
+                      final v = value?.trim() ?? '';
+                      if (auth.isLaabsLogin) {
+                        if (v.isEmpty) return 'Please enter your LAABS ID';
+                        if (v.length > 50 || !_laabsIdRegex.hasMatch(v)) {
+                          return 'Enter a valid LAABS ID (letters, numbers, ".", "_", "-")';
+                        }
+                      } else {
+                        if (v.isEmpty) return 'Please enter your email address';
+                        if (v.length > 100 || !_emailRegex.hasMatch(v)) {
+                          return 'Enter a valid email address';
+                        }
                       }
                       return null;
                     },
                   ),
                   SizedBox(height: 15),
                   TextFormField(
+                    key: ValueKey("password_${auth.loginType}"),
                     controller: auth.passwordController,
                     obscureText: !auth.passwordVisible,
                     decoration: InputDecoration(
-                      labelText: "Password",
+                      labelText: auth.isLaabsLogin ? "LAABS Password" : "Email Password",
                       labelStyle: ApptextstyleConstants.extraLightText(
                         fontSize: 14,
                         color: ColorConstants.blackColor,
@@ -172,7 +255,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter a password';
+                        return auth.isLaabsLogin
+                            ? 'Please enter your LAABS password'
+                            : 'Please enter your email password';
                       }
 
                       return null;
@@ -195,13 +280,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (_formKey.currentState?.validate() ?? false) {
                           bool success = await auth.postAuthUser();
                           log("Login Success : $success");
+                          if (!context.mounted) return;
 
                           if (success) {
                             context.go("/home");
                           } else {
                             CustomToast.showError(
                               context,
-                              "Login failed. Please check your credentials.",
+                              auth.lastLoginError == "User account is not active"
+                                  ? "Your account is not active. Please contact the administrator."
+                                  : auth.isLaabsLogin
+                                      ? "Login failed. Please check your LAABS ID and LAABS password."
+                                      : "Login failed. Please check your email and email password.",
                             );
                           }
                         }
