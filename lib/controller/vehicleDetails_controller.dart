@@ -143,7 +143,7 @@ class VehicleDetailsController with ChangeNotifier {
           }
         }
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
     notifyListeners();
   }
@@ -179,7 +179,7 @@ class VehicleDetailsController with ChangeNotifier {
           }
         }
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
     notifyListeners();
   }

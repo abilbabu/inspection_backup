@@ -140,7 +140,7 @@ class _ComponentListWidgetState extends State<ComponentListWidget> {
             children: [
               _buildTaskHeader(task),
               const SizedBox(height: 10),
-              ...task.components.map(_buildComponentTile).toList(),
+              ...task.components.map(_buildComponentTile),
               const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerRight,

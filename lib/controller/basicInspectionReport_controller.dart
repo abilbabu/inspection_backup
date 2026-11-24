@@ -541,7 +541,6 @@ class BasicInspectionReportController with ChangeNotifier {
       if (internal360Video != null && internal360Video!.isNotEmpty) {
         initializeInternalVideo(internal360Video!);
       }
-    } catch (e) {
     } finally {
       isBasicInspectionLoading = false;
       notifyListeners();
@@ -588,7 +587,6 @@ class BasicInspectionReportController with ChangeNotifier {
           selectedCheckBox[id] = false;
         }
       }
-    } catch (e) {
     } finally {
       isEssentialsLoading = false;
       notifyListeners();

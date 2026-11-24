@@ -831,7 +831,7 @@ class _BasicinspScreenState extends State<BasicinspScreen>
 }
 
   Widget _buildCapturedImagePreview(File capturedFile) {
-    return Container(
+    return SizedBox(
       // color: Colors.white,
       width: double.infinity,
       height: double.infinity,

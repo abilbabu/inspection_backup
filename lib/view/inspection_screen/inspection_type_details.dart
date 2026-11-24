@@ -157,7 +157,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
           final master = matchingInspection["master"];
           if (master is Map) {
             final comment =
-                master["vimAdditionalComments"]?.toString()?.trim() ?? "";
+                master["vimAdditionalComments"]?.toString().trim() ?? "";
             if (comment.isNotEmpty && comment.toLowerCase() != "null") {
               _commentController.text = comment;
             } else {
@@ -1510,7 +1510,7 @@ class _InspectionTypeDetailspageState extends State<InspectionTypeDetailspage> {
                           ),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
               ],

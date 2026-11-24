@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-// import 'package:hugeicons/hugeicons.dart';
 import 'package:http/http.dart' as http;
 import 'package:inspection/apiServices/api_services.dart';
 import 'package:inspection/controller/homeScreen_controller.dart';
@@ -134,7 +133,6 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
 
         _applyFilterAndSearch();
       }
-    } catch (e) {
     } finally {
       if (mounted) {
         setState(() {
@@ -425,29 +423,29 @@ class _JobControllerDashboardState extends State<JobControllerDashboard> {
     return ColorConstants.isQuickInspection(item);
   }
 
-  Widget _buildInspectionTypeBadge(Map<String, dynamic> item) {
-    final bool isQuick = _isQuickInspection(item);
-    final Color color = ColorConstants.getInspectionTypeIndicatorColor(isQuick);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: color.withOpacity(0.5),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        isQuick ? "QUICK INSPECTION" : "GENERAL INSPECTION",
-        style: TextStyle(
-          fontSize: 8,
-          fontWeight: FontWeight.bold,
-          color: color,
-        ),
-      ),
-    );
-  }
+  // Widget _buildInspectionTypeBadge(Map<String, dynamic> item) {
+  //   final bool isQuick = _isQuickInspection(item);
+  //   final Color color = ColorConstants.getInspectionTypeIndicatorColor(isQuick);
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+  //     decoration: BoxDecoration(
+  //       color: color.withOpacity(0.1),
+  //       borderRadius: BorderRadius.circular(4),
+  //       border: Border.all(
+  //         color: color.withOpacity(0.5),
+  //         width: 0.5,
+  //       ),
+  //     ),
+  //     child: Text(
+  //       isQuick ? "QUICK INSPECTION" : "GENERAL INSPECTION",
+  //       style: TextStyle(
+  //         fontSize: 8,
+  //         fontWeight: FontWeight.bold,
+  //         color: color,
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _jobCardItem(Map<String, dynamic> item) {
     final controller = Provider.of<HomescreenController>(context, listen: false);

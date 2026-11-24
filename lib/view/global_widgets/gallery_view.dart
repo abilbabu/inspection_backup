@@ -169,8 +169,9 @@ class _GalleryViewState extends State<GalleryView> {
                                           fit: BoxFit.cover,
                                           loadingBuilder:
                                               (context, child, progress) {
-                                                if (progress == null)
+                                                if (progress == null) {
                                                   return child;
+                                                }
                                                 return const Center(
                                                   child:
                                                       CircularProgressIndicator(),

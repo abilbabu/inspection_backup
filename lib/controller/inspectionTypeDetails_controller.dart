@@ -179,7 +179,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
         _lastQuery = query;
         filteredTaskComponents = List.from(data);
       }
-    } catch (e) {
     } finally {
       isSearching = false;
       notifyListeners();
@@ -998,7 +997,6 @@ class InspectionTypeDetailsController extends ChangeNotifier {
           }
         }
       }
-    } catch (e) {
     } finally {
       isSearchingAssigned = false;
       notifyListeners();

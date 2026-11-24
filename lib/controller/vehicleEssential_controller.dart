@@ -206,9 +206,7 @@ class VehicleessentialController extends ChangeNotifier {
         final decoded = jsonDecode(response.body);
         final jobcard = decoded['data']?['jobcard'];
         if (jobcard != null) {
-          if (inspectionType == null) {
-            inspectionType = jobcard['inspectionType']?.toString();
-          }
+          inspectionType ??= jobcard['inspectionType']?.toString();
           if (complaintController.text.trim().isEmpty && jobcard['customerComplaint'] != null) {
             complaintController.text = jobcard['customerComplaint'].toString();
           }

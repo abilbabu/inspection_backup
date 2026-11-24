@@ -48,7 +48,6 @@ class InspectionDetailsController extends ChangeNotifier {
                 tech['userStatusflag'] == '1')
             .toList();
       }
-    } catch (e) {
     } finally {
       isTechnicianLoading = false;
       notifyListeners();

@@ -442,7 +442,7 @@ class CustomerDetailsController extends ChangeNotifier {
           }
         }
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
     }
     notifyListeners();
   }

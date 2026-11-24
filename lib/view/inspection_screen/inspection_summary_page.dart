@@ -254,7 +254,7 @@ class InspectionSummaryPageState extends State<InspectionSummaryPage> {
                                              ),
                                            ],
                                          );
-                                       }).toList(),
+                                       }),
                                     ],
                                   ),
                                 ],

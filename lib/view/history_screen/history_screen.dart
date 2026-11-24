@@ -155,7 +155,6 @@ class _HistoryScreenListState extends State<HistoryScreenList> {
 
         _allJobs = mapped;
       }
-    } catch (e) {
     } finally {
       if (mounted) {
         _applyFilterAndReset();

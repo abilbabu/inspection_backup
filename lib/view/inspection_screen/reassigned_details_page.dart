@@ -362,7 +362,6 @@ class _ReassignedDetailsPageState extends State<ReassignedDetailsPage> {
           }
         }
       }
-    } catch (e) {
     } finally {
       if (mounted) {
         setState(() {

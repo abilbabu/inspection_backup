@@ -63,14 +63,14 @@ class UploadQueueModel {
     List<MediaItemQueue>? mediaItems,
   }) {
     return UploadQueueModel(
-      id: this.id,
-      jobId: this.jobId,
-      endpointUrl: this.endpointUrl,
+      id: id,
+      jobId: jobId,
+      endpointUrl: endpointUrl,
       mediaItems: mediaItems ?? this.mediaItems,
-      fields: this.fields,
+      fields: fields,
       status: status ?? this.status,
       retryCount: retryCount ?? this.retryCount,
-      createdAt: this.createdAt,
+      createdAt: createdAt,
     );
   }
 
