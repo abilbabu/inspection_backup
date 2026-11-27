@@ -270,7 +270,6 @@ class VehicleessentialController extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print("Vehicle essential error: $e");
     }
     isDataLoading = false;
     notifyListeners();
@@ -446,14 +445,12 @@ class VehicleessentialController extends ChangeNotifier {
             }),
           );
         } catch (err) {
-          print("⚠️ [VehicleessentialController] Failed to update customer complaint: $err");
         }
         return true;
       } else {
         return false;
       }
     } catch (e) {
-      print("📡 [VehicleessentialController] Offline/Network exception during submit: $e. Enqueuing task to local storage...");
       try {
         final essentinalImage = _capturedImages[0];
         List<MediaItemQueue> queueMediaItems = [];
@@ -490,10 +487,8 @@ class VehicleessentialController extends ChangeNotifier {
 
         await NetworkSyncManager().refreshPendingCount();
 
-        print("💾 [VehicleessentialController] Saved vehicle essential payload locally for job $jobId.");
         return true;
       } catch (err) {
-        print("❌ [VehicleessentialController] Error saving task offline: $err");
         return false;
       }
     } finally {

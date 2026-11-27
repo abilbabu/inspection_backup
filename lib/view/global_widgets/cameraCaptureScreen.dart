@@ -164,7 +164,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         });
       }
     } on CameraException catch (e) {
-      debugPrint("CameraException setting flash mode: $e");
       try {
         await _controller!.setFlashMode(FlashMode.off);
       } catch (_) {}
@@ -217,7 +216,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       try {
         file = await _controller!.takePicture();
       } catch (e) {
-        debugPrint("First takePicture attempt failed ($e), re-initializing camera...");
         await _initCamera();
         if (_controller == null || !_controller!.value.isInitialized) return;
         file = await _controller!.takePicture();
@@ -237,13 +235,11 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
           angle = 180;
         }
       } catch (e) {
-        debugPrint("Orientation check skipped or timed out: $e");
       }
 
       if (!mounted) return;
       Navigator.pop(context, {"file": File(file.path), "angle": angle});
     } catch (e) {
-      debugPrint("Error in _takePhoto: $e");
       if (mounted) {
         CustomToast.showError(context, "Failed to capture photo: ${e.toString()}");
       }
@@ -281,7 +277,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         try {
           await _controller!.setFlashMode(FlashMode.torch);
         } catch (e) {
-          debugPrint("Failed to re-apply flashlight during video recording: $e");
         }
       }
 
@@ -348,7 +343,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         Navigator.pop(context, videoFile);
       }
     } catch (e) {
-      debugPrint("Error in _stopRecording in CameraCaptureScreen: $e");
       if (mounted) {
         setState(() {
           _isRecording = false;
@@ -417,7 +411,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
             _autoSavedVideo = videoFile;
           }
         } catch (e) {
-          debugPrint("⚠️ Error auto-stopping video recording on pause: $e");
         }
       }
     } finally {
@@ -461,7 +454,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
         await _initCamera();
       }
     } catch (e) {
-      debugPrint("⚠️ Error in _handleAppResumed: $e");
     }
   }
 

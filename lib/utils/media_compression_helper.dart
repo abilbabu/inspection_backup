@@ -32,7 +32,6 @@ class MediaCompressionHelper {
         return compressedFile;
       }
     } catch (e) {
-      print("e: $e");
     }
     return originalFile;
   }
@@ -56,7 +55,6 @@ class MediaCompressionHelper {
         return compressedFile;
       }
     } catch (e) {
-      print("⚠️ e: $e");
     }
     return originalFile;
   }

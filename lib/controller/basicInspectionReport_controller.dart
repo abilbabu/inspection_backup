@@ -71,7 +71,6 @@ class BasicInspectionReportController with ChangeNotifier {
       newController.addListener(_externalVideoListener);
       notifyListeners();
     } catch (e) {
-      debugPrint("Error initializing external 360 video: $e");
     }
   }
 
@@ -98,7 +97,6 @@ class BasicInspectionReportController with ChangeNotifier {
       newController.addListener(_internalVideoListener);
       notifyListeners();
     } catch (e) {
-      debugPrint("Error initializing internal 360 video: $e");
     }
   }
 

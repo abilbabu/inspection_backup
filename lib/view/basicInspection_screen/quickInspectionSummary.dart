@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:inspection/utils/network_sync_manager.dart';
 import 'package:inspection/utils/custom_toast.dart';
+import 'package:inspection/utils/bodyshop_referral_helper.dart';
+import 'package:inspection/utils/whatsapp_status_watcher.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -511,6 +513,14 @@ class _QuickInspectionSummaryPageState
                                               return;
                                             }
                                           }
+                                          // Body Shop referral question (Service Advisor / Admin only).
+                                          // Dismissed, or YES without a primary contact -> stay here, nothing submitted.
+                                          if (!mounted || !context.mounted) return;
+                                          final referral = await BodyShopReferralHelper.ask(context);
+                                          if (!referral.proceed) {
+                                            if (mounted) setState(() => _isLoading = false);
+                                            return;
+                                          }
                                           basicCtrl.currentStage =
                                               InspectionStage.signature;
                                           basicCtrl.setSignatureFile(file);
@@ -531,14 +541,19 @@ class _QuickInspectionSummaryPageState
                                                   );
                                             }
                                           } catch (e) {
-                                            debugPrint("Error updating customer complaint in quick summary submit: $e");
                                           }
                                           final success = await basicCtrl.proceedStep(
                                             jobId: widget.jobId,
                                             status: 3,
                                             additionalComment: complaintText,
+                                            bodyShopReferral: referral.referral,
                                           );
                                           if (success) {
+                                            // Shows the server's WhatsApp result in a toast once known.
+                                            WhatsAppStatusWatcher.watch(
+                                              widget.jobId,
+                                              bodyShopReferral: referral.referral == true,
+                                            );
                                             // Persist 'completed' so reopening still shows Summary.
                                             await basicCtrl
                                                 .markQuickInspectionCompleted();
@@ -546,7 +561,12 @@ class _QuickInspectionSummaryPageState
                                             if (mounted) {
                                               CustomToast.showSuccess(
                                                 context,
-                                                "Quick inspection completed successfully",
+                                                BodyShopReferralHelper.submittedMessage(
+                                                  "Quick inspection completed successfully.",
+                                                  referral,
+                                                  customerSigned: customerFile != null,
+                                                ),
+                                                duration: BodyShopReferralHelper.submittedToastDuration,
                                               );
                                               await Future.delayed(
                                                 const Duration(seconds: 1),

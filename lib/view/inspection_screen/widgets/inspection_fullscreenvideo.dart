@@ -55,7 +55,6 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
         setState(() => _initialized = true);
       }
     }).catchError((e) {
-      debugPrint("Error initializing video in InspectionFullScreenVideo: $e");
     });
 
     _controller.addListener(() {
@@ -98,7 +97,6 @@ class _InspectionFullScreenVideoState extends State<InspectionFullScreenVideo> {
         return;
       }
 
-      debugPrint("Recapture triggered in fullscreen video");
       Navigator.pop(context, "recapture");
     } finally {
       _isHandlingRecapture = false;

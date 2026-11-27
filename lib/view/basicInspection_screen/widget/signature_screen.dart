@@ -31,6 +31,8 @@ import 'package:inspection/view/widgets/offline_sync_status_badge.dart';
 
 import 'package:inspection/view/widgets/job_upload_status_widget.dart';
 import 'package:inspection/view/inspection_screen/widgets/confirm_submission_dialog.dart';
+import 'package:inspection/utils/bodyshop_referral_helper.dart';
+import 'package:inspection/utils/whatsapp_status_watcher.dart';
 
 class SignatureScreen extends StatefulWidget {
   final int jobId;
@@ -544,6 +546,15 @@ class _SignatureScreenState extends State<SignatureScreen> {
                                                 return;
                                               }
 
+                                              // Body Shop referral question (Service Advisor / Admin only).
+                                              // Dismissed, or YES without a primary contact -> stay here, nothing submitted.
+                                              if (!mounted || !context.mounted) return;
+                                              final referral = await BodyShopReferralHelper.ask(context);
+                                              if (!referral.proceed) {
+                                                if (mounted) setState(() => _isSubmitting = false);
+                                                return;
+                                              }
+
                                               controller.currentStage =
                                                   InspectionStage.signature;
                                               controller.setSignatureFile(file);
@@ -565,13 +576,13 @@ class _SignatureScreenState extends State<SignatureScreen> {
                                                       );
                                                 }
                                               } catch (e) {
-                                                debugPrint("Error updating customer complaint on submit: $e");
                                               }
 
                                               final success = await controller.proceedStep(
                                                 jobId: controller.jobId,
                                                 status: 3,
                                                 additionalComment: additionalComment,
+                                                bodyShopReferral: referral.referral,
                                               );
                                               if (!success) {
                                                 if (mounted) {
@@ -585,10 +596,20 @@ class _SignatureScreenState extends State<SignatureScreen> {
 
                                               final targetJobId = widget.jobId;
                                               controller.isCompleted = true;
+                                              // Shows the server's WhatsApp result in a toast once known.
+                                              WhatsAppStatusWatcher.watch(
+                                                targetJobId,
+                                                bodyShopReferral: referral.referral == true,
+                                              );
                                               if (!mounted) return;
                                               CustomToast.showSuccess(
                                                 context,
-                                                "Basic inspection completed successfully",
+                                                BodyShopReferralHelper.submittedMessage(
+                                                  "Basic inspection completed successfully.",
+                                                  referral,
+                                                  customerSigned: customerFile != null,
+                                                ),
+                                                duration: BodyShopReferralHelper.submittedToastDuration,
                                               );
                                               context.go(
                                                 '/jobcarddetails',

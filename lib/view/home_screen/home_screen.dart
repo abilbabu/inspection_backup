@@ -110,7 +110,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       return [];
     } catch (e) {
-      print("❗ API Exception: $e");
       return [];
     }
   }
@@ -242,7 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
         jobcardList = activeJobCards;
       });
     } catch (e) {
-      print("Error in loadDashboardData: $e");
     } finally {
       if (mounted) {
         setState(() {

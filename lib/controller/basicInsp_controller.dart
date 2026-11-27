@@ -992,13 +992,11 @@ class BasicinspController extends ChangeNotifier {
   Future<void> updateCapturedVideo(File videoFile) async {
     try {
       if (!await videoFile.exists() || await videoFile.length() <= 0) {
-        debugPrint("⚠️ [BasicinspController] Invalid video file: ${videoFile.path}");
         return;
       }
       await _deleteOldVideo(_capturedVideo, exceptFile: videoFile);
       _capturedVideo = videoFile;
     } catch (e) {
-      debugPrint("⚠️ [BasicinspController] Error updating captured video: $e");
     } finally {
       isVideoLoading = false;
       notifyListeners();
@@ -1348,6 +1346,9 @@ class BasicinspController extends ChangeNotifier {
     required int jobId,
     required int status,
     String additionalComment = "",
+    /// Final submit (status 3) only: Body Shop referral answer of the SA/Admin.
+    /// null = not asked (field not sent, request unchanged).
+    bool? bodyShopReferral,
   }) async {
     if (isUploading || isVideoLoading) return false;
     final item = currentItem;
@@ -1449,6 +1450,8 @@ class BasicinspController extends ChangeNotifier {
         "additionalComment": additionalComment,
         "attachType": currentAttachType.toString(),
         "stage": currentStageKey,
+        if (status == 3 && bodyShopReferral != null)
+          "bodyShopReferral": bodyShopReferral.toString(),
       };
 
       if (currentStage == InspectionStage.signature &&
@@ -1516,10 +1519,8 @@ class BasicinspController extends ChangeNotifier {
         unawaited(NetworkSyncManager().syncIfConnected());
       }
 
-      print("💾 [BasicInspController] Saved inspection step to queue for job $jobId.");
       return true;
     } catch (err) {
-      print("❌ [BasicInspController] Error saving task to queue: $err");
       lastErrorMessage = "Failed to save media locally. Please try again.";
       return false;
     } finally {
@@ -1910,7 +1911,6 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
           setState(() => _isInit = true);
         }
       }).catchError((e) {
-        debugPrint("Error initializing VideoPreviewWidget: $e");
       });
   }
 

@@ -289,10 +289,8 @@ class CustomerDetailsController extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        print("Failed to load models. Status: ${response.statusCode}");
       }
     } catch (e) {
-      print("Model fetch error: $e");
     }
     _isModelLoading = false;
     notifyListeners();
@@ -389,7 +387,6 @@ class CustomerDetailsController extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print("Transmission error: $e");
     }
     notifyListeners();
   }

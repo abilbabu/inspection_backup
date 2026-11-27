@@ -573,7 +573,6 @@ class InspectioncardController extends ChangeNotifier {
   }
 
   void makeEditable(InspectionFormController formController, int taskId) {
-    debugPrint("makeEditable called for taskId: $taskId");
     isSuccess = false;
     showSaveButton = true;
     formController.makeTaskEditable(taskId);
@@ -819,7 +818,6 @@ class InspectioncardController extends ChangeNotifier {
         statusCode: response.statusCode,
       );
     } catch (e) {
-      print("📡 [InspectionCardController] Offline/Network exception during single save: $e. Saving task locally...");
       try {
         List<MediaItemQueue> queueItems = [];
         for (int i = 0; i < _capturedImages.length; i++) {
@@ -876,7 +874,6 @@ class InspectioncardController extends ChangeNotifier {
 
         await NetworkSyncManager().refreshPendingCount();
 
-        print("💾 [InspectionCardController] Saved single inspection payload locally for job $jobId.");
         return ApiResponse(
           success: true,
           status: "Saved Offline",
@@ -884,7 +881,6 @@ class InspectioncardController extends ChangeNotifier {
           data: {"offline": true},
         );
       } catch (err) {
-        print("❌ [InspectionCardController] Error saving task offline: $err");
         return ApiResponse(success: false, status: "Unexpected Error");
       }
     }
@@ -1122,7 +1118,6 @@ class InspectioncardController extends ChangeNotifier {
       );
       return response.statusCode == 200;
     } catch (e) {
-      debugPrint("Error uploading technician comments media: $e");
       return false;
     }
   }

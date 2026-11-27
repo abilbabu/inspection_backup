@@ -20,6 +20,10 @@ class ApiServices {
   static String inspectionSave = "${baseUrl}vehicleinspection/save";
   static String basicInspection =
       "${baseUrl}vehicleinspection/uploadInspectionMedia";
+  static String bodyShopPrimaryContactStatus =
+      "${baseUrl}bodyshop/primaryContactStatus";
+  /// Body Shop referral + customer WhatsApp message status of a job card.
+  static String bodyShopReferralStatus = "${baseUrl}bodyshop/referral/status";
   static String submitVehicleEssential =
       "${baseUrl}vehicleinspection/saveVehicleEssentialDetails";
   static String getBasicInspection =

@@ -62,6 +62,27 @@ class ConfirmSubmissionDialog extends StatelessWidget {
     );
   }
 
+  /// Body Shop referral question shown to Service Advisors / Admins before a Basic or Quick
+  /// inspection is submitted. Returns true = Yes, false = No, null = dismissed (back button):
+  /// callers must treat null as "do not submit".
+  static Future<bool?> showBodyShopReferral(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const ConfirmSubmissionDialog(
+        title: "Body Shop Referral Confirmation",
+        content:
+            "Does this vehicle need to be referred to the Body Shop Department for further inspection or repair?",
+        confirmText: "Yes, Refer to Body Shop",
+        cancelText: "No, Continue",
+        bannerText:
+            "If Yes, the Basic Inspection PDF is sent on WhatsApp to the primary Body Shop contact.",
+        icon: Icons.car_repair_rounded,
+        confirmIcon: Icons.send_rounded,
+      ),
+    );
+  }
+
   static Future<bool?> showDiscard(BuildContext context) {
     return showDialog<bool>(
       context: context,
@@ -231,6 +252,7 @@ class ConfirmSubmissionDialog extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -252,7 +274,11 @@ class ConfirmSubmissionDialog extends StatelessWidget {
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
+                                  height: 1.15,
                                 ),
+                                // Longer labels (e.g. "Yes, Refer to Body Shop") wrap instead of truncating.
+                                maxLines: 2,
+                                textAlign: TextAlign.center,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),

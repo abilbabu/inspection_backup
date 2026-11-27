@@ -121,7 +121,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         );
         await controller.initialize();
       } catch (e) {
-        debugPrint("Camera high resolution init failed, retrying with medium: $e");
         controller = CameraController(
           rearCamera,
           ResolutionPreset.medium,
@@ -156,7 +155,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       _cameraInitCounter++;
       setState(() => _isCameraReady = true);
     } catch (e) {
-      debugPrint("Error in _initCamera: $e");
       if (mounted) {
         setState(() => _isCameraReady = false);
       }
@@ -183,7 +181,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
             }
           }
         } catch (e) {
-          debugPrint("?? Error auto-saving video on app pause: $e");
         }
       }
     } finally {
@@ -235,7 +232,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         await _inspController!.loadDraftMediaForCurrentStep();
       }
     } catch (e) {
-      debugPrint("?? Error in _handleAppResumed: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -315,7 +311,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         });
       }
     } catch (e) {
-      debugPrint("CameraException setting flash mode: $e");
       try {
         await _cameraController!.setFlashMode(FlashMode.off);
       } catch (_) {}
@@ -339,7 +334,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       try {
         await cam.setFlashMode(targetMode);
       } catch (e) {
-        debugPrint("Error resetting flash for section: $e");
       }
     }
     if (mounted) {
@@ -485,7 +479,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       try {
         file = await cam.takePicture();
       } catch (e) {
-        debugPrint("First takePicture attempt failed ($e), re-initializing camera...");
         await _initCamera(enableAudio: false);
         cam = _cameraController;
         if (cam == null || !cam.value.isInitialized) rethrow;
@@ -507,7 +500,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
           angle = 180;
         }
       } catch (e) {
-        debugPrint("Orientation check skipped: $e");
       }
       final activeIndex = controller.selectedBoxIndex;
       await controller.updateCapturedImage(
@@ -519,7 +511,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         _resetFlashForSection(controller);
       }
     } catch (e) {
-      debugPrint("Error in _takePhoto: $e");
       if (mounted) {
         CustomToast.showError(context, "Failed to capture photo: ${e.toString()}");
       }
@@ -567,7 +558,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
         try {
           await cam.setFlashMode(FlashMode.torch);
         } catch (e) {
-          debugPrint("Failed to re-apply flashlight during video recording: $e");
         }
       }
 
@@ -630,7 +620,6 @@ class _BasicinspScreenState extends State<BasicinspScreen>
       }
       // Video captured into box; camera stays open without auto-preview popup.
     } catch (e) {
-      debugPrint("Error in _stopRecording: $e");
       if (mounted) {
         setState(() {
           _isRecording = false;

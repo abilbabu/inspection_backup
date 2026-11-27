@@ -5,6 +5,11 @@ enum ToastType { success, error, warning, info }
 
 /// Premium floating glassmorphism SnackBar / Toast banner for app warnings, errors, and success feedback.
 class CustomToast {
+  /// Root messenger (set on MaterialApp.router) so a toast can be shown without a
+  /// BuildContext, e.g. for a background result that arrives after the user left the screen.
+  static final GlobalKey<ScaffoldMessengerState> messengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
   static void show(
     BuildContext context, {
     required String message,
@@ -13,7 +18,30 @@ class CustomToast {
     Duration duration = const Duration(seconds: 1),
   }) {
     if (!context.mounted) return;
-    final scaffold = ScaffoldMessenger.of(context);
+    _showOn(ScaffoldMessenger.of(context),
+        message: message, title: title, type: type, duration: duration);
+  }
+
+  /// Same toast on the root messenger, on whatever screen is currently visible.
+  static void showGlobal({
+    required String message,
+    String? title,
+    ToastType type = ToastType.info,
+    Duration duration = const Duration(seconds: 1),
+  }) {
+    final scaffold = messengerKey.currentState;
+    if (scaffold == null) return;
+    _showOn(scaffold,
+        message: message, title: title, type: type, duration: duration);
+  }
+
+  static void _showOn(
+    ScaffoldMessengerState scaffold, {
+    required String message,
+    String? title,
+    required ToastType type,
+    required Duration duration,
+  }) {
     scaffold.hideCurrentSnackBar();
 
     Color bgColor;

@@ -275,7 +275,6 @@ class _JobCardDetailsState extends State<JobCardDetails> {
                                       return;
                                     }
                                   } catch (e) {
-                                    print(e);
                                   }
                                 },
                               ),
@@ -1417,7 +1416,6 @@ Widget _optionTile(
           CustomToast.showError(parentContext, "Unable to generate link");
         }
       } catch (e) {
-        print("🔥 ERROR: $e");
       }
     },
     child: Container(

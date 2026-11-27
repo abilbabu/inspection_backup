@@ -220,7 +220,6 @@ class JobcarddetailsController extends ChangeNotifier {
       }
       return filePath;
     } catch (e) {
-      print("PDF Download Error: $e");
       return null;
     }
   }
@@ -336,7 +335,6 @@ class JobcarddetailsController extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print("❗ EXCEPTION: $e");
     }
     isLoading = false;
     isJobcardLoading = false;

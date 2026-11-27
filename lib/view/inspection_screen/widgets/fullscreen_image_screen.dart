@@ -180,7 +180,6 @@ class _FullScreenImageViewState extends State<_FullScreenImageView> {
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
-                            debugPrint("Recapture clicked in fullscreen image");
                             Navigator.pop(context, "recapture");
                           },
                           child: Container(
@@ -209,7 +208,6 @@ class _FullScreenImageViewState extends State<_FullScreenImageView> {
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    debugPrint("Recapture clicked on image instruction row");
                     Navigator.pop(context, "recapture");
                   },
                   child: Padding(

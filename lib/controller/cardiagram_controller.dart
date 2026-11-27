@@ -203,16 +203,13 @@ class CardiagramController extends ChangeNotifier {
       final file = File(outputPath);
       await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
 
-      debugPrint("✅ Marked car diagram saved successfully to $outputPath (${file.lengthSync()} bytes)");
       return outputPath;
     } catch (e, stack) {
-      debugPrint("❌ Error composing marked diagram on canvas: $e\n$stack");
       // As a fallback, try RepaintBoundary if canvas composition failed
       final boundaryPath = await _saveViaRepaintBoundary();
       if (boundaryPath != null) return boundaryPath;
       // If user drew strokes, never return an empty clean asset — inform caller of failure
       if (strokes.isNotEmpty) {
-        debugPrint("⚠️ Marked strokes exist but saving failed; not falling back to clean asset.");
         return null;
       }
       return await _fallbackCleanAsset();
@@ -237,7 +234,6 @@ class CardiagramController extends ChangeNotifier {
       await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
       return tempPngPath;
     } catch (e) {
-      debugPrint("RepaintBoundary fallback failed: $e");
       return null;
     }
   }
@@ -252,7 +248,6 @@ class CardiagramController extends ChangeNotifier {
       await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
       return jpgPath;
     } catch (e) {
-      debugPrint("Error loading fallback car diagram asset: $e");
       return null;
     }
   }

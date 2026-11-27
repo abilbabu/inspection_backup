@@ -26,7 +26,6 @@ class LocalUploadStorageService {
       final persistentFile = await file.copy(path.join(offlineDir.path, fileName));
       return persistentFile.path;
     } catch (e) {
-      print("⚠️ ee: $e");
       return sourcePath;
     }
   }
@@ -40,7 +39,6 @@ class LocalUploadStorageService {
         await file.delete();
       }
     } catch (e) {
-      print("⚠️ [LocalUploadStorageService] Could not delete local file $filePath: $e");
     }
   }
 
@@ -66,7 +64,6 @@ class LocalUploadStorageService {
           .map((item) => UploadQueueModel.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print("⚠️ [LocalUploadStorageService] Error loading queue: $e");
       return [];
     }
   }
@@ -277,7 +274,6 @@ class LocalUploadStorageService {
 
       await prefs.setString(key, jsonEncode(draftData));
     } catch (e) {
-      print("⚠️ [LocalUploadStorageService] Error saving draft media: $e");
     }
   }
 
@@ -321,7 +317,6 @@ class LocalUploadStorageService {
         'video': videoFile,
       };
     } catch (e) {
-      print("⚠️ [LocalUploadStorageService] Error getting draft media: $e");
       return null;
     }
   }
@@ -336,7 +331,6 @@ class LocalUploadStorageService {
       final key = 'draft_media_${jobId}_$stageKey';
       await prefs.remove(key);
     } catch (e) {
-      print("⚠️ [LocalUploadStorageService] Error clearing draft media: $e");
     }
   }
 

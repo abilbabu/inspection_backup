@@ -157,7 +157,6 @@ class _AllpendinginspectionState extends State<Allpendinginspection> {
         }
       }
     } catch (e) {
-      debugPrint("Error fetching pending inspections: $e");
     } finally {
       if (mounted) {
         setState(() {
